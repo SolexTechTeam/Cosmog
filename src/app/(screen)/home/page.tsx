@@ -7,11 +7,11 @@ export default function HomeScreen() {
   return (
     <>
       <PageHeader title="Home" />
-      <section className="rounded-lg border border-border bg-muted p-5 shadow-sm">
+      <section className="w-[97.5%] mx-auto rounded-lg border border-border bg-muted px-8 py-5">
         <h2 className="text-header mb-4">Inventory Summary</h2>
         <InventorySummaryWidget />
       </section>
-      <section className="rounded-lg border border-border bg-muted p-5 shadow-sm">
+      <section className="w-[97.5%] mx-auto rounded-lg border border-border bg-muted px-8 py-5">
         <h2 className="text-header mb-4">Order Metrics</h2>
         <OrderMetricsWidget />
       </section>

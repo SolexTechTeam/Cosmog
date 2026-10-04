@@ -59,10 +59,15 @@ export default function HistoryTable() {
         field: "quantity_change",
         headerName: "Qty Change",
         minWidth: 110,
-        cellRenderer: (p: { value: number }) => {
-          const val = p.value;
-          const color = val > 0 ? "text-green-600" : val < 0 ? "text-red-600" : "text-foreground";
-          return `<span class="${color} font-medium">${val > 0 ? "+" : ""}${val}</span>`;
+        valueFormatter: (p) => {
+          const val = p.value ?? 0;
+          return `${val > 0 ? "+" : ""}${val}`;
+        },
+        cellStyle: (p) => {
+          const val = p.value as number;
+          if (val > 0) return { color: "#16a34a", fontWeight: 500 };
+          if (val < 0) return { color: "#dc2626", fontWeight: 500 };
+          return {};
         },
       },
       {

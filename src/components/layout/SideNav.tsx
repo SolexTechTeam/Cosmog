@@ -103,10 +103,10 @@ export default function SideNav() {
                     key={child.href}
                     href={child.href}
                     title={collapsed ? child.label : undefined}
-                    className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                    className={`px-3 py-2 text-sm transition-all duration-200 ${
                       pathname === child.href
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
+                        : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
                     } ${collapsed ? "text-center" : ""}`}
                   >
                     {collapsed ? child.label.charAt(0) : child.label}
@@ -119,10 +119,10 @@ export default function SideNav() {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`px-3 py-2 text-sm rounded-md transition-colors ${
+              className={`px-3 py-2 text-sm transition-all duration-200 ${
                 pathname === item.href
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
+                  : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
               } ${collapsed ? "text-center" : ""}`}
             >
               {collapsed ? item.label.charAt(0) : item.label}
