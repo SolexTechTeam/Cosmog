@@ -23,6 +23,52 @@ interface ItemDraft {
   unit_cost: string;
 }
 
+function PurchaseOrderExpandedDetails({ purchaseOrder }: { purchaseOrder: PurchaseOrder }) {
+  return (
+    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
+      <div className="space-y-2 self-center">
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Supplier</span>
+          {purchaseOrder.supplier?.name ?? "—"}
+        </p>
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Fulfillment</span>
+          {purchaseOrder.fulfillment_type.replace(/_/g, " ")}
+        </p>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-border bg-card">
+        <table className="w-full min-w-[420px] text-left text-sm">
+          <thead className="bg-muted text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 text-right font-medium">Qty</th>
+              <th className="px-3 py-2 text-right font-medium">Total Cost</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {(purchaseOrder.items ?? []).map((item) => (
+              <tr key={item.id}>
+                <td className="px-3 py-2 text-foreground">
+                  <span>{item.product?.name ?? "—"}</span>
+                  {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
+                </td>
+                <td className="px-3 py-2 text-right text-foreground">{item.quantity_ordered}</td>
+                <td className="px-3 py-2 text-right text-foreground">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
+              </tr>
+            ))}
+            {(purchaseOrder.items ?? []).length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrderItemsProps) {
   const [items, setItems] = useState<PurchaseOrderItem[]>(purchaseOrder.items ?? []);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -398,6 +444,11 @@ export default function ProcurementTable() {
         loading={loading}
         pageSize={25}
         detailsTitle="PO Details"
+        showDetailsMenu
+        expandOnRowDoubleClick
+        expandedRowHeight={210}
+        getExpandedDetailsTitle={(purchaseOrder) => `${purchaseOrder.po_number} Details`}
+        renderExpandedRowDetails={(purchaseOrder) => <PurchaseOrderExpandedDetails purchaseOrder={purchaseOrder} />}
         editConfig={{
           fields: [
             {

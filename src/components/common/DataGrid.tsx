@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, type ColDef } from "ag-grid-community";
 
@@ -35,9 +36,84 @@ interface DataGridProps<T extends object> {
   pageSize?: number;
   detailsTitle?: string;
   renderRowDetails?: (row: T) => ReactNode;
+  renderExpandedRowDetails?: (row: T) => ReactNode;
+  getExpandedDetailsTitle?: (row: T) => string;
+  showDetailsMenu?: boolean;
+  expandOnRowDoubleClick?: boolean;
+  expandedRowHeight?: number;
   editConfig?: RowEditConfig<T>;
   editLabel?: string;
   archiveAction?: RowArchiveAction<T>;
+}
+
+type InlineDetailRow<T extends object> = T & {
+  __inlineDetail: true;
+  row: T;
+};
+
+function isInlineDetailRow<T extends object>(row: T | InlineDetailRow<T> | undefined): row is InlineDetailRow<T> {
+  return Boolean(row && "__inlineDetail" in row && row.__inlineDetail === true);
+}
+
+interface DetailsMenuProps {
+  onOpen: () => void;
+  onEdit?: () => void;
+}
+
+function DetailsMenu({ onOpen, onEdit }: DetailsMenuProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
+
+  return (
+    <div className="relative flex h-full items-center justify-center">
+      <button
+        type="button"
+        aria-label="Open row actions"
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          event.stopPropagation();
+          const button = event.currentTarget.getBoundingClientRect();
+          setMenuPosition({ top: button.top + button.height / 2, left: button.right + 8 });
+          setIsOpen((open) => !open);
+        }}
+        className="rounded p-1 text-lg leading-none text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        ⋮
+      </button>
+      {isOpen && menuPosition && createPortal(
+        <div
+          className="fixed z-[60] w-36 -translate-y-1/2 rounded-md border border-border bg-card p-1 shadow-lg"
+          style={{ top: menuPosition.top, left: menuPosition.left }}
+        >
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setIsOpen(false);
+              onOpen();
+            }}
+            className="w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+          >
+            Open details
+          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setIsOpen(false);
+                onEdit();
+              }}
+              className="w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+            >
+              Edit
+            </button>
+          )}
+        </div>,
+        document.body
+      )}
+    </div>
+  );
 }
 
 function formatFieldName(field: string) {
@@ -68,11 +144,17 @@ export default function DataGrid<T extends object>({
   pageSize = 30,
   detailsTitle = "Entry details",
   renderRowDetails,
+  renderExpandedRowDetails,
+  getExpandedDetailsTitle,
+  showDetailsMenu = false,
+  expandOnRowDoubleClick = false,
+  expandedRowHeight = 720,
   editConfig,
   editLabel = "Edit",
   archiveAction,
 }: DataGridProps<T>) {
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
+  const [expandedRow, setExpandedRow] = useState<T | null>(null);
   const [draft, setDraft] = useState<Record<string, DraftValue>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -102,17 +184,61 @@ export default function DataGrid<T extends object>({
     setConfirmingArchive(false);
   }
 
-  function startEditing() {
-    if (!selectedRow || !editConfig) return;
+  function toggleExpandedDetails(row: T) {
+    setExpandedRow((current) => current === row ? null : row);
+  }
 
+  function handleRowDoubleClick(row: T) {
+    if (expandOnRowDoubleClick) {
+      toggleExpandedDetails(row);
+      return;
+    }
+    openDetails(row);
+  }
+
+  function openEdit(row: T) {
+    if (!editConfig) return;
+
+    setSelectedRow(row);
     setDraft(
       Object.fromEntries(
-        editConfig.fields.map((field) => [field.key, draftValue(selectedRow[field.key], field.type ?? "text")])
+        editConfig.fields.map((field) => [field.key, draftValue(row[field.key], field.type ?? "text")])
       )
     );
     setSaveError(null);
     setConfirmingArchive(false);
     setIsEditing(true);
+  }
+
+  const actionColumn: ColDef<T> | undefined = renderRowDetails && showDetailsMenu
+    ? {
+        colId: "row-actions",
+        headerName: "",
+        width: 52,
+        minWidth: 52,
+        maxWidth: 52,
+        sortable: false,
+        resizable: false,
+        filter: false,
+        suppressHeaderMenuButton: true,
+        suppressMovable: true,
+        cellRenderer: (params: { data?: T }) =>
+          params.data ? (
+            <DetailsMenu
+              onOpen={() => openDetails(params.data as T)}
+              onEdit={editConfig ? () => openEdit(params.data as T) : undefined}
+            />
+          ) : null,
+      }
+    : undefined;
+
+  const gridRows: Array<T | InlineDetailRow<T>> = expandOnRowDoubleClick
+    ? rows.flatMap((row) => expandedRow === row ? [row, { ...row, __inlineDetail: true, row }] : [row])
+    : rows;
+
+  function startEditing() {
+    if (!selectedRow || !editConfig) return;
+    openEdit(selectedRow);
   }
 
   async function archiveRow() {
@@ -173,15 +299,42 @@ export default function DataGrid<T extends object>({
     <>
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         <AgGridReact<T>
-          rowData={rows}
-          columnDefs={columns}
+          rowData={gridRows as T[]}
+          columnDefs={actionColumn ? [actionColumn, ...columns] : columns}
           loading={loading}
           domLayout="autoHeight"
           pagination
           paginationPageSize={pageSize}
           rowSelection="single"
           onRowClicked={onRowClick ? (e) => e.data && onRowClick(e.data) : undefined}
-          onRowDoubleClicked={(e) => e.data && openDetails(e.data)}
+          onCellDoubleClicked={(e) => {
+            if (e.data && !isInlineDetailRow(e.data as T | InlineDetailRow<T>)) {
+              handleRowDoubleClick(e.data);
+            }
+          }}
+          isFullWidthRow={(params) => isInlineDetailRow(params.rowNode.data as T | InlineDetailRow<T>)}
+          fullWidthCellRenderer={(params: { data?: T | InlineDetailRow<T> }) => {
+            if (!isInlineDetailRow(params.data)) return null;
+
+            return (
+              <section className="h-full overflow-y-auto border-y border-border bg-muted/40">
+                <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3">
+                  <h2 className="text-base font-semibold">{getExpandedDetailsTitle?.(params.data.row) ?? detailsTitle}</h2>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedRow(null)}
+                    className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    Collapse
+                  </button>
+                </div>
+                {(renderExpandedRowDetails ?? renderRowDetails)?.(params.data.row)}
+              </section>
+            );
+          }}
+          getRowHeight={(params) =>
+            isInlineDetailRow(params.data as T | InlineDetailRow<T>) ? expandedRowHeight : undefined
+          }
           suppressCellFocus
           defaultColDef={{
             sortable: true,

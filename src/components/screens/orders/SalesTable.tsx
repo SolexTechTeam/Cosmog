@@ -11,6 +11,52 @@ import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
+function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
+  return (
+    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
+      <div className="space-y-2 self-center">
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Customer</span>
+          {saleOrder.customer?.name ?? "—"}
+        </p>
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Assigned PO</span>
+          {saleOrder.linked_po_id ?? "—"}
+        </p>
+      </div>
+
+      <div className="overflow-x-auto rounded-md border border-border bg-card">
+        <table className="w-full min-w-[420px] text-left text-sm">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 font-medium">Name</th>
+                <th className="px-3 py-2 text-right font-medium">Qty</th>
+                <th className="px-3 py-2 text-right font-medium">Total</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {(saleOrder.items ?? []).map((item) => (
+                <tr key={item.id}>
+                  <td className="px-3 py-2 text-foreground">
+                    <span>{item.product?.name ?? "—"}</span>
+                    {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right text-foreground">{item.quantity}</td>
+                  <td className="px-3 py-2 text-right text-foreground">${(item.quantity * item.unit_price).toFixed(2)}</td>
+                </tr>
+              ))}
+              {(saleOrder.items ?? []).length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+      </div>
+    </div>
+  );
+}
+
 export default function SalesTable() {
   const { data, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
   const [search, setSearch] = useState("");
@@ -150,6 +196,11 @@ export default function SalesTable() {
         loading={loading}
         pageSize={25}
         detailsTitle="SO Details"
+        showDetailsMenu
+        expandOnRowDoubleClick
+        expandedRowHeight={210}
+        getExpandedDetailsTitle={(saleOrder) => `${saleOrder.so_number} Details`}
+        renderExpandedRowDetails={(saleOrder) => <SaleOrderExpandedDetails saleOrder={saleOrder} />}
         editConfig={{
           fields: [
             {
@@ -295,6 +346,20 @@ export default function SalesTable() {
                   </div>
                 )}
               </dl>
+
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Attached Customer</h3>
+                <dl className="rounded-md border border-border">
+                  <div className="grid gap-1 px-3 py-2 sm:grid-cols-[10rem_1fr] sm:gap-4">
+                    <dt className="text-sm font-medium text-muted-foreground">Customer</dt>
+                    <dd className="min-w-0 break-words text-sm text-foreground">{saleOrder.customer?.name ?? "—"}</dd>
+                  </div>
+                  <div className="grid gap-1 border-t border-border px-3 py-2 sm:grid-cols-[10rem_1fr] sm:gap-4">
+                    <dt className="text-sm font-medium text-muted-foreground">Handle</dt>
+                    <dd className="min-w-0 break-words text-sm text-foreground">{saleOrder.customer?.handle ?? "—"}</dd>
+                  </div>
+                </dl>
+              </div>
 
               <div>
                 <h3 className="mb-3 text-sm font-semibold text-foreground">Attached Procurement Order</h3>
