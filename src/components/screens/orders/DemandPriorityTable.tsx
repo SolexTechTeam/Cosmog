@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -40,7 +42,7 @@ export default function DemandPriorityTable() {
     return rows;
   }, [items, search, priorityFilter]);
 
-  const columns: ColDef<DemandPriority>[] = useMemo(
+  const allColumns: ColDef<DemandPriority>[] = useMemo(
     () => [
       { field: "product_name", headerName: "Product", minWidth: 250 },
       { field: "category", headerName: "Category", minWidth: 150 },
@@ -66,14 +68,16 @@ export default function DemandPriorityTable() {
     []
   );
 
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
+
   if (error) {
     return <p className="text-sm text-red-500">Failed to load demand priority: {error}</p>;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted p-5 shadow-sm">
-        <h2 className="text-header mb-4">Overview</h2>
+      <div className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
         <MetricCardRow>
           <MetricCard label="High Attention" value={loading ? "—" : highCount} />
           <MetricCard label="Med Attention" value={loading ? "—" : medCount} />
@@ -99,8 +103,9 @@ export default function DemandPriorityTable() {
               onChange: setPriorityFilter,
             },
           ]}
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
-        <DataGrid<DemandPriority> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+        <DataGrid<DemandPriority> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
       </div>
     </div>
   );

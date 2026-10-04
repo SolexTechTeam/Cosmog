@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -41,7 +43,7 @@ export default function HistoryTable() {
     return rows;
   }, [data, search, typeFilter]);
 
-  const columns: ColDef<LedgerEntry>[] = useMemo(
+  const allColumns: ColDef<LedgerEntry>[] = useMemo(
     () => [
       {
         field: "created_at",
@@ -65,9 +67,9 @@ export default function HistoryTable() {
         },
         cellStyle: (p) => {
           const val = p.value as number;
-          if (val > 0) return { color: "#16a34a", fontWeight: 500 };
-          if (val < 0) return { color: "#dc2626", fontWeight: 500 };
-          return {};
+          if (val > 0) return { color: "#16a34a", fontWeight: 500 } as const;
+          if (val < 0) return { color: "#dc2626", fontWeight: 500 } as const;
+          return null;
         },
       },
       {
@@ -87,6 +89,8 @@ export default function HistoryTable() {
     ],
     []
   );
+
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load ledger: {error}</p>;
@@ -115,8 +119,9 @@ export default function HistoryTable() {
             onChange: setTypeFilter,
           },
         ]}
+        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
       />
-      <DataGrid<LedgerEntry> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+      <DataGrid<LedgerEntry> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
     </div>
   );
 }

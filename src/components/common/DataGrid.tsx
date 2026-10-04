@@ -18,10 +18,10 @@ export default function DataGrid<T>({
   columns,
   loading = false,
   onRowClick,
-  pageSize = 25,
+  pageSize = 30,
 }: DataGridProps<T>) {
   return (
-    <div className="w-full rounded-lg border border-border bg-card shadow-sm overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <AgGridReact<T>
         rowData={rows}
         columnDefs={columns}
@@ -34,6 +34,7 @@ export default function DataGrid<T>({
         suppressCellFocus
         defaultColDef={{
           sortable: true,
+          unSortIcon: true,
           resizable: true,
           filter: true,
           flex: 1,

@@ -6,8 +6,8 @@ export default function PurchaseOrdersScreen() {
   return (
     <>
       <PageHeader title="Purchase Orders" />
-      <section className="rounded-lg border border-border bg-muted p-5 shadow-sm">
-        <h2 className="text-header mb-4">Overview</h2>
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
         <ProcurementOverviewCards />
       </section>
       <section>

@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -37,7 +39,7 @@ export default function SalesTable() {
     return rows;
   }, [data, search, statusFilter, paymentFilter, sourceFilter]);
 
-  const columns: ColDef<SaleOrder>[] = useMemo(
+  const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
       { field: "so_number", headerName: "SO #", minWidth: 130 },
       {
@@ -89,6 +91,8 @@ export default function SalesTable() {
     []
   );
 
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
+
   if (error) {
     return <p className="text-sm text-red-500">Failed to load sales orders: {error}</p>;
   }
@@ -134,8 +138,9 @@ export default function SalesTable() {
             onChange: setSourceFilter,
           },
         ]}
+        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
       />
-      <DataGrid<SaleOrder> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+      <DataGrid<SaleOrder> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
     </div>
   );
 }

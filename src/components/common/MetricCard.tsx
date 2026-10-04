@@ -5,9 +5,9 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value }: MetricCardProps) {
   return (
-    <div className="rounded-lg border border-border bg-card p-6 overflow-hidden">
+    <div className="rounded-lg border border-border bg-card px-4 py-3 overflow-hidden">
       <p className="text-subheader truncate">{label}</p>
-      <p className="mt-2 text-2xl font-extrabold tabular-nums text-foreground truncate">{value}</p>
+      <p className="mt-1 text-xl font-extrabold tabular-nums text-foreground truncate">{value}</p>
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface SearchFilterBarProps {
   searchValue: string;
   onSearchChange: (value: string) => void;
   filters?: FilterConfig[];
+  trailing?: React.ReactNode;
 }
 
 export default function SearchFilterBar({
@@ -20,9 +21,10 @@ export default function SearchFilterBar({
   searchValue,
   onSearchChange,
   filters = [],
+  trailing,
 }: SearchFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-4">
       <input
         type="text"
         placeholder={searchPlaceholder}
@@ -45,6 +47,7 @@ export default function SearchFilterBar({
           ))}
         </select>
       ))}
+      {trailing && <div className="ml-auto">{trailing}</div>}
     </div>
   );
 }

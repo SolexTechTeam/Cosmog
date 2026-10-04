@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -41,7 +43,7 @@ export default function ProductsTable() {
     return rows;
   }, [products, search, categoryFilter, activeFilter]);
 
-  const columns: ColDef<Product>[] = useMemo(
+  const allColumns: ColDef<Product>[] = useMemo(
     () => [
       { field: "name", headerName: "Product", minWidth: 280 },
       { field: "sku", headerName: "SKU", minWidth: 110 },
@@ -63,14 +65,16 @@ export default function ProductsTable() {
     []
   );
 
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
+
   if (error) {
     return <p className="text-sm text-red-500">Failed to load products: {error}</p>;
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted p-5 shadow-sm">
-        <h2 className="text-header mb-4">Overview</h2>
+      <div className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
         <MetricCardRow>
           <MetricCard label="Total Products" value={loading ? "—" : products.length} />
           <MetricCard label="Active" value={loading ? "—" : activeCount} />
@@ -102,8 +106,9 @@ export default function ProductsTable() {
               onChange: setActiveFilter,
             },
           ]}
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
-        <DataGrid<Product> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+        <DataGrid<Product> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
       </div>
     </div>
   );

@@ -149,4 +149,7 @@
   .text-body-muted {
     @apply text-sm text-muted-foreground;
   }
+  .ag-center-header .ag-header-cell-label {
+    justify-content: center;
+  }
 }

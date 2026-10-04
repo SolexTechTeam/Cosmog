@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { PurchaseOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -29,7 +31,7 @@ export default function ProcurementTable() {
     return rows;
   }, [data, search, statusFilter, typeFilter]);
 
-  const columns: ColDef<PurchaseOrder>[] = useMemo(
+  const allColumns: ColDef<PurchaseOrder>[] = useMemo(
     () => [
       { field: "po_number", headerName: "PO #", minWidth: 130 },
       {
@@ -64,6 +66,8 @@ export default function ProcurementTable() {
     ],
     []
   );
+
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load purchase orders: {error}</p>;
@@ -100,8 +104,9 @@ export default function ProcurementTable() {
             onChange: setTypeFilter,
           },
         ]}
+        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
       />
-      <DataGrid<PurchaseOrder> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+      <DataGrid<PurchaseOrder> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
     </div>
   );
 }

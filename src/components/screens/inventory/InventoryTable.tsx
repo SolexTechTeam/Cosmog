@@ -2,8 +2,10 @@
 
 import { useState, useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
+import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { StockStatus } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -30,15 +32,26 @@ export default function InventoryTable() {
     return rows;
   }, [data, search, categoryFilter, statusFilter]);
 
-  const columns: ColDef<StockStatus>[] = useMemo(
+  const allColumns: ColDef<StockStatus>[] = useMemo(
     () => [
       { field: "name", headerName: "Product", minWidth: 280 },
-      { field: "sku", headerName: "SKU", minWidth: 110 },
       { field: "category", headerName: "Category", minWidth: 180 },
-      { field: "qty_on_hand", headerName: "On-Hand", minWidth: 100 },
-      { field: "qty_reserved", headerName: "Reserved", minWidth: 100 },
-      { field: "qty_available", headerName: "Available", minWidth: 100 },
-      { field: "qty_in_transit", headerName: "In-Transit", minWidth: 100 },
+      {
+        field: "stock_status",
+        headerName: "Status",
+        minWidth: 120,
+        sort: "asc",
+        cellClass: "overflow-hidden text-ellipsis whitespace-nowrap",
+        comparator: (a: string, b: string) => {
+          const order: Record<string, number> = { "In Stock": 0, "Low Stock": 1, "Incoming": 2, "Out of Stock": 3 };
+          return (order[a] ?? 99) - (order[b] ?? 99);
+        },
+        cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
+      },
+      { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_in_transit", headerName: "In-Transit", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
         headerName: "Avg Cost",
@@ -46,14 +59,21 @@ export default function InventoryTable() {
         valueFormatter: (p) => `$${(p.value ?? 0).toFixed(2)}`,
       },
       {
-        field: "stock_status",
-        headerName: "Status",
-        minWidth: 120,
-        cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
+        headerName: "Sell Price",
+        minWidth: 130,
+        valueGetter: (p) => {
+          const cost = p.data?.avg_cost ?? 0;
+          return cost > 0 ? (cost * 1.25) * 1.14 : 0;
+        },
+        valueFormatter: (p) => p.value > 0 ? `$${p.value.toFixed(2)}` : "—",
+        cellClass: "text-center font-semibold",
       },
+      { field: "sku", headerName: "SKU", minWidth: 110 },
     ],
     []
   );
+
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns, new Set(["sku"]));
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load inventory: {error}</p>;
@@ -86,8 +106,9 @@ export default function InventoryTable() {
             onChange: setStatusFilter,
           },
         ]}
+        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
       />
-      <DataGrid<StockStatus> rows={filtered} columns={columns} loading={loading} pageSize={25} />
+      <DataGrid<StockStatus> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
     </div>
   );
 }
