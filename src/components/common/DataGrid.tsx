@@ -21,7 +21,7 @@ export default function DataGrid<T>({
   pageSize = 25,
 }: DataGridProps<T>) {
   return (
-    <div className="w-full rounded-lg border border-border overflow-hidden">
+    <div className="w-full overflow-hidden">
       <AgGridReact<T>
         rowData={rows}
         columnDefs={columns}
@@ -35,6 +35,8 @@ export default function DataGrid<T>({
           sortable: true,
           resizable: true,
           filter: true,
+          flex: 1,
+          minWidth: 100,
         }}
       />
     </div>
