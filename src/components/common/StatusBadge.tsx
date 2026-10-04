@@ -40,6 +40,9 @@ const colorMap: Record<string, string> = {
   normal: "bg-blue-50 text-blue-700 border-blue-200",
   high: "bg-amber-50 text-amber-700 border-amber-200",
   urgent: "bg-red-50 text-red-700 border-red-200",
+  "High Attention": "bg-red-50 text-red-700 border-red-200",
+  "Med Attention": "bg-yellow-50 text-yellow-700 border-yellow-200",
+  "Low Attention": "bg-blue-50 text-blue-700 border-blue-200",
 
   // Ledger movement types
   lot_created: "bg-indigo-50 text-indigo-700 border-indigo-200",
