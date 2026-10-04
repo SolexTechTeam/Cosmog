@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
@@ -9,6 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
+import { isActiveSaleOrderStatus } from "@/lib/utils";
 import type { PurchaseOrder, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -112,12 +114,24 @@ function AssociatedPurchaseOrder({ line }: { line: DemandPriorityLine }) {
   }
 
   if (!purchaseOrder) {
-    return <p className="break-words text-sm text-foreground">{line.linked_po_id}</p>;
+    return (
+      <Link
+        href={{ pathname: "/orders/procurement", query: { po: line.linked_po_id } }}
+        className="break-words text-sm font-medium text-primary hover:underline"
+      >
+        {line.linked_po_id}
+      </Link>
+    );
   }
 
   return (
     <div className="space-y-1 text-sm text-foreground">
-      <p>{purchaseOrder.po_number}</p>
+      <Link
+        href={{ pathname: "/orders/procurement", query: { po: purchaseOrder.id } }}
+        className="font-medium text-primary hover:underline"
+      >
+        {purchaseOrder.po_number}
+      </Link>
       <p className="text-muted-foreground">{purchaseOrder.supplier?.name ?? "—"} · {purchaseOrder.status}</p>
     </div>
   );
@@ -210,7 +224,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 }
 
 export default function DemandPriorityTable() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders?status=open");
+  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
   const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
@@ -222,39 +236,35 @@ export default function DemandPriorityTable() {
 
   const lines = useMemo<DemandPriorityLine[]>(() => {
     return (data ?? [])
-      .filter((order) => order.status === "open")
-      .flatMap((order) => {
-        const items = order.items?.length
-          ? order.items
-          : [{ id: `${order.id}-empty`, quantity: 0, unit_price: 0, product: undefined }];
+      .filter((order) => isActiveSaleOrderStatus(order.status))
+      .map((order) => {
+        const items = order.items ?? [];
+        const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
         const orderDaysPast = daysPast(order.order_date);
         const orderAgePoints = agePoints(orderDaysPast);
+        const orderBasePoints = basePoints(order, totalQuantity);
+        const totalPoints = orderBasePoints + orderAgePoints;
 
-        return items.map((item) => {
-          const orderBasePoints = basePoints(order, item.quantity);
-          const totalPoints = orderBasePoints + orderAgePoints;
-
-          return {
-            id: item.id,
-            sale_order_id: order.id,
-            so_number: order.so_number,
-            customer_name: order.customer?.name ?? "—",
-            customer_handle: order.customer?.handle ?? null,
-            product_name: item.product?.name ?? "No items",
-            product_category: item.product?.category ?? null,
-            quantity: item.quantity,
-            order_date: order.order_date,
-            days_past: orderDaysPast,
-            payment_status: order.payment_status,
-            base_points: orderBasePoints,
-            age_points: orderAgePoints,
-            total_points: totalPoints,
-            priority_label: priorityLabel(totalPoints),
-            items: order.items,
-            linked_po_id: order.linked_po_id,
-            linked_purchase_order: order.linked_po_id ? purchaseOrdersById.get(order.linked_po_id) : undefined,
-          };
-        });
+        return {
+          id: order.id,
+          sale_order_id: order.id,
+          so_number: order.so_number,
+          customer_name: order.customer?.name ?? "—",
+          customer_handle: order.customer?.handle ?? null,
+          product_name: items.map((item) => item.product?.name ?? "—").join(", ") || "No items",
+          product_category: null,
+          quantity: totalQuantity,
+          order_date: order.order_date,
+          days_past: orderDaysPast,
+          payment_status: order.payment_status,
+          base_points: orderBasePoints,
+          age_points: orderAgePoints,
+          total_points: totalPoints,
+          priority_label: priorityLabel(totalPoints),
+          items,
+          linked_po_id: order.linked_po_id,
+          linked_purchase_order: order.linked_po_id ? purchaseOrdersById.get(order.linked_po_id) : undefined,
+        };
       })
       .sort((first, second) =>
         second.total_points - first.total_points ||

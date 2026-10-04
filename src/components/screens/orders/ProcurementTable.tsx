@@ -339,7 +339,11 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
   );
 }
 
-export default function ProcurementTable() {
+interface ProcurementTableProps {
+  detailsRowId?: string;
+}
+
+export default function ProcurementTable({ detailsRowId }: ProcurementTableProps) {
   const { data, loading, error, refetch } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const { data: products } = useApi<Product[]>("/api/products");
   const [search, setSearch] = useState("");
@@ -444,6 +448,7 @@ export default function ProcurementTable() {
         loading={loading}
         pageSize={25}
         detailsTitle="PO Details"
+        detailsRowId={detailsRowId}
         showDetailsMenu
         expandOnRowDoubleClick
         expandedRowHeight={210}

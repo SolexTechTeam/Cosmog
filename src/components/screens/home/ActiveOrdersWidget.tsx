@@ -4,11 +4,16 @@ import { useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import StatusBadge from "@/components/common/StatusBadge";
+import { isActiveSaleOrderStatus } from "@/lib/utils";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ActiveOrdersWidget() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders?status=open");
+  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
+  const activeOrders = useMemo(
+    () => (data ?? []).filter((order) => isActiveSaleOrderStatus(order.status)),
+    [data]
+  );
 
   const columns: ColDef<SaleOrder>[] = useMemo(
     () => [
@@ -65,5 +70,5 @@ export default function ActiveOrdersWidget() {
     return <p className="text-sm text-red-500">Failed to load active orders: {error}</p>;
   }
 
-  return <DataGrid<SaleOrder> rows={data ?? []} columns={columns} loading={loading} pageSize={10} />;
+  return <DataGrid<SaleOrder> rows={activeOrders} columns={columns} loading={loading} pageSize={10} />;
 }

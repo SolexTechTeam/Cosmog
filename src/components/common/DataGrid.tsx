@@ -35,6 +35,7 @@ interface DataGridProps<T extends object> {
   onRowClick?: (row: T) => void;
   pageSize?: number;
   detailsTitle?: string;
+  detailsRowId?: string;
   renderRowDetails?: (row: T) => ReactNode;
   renderExpandedRowDetails?: (row: T) => ReactNode;
   getExpandedDetailsTitle?: (row: T) => string;
@@ -143,6 +144,7 @@ export default function DataGrid<T extends object>({
   onRowClick,
   pageSize = 30,
   detailsTitle = "Entry details",
+  detailsRowId,
   renderRowDetails,
   renderExpandedRowDetails,
   getExpandedDetailsTitle,
@@ -154,6 +156,7 @@ export default function DataGrid<T extends object>({
   archiveAction,
 }: DataGridProps<T>) {
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
+  const [dismissedDetailsRowId, setDismissedDetailsRowId] = useState<string | null>(null);
   const [expandedRow, setExpandedRow] = useState<T | null>(null);
   const [draft, setDraft] = useState<Record<string, DraftValue>>({});
   const [isEditing, setIsEditing] = useState(false);
@@ -163,14 +166,23 @@ export default function DataGrid<T extends object>({
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSelectedRow(null);
+      if (event.key === "Escape") {
+        setSelectedRow(null);
+        if (detailsRowId) setDismissedDetailsRowId(detailsRowId);
+      }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [detailsRowId]);
+
+  const linkedDetailsRow = detailsRowId && dismissedDetailsRowId !== detailsRowId
+    ? rows.find((row) => String((row as { id?: unknown }).id) === detailsRowId) ?? null
+    : null;
+  const activeDetailsRow = selectedRow ?? linkedDetailsRow;
 
   function closeDetails() {
+    if (detailsRowId) setDismissedDetailsRowId(detailsRowId);
     setSelectedRow(null);
     setIsEditing(false);
     setSaveError(null);
@@ -178,6 +190,7 @@ export default function DataGrid<T extends object>({
   }
 
   function openDetails(row: T) {
+    setDismissedDetailsRowId(null);
     setSelectedRow(row);
     setIsEditing(false);
     setSaveError(null);
@@ -199,6 +212,7 @@ export default function DataGrid<T extends object>({
   function openEdit(row: T) {
     if (!editConfig) return;
 
+    setDismissedDetailsRowId(null);
     setSelectedRow(row);
     setDraft(
       Object.fromEntries(
@@ -237,17 +251,17 @@ export default function DataGrid<T extends object>({
     : rows;
 
   function startEditing() {
-    if (!selectedRow || !editConfig) return;
-    openEdit(selectedRow);
+    if (!activeDetailsRow || !editConfig) return;
+    openEdit(activeDetailsRow);
   }
 
   async function archiveRow() {
-    if (!selectedRow || !archiveAction) return;
+    if (!activeDetailsRow || !archiveAction) return;
 
     try {
       setSaving(true);
       setSaveError(null);
-      await archiveAction.onArchive(selectedRow);
+      await archiveAction.onArchive(activeDetailsRow);
       closeDetails();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to archive this record.");
@@ -257,7 +271,7 @@ export default function DataGrid<T extends object>({
   }
 
   async function saveChanges() {
-    if (!selectedRow || !editConfig) return;
+    if (!activeDetailsRow || !editConfig) return;
 
     try {
       const changes = editConfig.fields.reduce<Record<string, unknown>>((result, field) => {
@@ -273,7 +287,7 @@ export default function DataGrid<T extends object>({
           parsed = undefined;
         }
 
-        if (parsed !== undefined && !valuesMatch(parsed, selectedRow[field.key])) {
+        if (parsed !== undefined && !valuesMatch(parsed, activeDetailsRow[field.key])) {
           result[field.key] = parsed;
         }
         return result;
@@ -286,7 +300,7 @@ export default function DataGrid<T extends object>({
 
       setSaving(true);
       setSaveError(null);
-      await editConfig.onSave(selectedRow, changes);
+      await editConfig.onSave(activeDetailsRow, changes);
       closeDetails();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to save changes.");
@@ -347,7 +361,7 @@ export default function DataGrid<T extends object>({
         />
       </div>
 
-      {selectedRow && (
+      {activeDetailsRow && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           role="presentation"
@@ -372,7 +386,7 @@ export default function DataGrid<T extends object>({
                     {editLabel}
                   </button>
                 )}
-                {archiveAction && !isEditing && archiveAction.isAvailable?.(selectedRow) !== false && !confirmingArchive && (
+                {archiveAction && !isEditing && archiveAction.isAvailable?.(activeDetailsRow) !== false && !confirmingArchive && (
                   <button
                     type="button"
                     onClick={() => setConfirmingArchive(true)}
@@ -484,10 +498,10 @@ export default function DataGrid<T extends object>({
                   {saveError && <p className="text-sm text-destructive">{saveError}</p>}
                 </div>
               ) : renderRowDetails ? (
-                renderRowDetails(selectedRow)
+                renderRowDetails(activeDetailsRow)
               ) : (
                 <dl className="divide-y divide-border">
-                  {Object.entries(selectedRow).map(([field, value]) => (
+                  {Object.entries(activeDetailsRow).map(([field, value]) => (
                     <div key={field} className="grid gap-1 px-5 py-3 sm:grid-cols-[10rem_1fr] sm:gap-4">
                       <dt className="text-sm font-medium text-muted-foreground">{formatFieldName(field)}</dt>
                       <dd className="min-w-0 whitespace-pre-wrap break-words text-sm text-foreground">

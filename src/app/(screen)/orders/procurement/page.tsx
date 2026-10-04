@@ -2,7 +2,14 @@ import PageHeader from "@/components/common/PageHeader";
 import ProcurementOverviewCards from "@/components/screens/orders/ProcurementOverviewCards";
 import ProcurementTable from "@/components/screens/orders/ProcurementTable";
 
-export default function PurchaseOrdersScreen() {
+export default async function PurchaseOrdersScreen({
+  searchParams,
+}: {
+  searchParams: Promise<{ po?: string | string[] }>;
+}) {
+  const { po } = await searchParams;
+  const detailsRowId = Array.isArray(po) ? po[0] : po;
+
   return (
     <>
       <PageHeader title="Purchase Orders" />
@@ -12,7 +19,7 @@ export default function PurchaseOrdersScreen() {
       </section>
       <section>
         <h2 className="text-header mb-3 pl-[var(--radius)]">Orders</h2>
-        <ProcurementTable />
+        <ProcurementTable detailsRowId={detailsRowId} />
       </section>
     </>
   );
