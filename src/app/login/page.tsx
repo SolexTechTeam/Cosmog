@@ -33,36 +33,50 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
-      <div className="w-full max-w-sm rounded-lg border border-border p-8 shadow-sm">
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-semibold text-foreground">Solex</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to continue</p>
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1A1A1A] via-[#2A1A0A] to-[#1A1A1A]">
+      <div className="w-full max-w-lg rounded-xl border-2 border-border bg-card p-12 shadow-md">
+        <div className="mb-8 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-primary">Solext</h1>
+          <p className="mt-2 text-body-muted">
+            Inventory management for Solex &amp; Lunex Operations
+          </p>
         </div>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className="h-10 rounded-md border border-border bg-white px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="h-10 rounded-md border border-border bg-white px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div>
+            <label htmlFor="email" className="text-subheader mb-1.5 block">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@solext.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="h-11 w-full rounded-md border border-border bg-white px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="text-subheader mb-1.5 block">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="h-11 w-full rounded-md border border-border bg-white px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+            />
+          </div>
           {error && (
-            <p className="text-sm text-red-500">{error}</p>
+            <p className="text-sm text-destructive">{error}</p>
           )}
           <button
             type="submit"
             disabled={loading}
-            className="h-10 rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-orange-600 transition-colors disabled:opacity-50"
+            className="h-11 w-full rounded-md bg-primary text-sm font-semibold text-primary-foreground hover:bg-orange-600 transition-colors disabled:opacity-50 mt-2"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
