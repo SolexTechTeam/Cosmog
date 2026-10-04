@@ -57,7 +57,7 @@ export default function SalesTable() {
         valueGetter: (p) => p.data?.customer?.handle ?? "—",
         minWidth: 140,
       },
-      { field: "order_date", headerName: "Date", minWidth: 110 },
+      { field: "order_date", headerName: "Date", sort: "desc", minWidth: 110 },
       {
         field: "status",
         headerName: "Status",
@@ -91,7 +91,10 @@ export default function SalesTable() {
     []
   );
 
-  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
+    allColumns, 
+    new Set(["so_number", "Customer", "Handle", "source"])
+    );
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load sales orders: {error}</p>;

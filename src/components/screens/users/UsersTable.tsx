@@ -65,15 +65,6 @@ export default function UsersTable() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <MetricCardRow>
-          <MetricCard label="Total Users" value={loading ? "—" : users.length} />
-          <MetricCard label="Admins" value={loading ? "—" : adminCount} />
-          <MetricCard label="Staff" value={loading ? "—" : staffCount} />
-          <MetricCard label="Active" value={loading ? "—" : activeCount} />
-        </MetricCardRow>
-      </div>
       <div className="flex flex-col gap-4">
         <SearchFilterBar
           searchPlaceholder="Search name, email..."

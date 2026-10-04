@@ -49,6 +49,7 @@ export default function HistoryTable() {
         field: "created_at",
         headerName: "Date",
         minWidth: 170,
+        sort:"desc",
         valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "—",
       },
       {
@@ -78,6 +79,17 @@ export default function HistoryTable() {
         minWidth: 100,
         valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : "—",
       },
+      // TODO: Add reference to the attribute
+      {
+        headerName: "Cost Sold",
+        minWidth: 120,
+        valueGetter: (p) => {
+          const quantityChange = p.data?.quantity_change ?? 0;
+          const unitCost = p.data?.unit_cost;
+          return quantityChange < 0 && unitCost != null ? Math.abs(quantityChange) * unitCost : null;
+        },
+        valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : "—",
+      },
       { field: "reference_type", headerName: "Ref Type", minWidth: 140 },
       {
         field: "reference_id",
@@ -90,7 +102,10 @@ export default function HistoryTable() {
     []
   );
 
-  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns);
+  const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
+    allColumns,
+    new Set(["reference_type", "reference_id", "notes"])
+  );
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load ledger: {error}</p>;

@@ -55,12 +55,6 @@ export default function SuppliersTable() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <MetricCardRow>
-          <MetricCard label="Total Suppliers" value={loading ? "—" : suppliers.length} />
-        </MetricCardRow>
-      </div>
       <div className="flex flex-col gap-4">
         <SearchFilterBar
           searchPlaceholder="Search suppliers..."
