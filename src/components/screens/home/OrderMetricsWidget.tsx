@@ -9,15 +9,20 @@ export default function OrderMetricsWidget() {
   const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
 
   const orders = data ?? [];
-  const openOrders = orders.filter((o) => o.status === "open").length;
+  const totalOpen = orders.filter((o) => o.status === "open").length;
   const awaitingPayment = orders.filter((o) => o.payment_status === "awaiting_payment").length;
 
-  const outstanding = orders
-    .filter((o) => o.status === "open")
-    .reduce((sum, o) => {
-      const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-      return sum + itemTotal + o.shipping_cost - o.amount_paid;
-    }, 0);
+  const openOrders = orders.filter((o) => o.status === "open");
+
+  const totalOpenValue = openOrders.reduce((sum, o) => {
+    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
+    return sum + itemTotal + o.shipping_cost;
+  }, 0);
+
+  const outstanding = openOrders.reduce((sum, o) => {
+    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
+    return sum + itemTotal + o.shipping_cost - o.amount_paid;
+  }, 0);
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load order metrics: {error}</p>;
@@ -25,9 +30,10 @@ export default function OrderMetricsWidget() {
 
   return (
     <MetricCardRow>
-      <MetricCard label="Open Orders" value={loading ? "—" : openOrders} />
+      <MetricCard label="Open Orders" value={loading ? "—" : totalOpen} />
       <MetricCard label="Awaiting Payment" value={loading ? "—" : awaitingPayment} />
-      <MetricCard label="Outstanding $" value={loading ? "—" : `$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+      <MetricCard label="Total Open $" value={loading ? "—" : `$${totalOpenValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+      <MetricCard label="Total Outstanding $" value={loading ? "—" : `$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
     </MetricCardRow>
   );
 }

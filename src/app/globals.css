@@ -49,7 +49,7 @@
 }
 
 :root {
-  --background: #F8F8F8;
+  --background: #E8E8E8;
   --foreground: #0A0A0A;
   --card: #FFFFFF;
   --card-foreground: #0A0A0A;
@@ -131,10 +131,10 @@
 
 @layer components {
   .text-title {
-    @apply text-3xl font-extrabold tracking-tight text-foreground;
+    @apply text-4xl font-extrabold tracking-tight text-foreground;
   }
   .text-header {
-    @apply text-xl font-bold text-foreground;
+    @apply text-2xl font-bold text-foreground;
   }
   .text-subheader {
     @apply text-sm font-semibold uppercase tracking-wider text-muted-foreground;
