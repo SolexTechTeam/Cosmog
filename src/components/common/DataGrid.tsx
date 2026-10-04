@@ -21,6 +21,12 @@ interface RowEditConfig<T extends object> {
   onSave: (row: T, changes: Record<string, unknown>) => Promise<void>;
 }
 
+interface RowArchiveAction<T extends object> {
+  label: string;
+  isAvailable?: (row: T) => boolean;
+  onArchive: (row: T) => Promise<void>;
+}
+
 interface DataGridProps<T extends object> {
   rows: T[];
   columns: ColDef<T>[];
@@ -30,6 +36,8 @@ interface DataGridProps<T extends object> {
   detailsTitle?: string;
   renderRowDetails?: (row: T) => ReactNode;
   editConfig?: RowEditConfig<T>;
+  editLabel?: string;
+  archiveAction?: RowArchiveAction<T>;
 }
 
 function formatFieldName(field: string) {
@@ -61,12 +69,15 @@ export default function DataGrid<T extends object>({
   detailsTitle = "Entry details",
   renderRowDetails,
   editConfig,
+  editLabel = "Edit",
+  archiveAction,
 }: DataGridProps<T>) {
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
   const [draft, setDraft] = useState<Record<string, DraftValue>>({});
   const [isEditing, setIsEditing] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmingArchive, setConfirmingArchive] = useState(false);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -81,12 +92,14 @@ export default function DataGrid<T extends object>({
     setSelectedRow(null);
     setIsEditing(false);
     setSaveError(null);
+    setConfirmingArchive(false);
   }
 
   function openDetails(row: T) {
     setSelectedRow(row);
     setIsEditing(false);
     setSaveError(null);
+    setConfirmingArchive(false);
   }
 
   function startEditing() {
@@ -98,7 +111,23 @@ export default function DataGrid<T extends object>({
       )
     );
     setSaveError(null);
+    setConfirmingArchive(false);
     setIsEditing(true);
+  }
+
+  async function archiveRow() {
+    if (!selectedRow || !archiveAction) return;
+
+    try {
+      setSaving(true);
+      setSaveError(null);
+      await archiveAction.onArchive(selectedRow);
+      closeDetails();
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to archive this record.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function saveChanges() {
@@ -187,8 +216,37 @@ export default function DataGrid<T extends object>({
                     onClick={startEditing}
                     className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:opacity-90"
                   >
-                    Edit
+                    {editLabel}
                   </button>
+                )}
+                {archiveAction && !isEditing && archiveAction.isAvailable?.(selectedRow) !== false && !confirmingArchive && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingArchive(true)}
+                    className="rounded-md px-3 py-1.5 text-sm font-medium text-destructive hover:bg-destructive/10"
+                  >
+                    {archiveAction.label}
+                  </button>
+                )}
+                {archiveAction && confirmingArchive && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingArchive(false)}
+                      disabled={saving}
+                      className="rounded-md px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={archiveRow}
+                      disabled={saving}
+                      className="rounded-md bg-destructive px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+                    >
+                      {saving ? "Archiving…" : "Confirm archive"}
+                    </button>
+                  </>
                 )}
                 {isEditing && (
                   <>
@@ -219,6 +277,7 @@ export default function DataGrid<T extends object>({
               </div>
             </div>
             <div className="max-h-[calc(85vh-73px)] overflow-y-auto">
+              {saveError && !isEditing && <p className="px-5 pt-4 text-sm text-destructive">{saveError}</p>}
               {isEditing && editConfig ? (
                 <div className="space-y-4 p-5">
                   {editConfig.fields.map((field) => {
