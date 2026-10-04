@@ -16,6 +16,7 @@ interface EditableField<T extends object> {
   label: string;
   type?: EditableFieldType;
   options?: { label: string; value: string }[];
+  emptyValue?: null;
 }
 
 interface RowEditConfig<T extends object> {
@@ -298,7 +299,7 @@ export default function DataGrid<T extends object>({
         } else if (type === "json") {
           parsed = value === "" ? undefined : JSON.parse(String(value));
         } else if (type !== "checkbox" && value === "") {
-          parsed = undefined;
+          parsed = field.emptyValue === null ? null : undefined;
         }
 
         if (parsed !== undefined && !valuesMatch(parsed, activeDetailsRow[field.key])) {

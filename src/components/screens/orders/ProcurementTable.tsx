@@ -10,7 +10,8 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
-import type { Product, PurchaseOrder, PurchaseOrderItem } from "@/types";
+import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
+import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -340,6 +341,7 @@ interface ProcurementTableProps {
 export default function ProcurementTable({ detailsRowId }: ProcurementTableProps) {
   const { data, loading, error, refetch } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const { data: products } = useApi<Product[]>("/api/products");
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -486,7 +488,19 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (purchaseOrder, changes) => {
-            await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, changes);
+            const { status, ...headerChanges } = changes;
+            if (Object.keys(headerChanges).length) {
+              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, headerChanges);
+            }
+            if (status === "in transit") {
+              if (purchaseOrder.status !== "confirmed") throw new Error("A PO can only enter transit after it is confirmed.");
+              await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+            } else if (status === "received") {
+              if (purchaseOrder.status !== "in transit") throw new Error("A PO must be in transit before it can be received.");
+              await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+            } else if (status !== undefined) {
+              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+            }
             refetch();
           },
         }}
@@ -538,6 +552,12 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               purchaseOrder={purchaseOrder}
               products={products ?? []}
               onUpdated={refetch}
+            />
+
+            <LinkedSaleOrdersEditor
+              purchaseOrderId={purchaseOrder.id}
+              saleOrders={saleOrders ?? []}
+              onUpdated={refetchSaleOrders}
             />
 
             <div>

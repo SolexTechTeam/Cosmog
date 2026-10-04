@@ -18,7 +18,7 @@ export default function UsersTable() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "staff" });
+  const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "staff" });
 
   const users = useMemo(() => data ?? [], [data]);
 
@@ -61,15 +61,15 @@ export default function UsersTable() {
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!newUser.name.trim() || !newUser.email.trim()) {
-      setCreateError("Name and email are required.");
+    if (!newUser.name.trim() || !newUser.email.trim() || newUser.password.length < 8) {
+      setCreateError("Name, email, and a password of at least 8 characters are required.");
       return;
     }
     try {
       setCreating(true);
       setCreateError(null);
-      await api.post("/api/profiles", { name: newUser.name.trim(), email: newUser.email.trim(), role: newUser.role, is_active: true });
-      setNewUser({ name: "", email: "", role: "staff" });
+      await api.post("/api/profiles/create-user", { name: newUser.name.trim(), email: newUser.email.trim(), password: newUser.password, role: newUser.role });
+      setNewUser({ name: "", email: "", password: "", role: "staff" });
       setShowCreate(false);
       refetch();
     } catch (caughtError) {
@@ -106,7 +106,7 @@ export default function UsersTable() {
         />
         <DataGrid<Profile> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
       </div>
-      {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createUser} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-user-title"><h2 id="add-user-title" className="text-lg font-semibold">Add User</h2><div className="mt-4 grid gap-4"><label className="grid gap-1 text-sm font-medium">Name<input required value={newUser.name} onChange={(event) => setNewUser((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Email<input required type="email" value={newUser.email} onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Role<select value={newUser.role} onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal"><option value="staff">Staff</option><option value="admin">Admin</option></select></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add User"}</button></div></form></div>}
+      {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createUser} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-user-title"><h2 id="add-user-title" className="text-lg font-semibold">Add User</h2><p className="mt-1 text-sm text-muted-foreground">Admin access is required to create an account.</p><div className="mt-4 grid gap-4"><label className="grid gap-1 text-sm font-medium">Name<input required value={newUser.name} onChange={(event) => setNewUser((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Email<input required type="email" value={newUser.email} onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Temporary password<input required type="password" minLength={8} value={newUser.password} onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Role<select value={newUser.role} onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal"><option value="staff">Staff</option><option value="admin">Admin</option></select></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add User"}</button></div></form></div>}
     </div>
   );
 }

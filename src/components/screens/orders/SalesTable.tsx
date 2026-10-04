@@ -10,7 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
-import type { SaleOrder } from "@/types";
+import type { PurchaseOrder, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
@@ -61,6 +61,7 @@ function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
 
 export default function SalesTable() {
   const { data, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -71,6 +72,7 @@ export default function SalesTable() {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
     return Array.from(set).sort().map((s) => ({ label: s, value: s }));
   }, [data]);
+  const assignablePurchaseOrders = (purchaseOrders ?? []).filter((purchaseOrder) => purchaseOrder.status !== "cancelled");
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
@@ -239,9 +241,32 @@ export default function SalesTable() {
                 { label: "Cancelled", value: "cancelled" },
               ],
             },
-            { key: "fulfillment_type", label: "Fulfillment", type: "text" },
-            { key: "business_channel", label: "Business Channel", type: "text" },
-            { key: "source", label: "Source", type: "text" },
+            {
+              key: "fulfillment_type",
+              label: "Fulfillment",
+              type: "select",
+              options: [
+                { label: "Shipping", value: "shipping" },
+                { label: "Pickup", value: "pickup" },
+                { label: "Local Delivery", value: "local_delivery" },
+                { label: "Event Pickup", value: "event_pickup" },
+                { label: "Hold", value: "hold" },
+                { label: "Drop Ship", value: "drop_ship" },
+              ],
+            },
+            {
+              key: "linked_po_id",
+              label: "Assigned Purchase Order",
+              type: "select",
+              emptyValue: null,
+              options: [
+                { label: "No purchase order assigned", value: "" },
+                ...assignablePurchaseOrders.map((purchaseOrder) => ({
+                  label: `${purchaseOrder.po_number} · ${purchaseOrder.supplier?.name ?? "Unknown supplier"} · ${purchaseOrder.status}`,
+                  value: purchaseOrder.id,
+                })),
+              ],
+            },
             { key: "shipped_date", label: "Shipped Date", type: "date" },
             { key: "delivered_date", label: "Delivered Date", type: "date" },
             { key: "shipping_cost", label: "Shipping Cost", type: "number" },

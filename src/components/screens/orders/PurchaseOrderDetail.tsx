@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/lib/api";
 import OrderStatusWidget from "@/components/screens/orders/OrderStatusWidget";
+import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
 import type { PurchaseOrder, SaleOrder } from "@/types";
 
 interface PurchaseOrderDetailProps {
@@ -84,9 +85,8 @@ function DraftPurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: P
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
   const { data: purchaseOrders, loading, error, refetch } = useApi<PurchaseOrder[]>("/api/purchase-orders");
-  const { data: saleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
   const purchaseOrder = purchaseOrders?.find((order) => order.id === purchaseOrderId);
-  const relatedSalesOrders = (saleOrders ?? []).filter((order) => order.linked_po_id === purchaseOrderId);
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading purchase order…</p>;
   if (error) return <p className="text-sm text-destructive">Failed to load purchase order: {error}</p>;
@@ -111,7 +111,19 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             { label: "Cancelled", value: "cancelled" },
           ]}
           onUpdate={async (status) => {
-            await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+            if (status === "in transit" && purchaseOrder.status !== "confirmed") {
+              throw new Error("A PO can only enter transit after it is confirmed.");
+            }
+            if (status === "received" && purchaseOrder.status !== "in transit") {
+              throw new Error("A PO must be in transit before it can be received.");
+            }
+            if (status === "in transit") {
+              await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+            } else if (status === "received") {
+              await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+            } else {
+              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+            }
             refetch();
           }}
         />
@@ -143,7 +155,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         <div className="space-y-6">
           <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-header mb-3">Supplier</h2><p className="font-medium">{purchaseOrder.supplier?.name ?? "—"}</p></section>
           <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-header mb-3">Dates</h2><dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">Order date</dt><dd>{purchaseOrder.order_date}</dd></div><div><dt className="text-muted-foreground">Shipped</dt><dd>{purchaseOrder.shipped_date ?? "—"}</dd></div><div><dt className="text-muted-foreground">Received</dt><dd>{purchaseOrder.received_date ?? "—"}</dd></div></dl></section>
-          <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-header mb-3">Linked Sales Orders</h2>{relatedSalesOrders.length ? <ul className="space-y-2">{relatedSalesOrders.map((order) => <li key={order.id}><Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link></li>)}</ul> : <p className="text-sm text-muted-foreground">No sales orders linked.</p>}</section>
+          <LinkedSaleOrdersEditor purchaseOrderId={purchaseOrder.id} saleOrders={saleOrders ?? []} onUpdated={refetchSaleOrders} />
         </div>
       </div>
     </div>
