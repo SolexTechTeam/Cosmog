@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/lib/api";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
@@ -8,6 +9,7 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
+import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
 import type { Product, PurchaseOrder, PurchaseOrderItem } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -77,14 +79,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isDraft = purchaseOrder.status === "draft";
-
-  useEffect(() => {
-    setItems(purchaseOrder.items ?? []);
-    setEditingItemId(null);
-    setIsAdding(false);
-    setDraft(null);
-    setError(null);
-  }, [purchaseOrder]);
 
   function beginEditing(item: PurchaseOrderItem) {
     setEditingItemId(item.id);
@@ -349,6 +343,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
@@ -367,7 +362,14 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
 
   const allColumns: ColDef<PurchaseOrder>[] = useMemo(
     () => [
-      { field: "po_number", headerName: "PO #", minWidth: 130 },
+      {
+        field: "po_number",
+        headerName: "PO #",
+        minWidth: 130,
+        cellRenderer: (params: { value: string; data?: PurchaseOrder }) => params.data ? (
+          <Link href={`/orders/procurement/${params.data.id}`} className="font-medium text-primary hover:underline">{params.value}</Link>
+        ) : params.value,
+      },
       {
         headerName: "Supplier",
         valueGetter: (p) => p.data?.supplier?.name ?? "—",
@@ -402,7 +404,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   );
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns,
-    new Set(["po_number", "Supplier", "received_date", "shipped_date", "expected_arrival"])
+    new Set(["Supplier", "received_date", "shipped_date", "expected_arrival"])
   );
 
   if (error) {
@@ -440,7 +442,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             onChange: setTypeFilter,
           },
         ]}
-        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
+        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Purchase Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
       />
       <DataGrid<PurchaseOrder>
         rows={filtered}
@@ -450,6 +452,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         detailsTitle="PO Details"
         detailsRowId={detailsRowId}
         showDetailsMenu
+        detailsPageHref={(purchaseOrder) => `/orders/procurement/${purchaseOrder.id}`}
         expandOnRowDoubleClick
         expandedRowHeight={210}
         getExpandedDetailsTitle={(purchaseOrder) => `${purchaseOrder.po_number} Details`}
@@ -531,6 +534,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             </dl>
 
             <PurchaseOrderItems
+              key={purchaseOrder.id}
               purchaseOrder={purchaseOrder}
               products={products ?? []}
               onUpdated={refetch}
@@ -567,6 +571,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
           </div>
         )}
       />
+      {isCreating && <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
     </div>
   );
 }

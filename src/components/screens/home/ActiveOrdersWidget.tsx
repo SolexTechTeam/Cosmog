@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -17,7 +18,16 @@ export default function ActiveOrdersWidget() {
 
   const columns: ColDef<SaleOrder>[] = useMemo(
     () => [
-      { field: "so_number", headerName: "SO #", width: 130 },
+      {
+        field: "so_number",
+        headerName: "SO #",
+        width: 130,
+        cellRenderer: (params: { value: string; data?: SaleOrder }) => params.data ? (
+          <Link href={`/orders/sales/${params.data.id}`} className="font-medium text-primary hover:underline">
+            {params.value}
+          </Link>
+        ) : params.value,
+      },
       {
         headerName: "Owner",
         valueGetter: (p) => p.data?.owner?.name ?? "—",

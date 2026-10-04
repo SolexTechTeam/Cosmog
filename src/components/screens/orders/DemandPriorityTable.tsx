@@ -116,7 +116,7 @@ function AssociatedPurchaseOrder({ line }: { line: DemandPriorityLine }) {
   if (!purchaseOrder) {
     return (
       <Link
-        href={{ pathname: "/orders/procurement", query: { po: line.linked_po_id } }}
+        href={`/orders/procurement/${line.linked_po_id}`}
         className="break-words text-sm font-medium text-primary hover:underline"
       >
         {line.linked_po_id}
@@ -127,7 +127,7 @@ function AssociatedPurchaseOrder({ line }: { line: DemandPriorityLine }) {
   return (
     <div className="space-y-1 text-sm text-foreground">
       <Link
-        href={{ pathname: "/orders/procurement", query: { po: purchaseOrder.id } }}
+        href={`/orders/procurement/${purchaseOrder.id}`}
         className="font-medium text-primary hover:underline"
       >
         {purchaseOrder.po_number}
@@ -296,7 +296,14 @@ export default function DemandPriorityTable() {
 
   const allColumns: ColDef<DemandPriorityLine>[] = useMemo(
     () => [
-      { field: "so_number", headerName: "SO #", minWidth: 130 },
+      {
+        field: "so_number",
+        headerName: "SO #",
+        minWidth: 130,
+        cellRenderer: (params: { value: string; data?: DemandPriorityLine }) => params.data ? (
+          <Link href={`/orders/sales/${params.data.sale_order_id}`} className="font-medium text-primary hover:underline">{params.value}</Link>
+        ) : params.value,
+      },
       {
         field: "total_points",
         headerName: "Points",
@@ -389,6 +396,7 @@ export default function DemandPriorityTable() {
           pageSize={25}
           detailsTitle="Demand Priority Details"
           showDetailsMenu
+          detailsPageHref={(line) => `/orders/sales/${line.sale_order_id}`}
           expandOnRowDoubleClick
           expandedRowHeight={360}
           getExpandedDetailsTitle={(line) => `${line.so_number} Details`}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/lib/api";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
@@ -8,6 +9,7 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
+import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -63,6 +65,7 @@ export default function SalesTable() {
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const sources = useMemo(() => {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
@@ -88,7 +91,14 @@ export default function SalesTable() {
 
   const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
-      { field: "so_number", headerName: "SO #", minWidth: 130 },
+      {
+        field: "so_number",
+        headerName: "SO #",
+        minWidth: 130,
+        cellRenderer: (params: { value: string; data?: SaleOrder }) => params.data ? (
+          <Link href={`/orders/sales/${params.data.id}`} className="font-medium text-primary hover:underline">{params.value}</Link>
+        ) : params.value,
+      },
       {
         headerName: "Owner",
         valueGetter: (p) => p.data?.owner?.name ?? "—",
@@ -124,7 +134,7 @@ export default function SalesTable() {
         cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
       },
       { field: "source", headerName: "Source", minWidth: 110 },
-      { field: "fulfillment_type", headerName: "Fulfillment", minWidth: 120 },
+      { field: "fulfillment_type", headerName: "Type", minWidth: 120 },
       {
         headerName: "Total",
         minWidth: 110,
@@ -140,7 +150,7 @@ export default function SalesTable() {
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
     allColumns, 
-    new Set(["so_number", "Customer", "Handle", "source"])
+    new Set(["Customer", "handle", "source"])
     );
 
   if (error) {
@@ -188,7 +198,7 @@ export default function SalesTable() {
             onChange: setSourceFilter,
           },
         ]}
-        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
+        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
       />
       <DataGrid<SaleOrder>
         rows={filtered}
@@ -197,6 +207,7 @@ export default function SalesTable() {
         pageSize={25}
         detailsTitle="SO Details"
         showDetailsMenu
+        detailsPageHref={(saleOrder) => `/orders/sales/${saleOrder.id}`}
         expandOnRowDoubleClick
         expandedRowHeight={210}
         getExpandedDetailsTitle={(saleOrder) => `${saleOrder.so_number} Details`}
@@ -447,6 +458,7 @@ export default function SalesTable() {
           );
         }}
       />
+      {isCreating && <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, type ColDef } from "ag-grid-community";
 
@@ -40,6 +41,7 @@ interface DataGridProps<T extends object> {
   renderExpandedRowDetails?: (row: T) => ReactNode;
   getExpandedDetailsTitle?: (row: T) => string;
   showDetailsMenu?: boolean;
+  detailsPageHref?: (row: T) => string;
   expandOnRowDoubleClick?: boolean;
   expandedRowHeight?: number;
   editConfig?: RowEditConfig<T>;
@@ -59,9 +61,10 @@ function isInlineDetailRow<T extends object>(row: T | InlineDetailRow<T> | undef
 interface DetailsMenuProps {
   onOpen: () => void;
   onEdit?: () => void;
+  pageHref?: string;
 }
 
-function DetailsMenu({ onOpen, onEdit }: DetailsMenuProps) {
+function DetailsMenu({ onOpen, onEdit, pageHref }: DetailsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
@@ -97,6 +100,15 @@ function DetailsMenu({ onOpen, onEdit }: DetailsMenuProps) {
           >
             Open details
           </button>
+          {pageHref && (
+            <Link
+              href={pageHref}
+              onClick={() => setIsOpen(false)}
+              className="block w-full rounded px-2 py-1.5 text-left text-sm text-foreground hover:bg-muted"
+            >
+              Open page
+            </Link>
+          )}
           {onEdit && (
             <button
               type="button"
@@ -149,6 +161,7 @@ export default function DataGrid<T extends object>({
   renderExpandedRowDetails,
   getExpandedDetailsTitle,
   showDetailsMenu = false,
+  detailsPageHref,
   expandOnRowDoubleClick = false,
   expandedRowHeight = 720,
   editConfig,
@@ -241,6 +254,7 @@ export default function DataGrid<T extends object>({
             <DetailsMenu
               onOpen={() => openDetails(params.data as T)}
               onEdit={editConfig ? () => openEdit(params.data as T) : undefined}
+              pageHref={detailsPageHref?.(params.data as T)}
             />
           ) : null,
       }

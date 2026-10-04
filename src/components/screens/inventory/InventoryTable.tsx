@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -137,7 +138,14 @@ export default function InventoryTable() {
 
   const allColumns: ColDef<StockStatus>[] = useMemo(
     () => [
-      { field: "name", headerName: "Product", minWidth: 280 },
+      {
+        field: "name",
+        headerName: "Product",
+        minWidth: 280,
+        cellRenderer: (params: { value: string; data?: StockStatus }) => params.data ? (
+          <Link href={`/inventory/${params.data.product_id}`} className="font-medium text-primary hover:underline">{params.value}</Link>
+        ) : params.value,
+      },
       { field: "category", headerName: "Category", minWidth: 180 },
       {
         field: "stock_status",
@@ -218,6 +226,7 @@ export default function InventoryTable() {
         pageSize={25}
         detailsTitle="Stock Details"
         showDetailsMenu
+        detailsPageHref={(stock) => `/inventory/${stock.product_id}`}
         expandOnRowDoubleClick
         expandedRowHeight={300}
         getExpandedDetailsTitle={(stock) => `${stock.name} Lots`}
