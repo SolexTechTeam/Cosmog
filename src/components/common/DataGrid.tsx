@@ -21,7 +21,7 @@ export default function DataGrid<T>({
   pageSize = 25,
 }: DataGridProps<T>) {
   return (
-    <div className="w-full overflow-hidden">
+    <div className="w-full rounded-lg border border-border bg-card shadow-sm overflow-hidden">
       <AgGridReact<T>
         rowData={rows}
         columnDefs={columns}
@@ -31,6 +31,7 @@ export default function DataGrid<T>({
         paginationPageSize={pageSize}
         rowSelection="single"
         onRowClicked={onRowClick ? (e) => e.data && onRowClick(e.data) : undefined}
+        suppressCellFocus
         defaultColDef={{
           sortable: true,
           resizable: true,

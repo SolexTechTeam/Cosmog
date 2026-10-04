@@ -30,10 +30,15 @@ const navItems: NavItem[] = [
       { label: "Demand Priority", href: "/orders/cooking" },
     ],
   },
-  { label: "Customers", href: "/customers" },
-  { label: "Suppliers", href: "/suppliers" },
-  { label: "Products", href: "/products" },
-  { label: "Users", href: "/users" },
+  {
+    label: "Data",
+    children: [
+      { label: "Customers", href: "/customers" },
+      { label: "Suppliers", href: "/suppliers" },
+      { label: "Products", href: "/products" },
+      { label: "Users", href: "/users" },
+    ],
+  },
 ];
 
 export default function SideNav() {
@@ -86,13 +91,13 @@ export default function SideNav() {
       <nav className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
         {navItems.map((item) =>
           isGroup(item) ? (
-            <div key={item.label} className="mt-4">
+            <div key={item.label} className="mt-2">
               {!collapsed && (
-                <span className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-primary block">
+                <span className="px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary block">
                   {item.label}
                 </span>
               )}
-              <div className="flex flex-col gap-0.5 mt-1">
+              <div className="flex flex-col gap-0.5">
                 {item.children.map((child) => (
                   <Link
                     key={child.href}

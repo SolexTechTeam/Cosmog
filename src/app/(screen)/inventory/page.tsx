@@ -1,23 +1,19 @@
 import PageHeader from "@/components/common/PageHeader";
-import MetricCard from "@/components/common/MetricCard";
-import MetricCardRow from "@/components/common/MetricCardRow";
+import InventoryOverviewCards from "@/components/screens/inventory/InventoryOverviewCards";
+import InventoryTable from "@/components/screens/inventory/InventoryTable";
 
 export default function InventoryScreen() {
   return (
     <>
       <PageHeader title="Inventory" />
-      <MetricCardRow>
-        <MetricCard label="Total SKUs" value="—" />
-        <MetricCard label="On-Hand Units" value="—" />
-        <MetricCard label="In-Transit" value="—" />
-        <MetricCard label="Out of Stock" value="—" />
-      </MetricCardRow>
-      <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-        Search + filter bar placeholder
-      </div>
-      <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-        Inventory AG Grid table placeholder
-      </div>
+      <section className="rounded-lg border border-border bg-muted p-5 shadow-sm">
+        <h2 className="text-header mb-4">Overview</h2>
+        <InventoryOverviewCards />
+      </section>
+      <section>
+        <h2 className="text-header mb-3 pl-[var(--radius)]">Stock</h2>
+        <InventoryTable />
+      </section>
     </>
   );
 }

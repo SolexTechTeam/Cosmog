@@ -116,6 +116,7 @@ export interface StockStatus {
   product_id: string;
   name: string;
   category: string;
+  sku: string | null;
   qty_on_hand: number;
   qty_reserved: number;
   qty_available: number;
