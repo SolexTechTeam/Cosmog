@@ -30,7 +30,7 @@ export default function ActiveOrdersWidget() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => p.data?.owner?.name ?? "—",
+        valueGetter: (p) => p.data?.owner?.name ?? "Unassigned",
         width: 120,
       },
       {

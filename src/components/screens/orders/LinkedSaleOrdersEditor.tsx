@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { allocationLabel } from "@/lib/utils";
+import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
 
 interface LinkedSaleOrdersEditorProps {
@@ -11,14 +13,26 @@ interface LinkedSaleOrdersEditorProps {
   onUpdated: () => void;
 }
 
+function isLinkedTo(order: SaleOrder, poId: string) {
+  return (order.po_links ?? []).some((link) => link.purchase_order_id === poId);
+}
+
 export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, onUpdated }: LinkedSaleOrdersEditorProps) {
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const linkedOrders = saleOrders.filter((order) => order.linked_po_id === purchaseOrderId);
+  const linkedOrders = saleOrders.filter((order) => isLinkedTo(order, purchaseOrderId));
   const selectableOrders = saleOrders.filter((order) =>
-    order.status === "open" || order.status === "shipped" || order.linked_po_id === purchaseOrderId
+    order.status === "open" || order.status === "shipped" || isLinkedTo(order, purchaseOrderId)
   );
+
+  const allocationCounts = linkedOrders.length
+    ? linkedOrders.reduce((acc, order) => {
+        const label = allocationLabel(order.allocation_status);
+        acc[label] = (acc[label] ?? 0) + 1;
+        return acc;
+      }, {} as Record<string, number>)
+    : null;
 
   function beginEditing() {
     setSelectedIds(linkedOrders.map((order) => order.id));
@@ -39,11 +53,12 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
 
     const updates = saleOrders.flatMap((order) => {
       const shouldLink = selectedIds.includes(order.id);
-      if (shouldLink && order.linked_po_id !== purchaseOrderId) {
-        return [api.patch(`/api/sale-orders/${order.id}`, { linked_po_id: purchaseOrderId })];
+      const currentlyLinked = isLinkedTo(order, purchaseOrderId);
+      if (shouldLink && !currentlyLinked) {
+        return [api.post(`/api/sale-orders/${order.id}/po-links`, { purchase_order_id: purchaseOrderId })];
       }
-      if (!shouldLink && order.linked_po_id === purchaseOrderId) {
-        return [api.patch(`/api/sale-orders/${order.id}`, { linked_po_id: null })];
+      if (!shouldLink && currentlyLinked) {
+        return [api.delete(`/api/sale-orders/${order.id}/po-links/${purchaseOrderId}`)];
       }
       return [];
     });
@@ -64,7 +79,7 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
   return (
     <section className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-header">Linked Sales Orders</h2>
+        <h2 className="text-header border-b border-primary/20 pb-2 flex-1">Linked Sales Orders</h2>
         {selectedIds === null && (
           <button type="button" onClick={beginEditing} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
             Edit links
@@ -73,19 +88,36 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
       </div>
 
       {selectedIds === null ? (
-        linkedOrders.length ? (
-          <ul className="mt-3 space-y-2">
-            {linkedOrders.map((order) => (
-              <li key={order.id}>
-                <Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link>
-                <span className="ml-2 text-xs text-muted-foreground">{order.customer?.name ?? "Unknown customer"}</span>
-              </li>
-            ))}
-          </ul>
-        ) : <p className="mt-3 text-sm text-muted-foreground">No sales orders linked.</p>
+        <>
+          {allocationCounts && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {["ready_to_ship", "awaiting", "need"].map((key) =>
+                allocationCounts[key] ? (
+                  <span key={key} className="flex items-center gap-1.5 text-xs">
+                    <StatusBadge status={key} />
+                    <span className="font-semibold text-foreground">{allocationCounts[key]}</span>
+                  </span>
+                ) : null
+              )}
+            </div>
+          )}
+          {linkedOrders.length ? (
+            <ul className="mt-3 space-y-2">
+              {linkedOrders.map((order) => (
+                <li key={order.id} className="flex flex-wrap items-center gap-2">
+                  <Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link>
+                  <span className="text-xs text-muted-foreground">{order.customer?.name ?? "Unknown customer"}</span>
+                  {order.allocation_status && (
+                    <StatusBadge status={allocationLabel(order.allocation_status)} />
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-3 text-sm text-muted-foreground">No sales orders linked.</p>}
+        </>
       ) : (
         <div className="mt-3 space-y-3">
-          <p className="text-xs text-muted-foreground">Selecting an SO already assigned elsewhere will move it to this PO.</p>
+          <p className="text-xs text-muted-foreground">Select sales orders to link to this PO.</p>
           <div className="max-h-52 space-y-2 overflow-y-auto rounded-md border border-border p-3">
             {selectableOrders.length ? selectableOrders.map((order) => (
               <label key={order.id} className="flex cursor-pointer items-start gap-2 text-sm">
@@ -93,7 +125,6 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
                 <span>
                   <span className="font-medium">{order.so_number}</span>
                   <span className="text-muted-foreground"> · {order.customer?.name ?? "Unknown customer"} · {order.status}</span>
-                  {order.linked_po_id && order.linked_po_id !== purchaseOrderId && <span className="block text-xs text-amber-600">Currently assigned to another PO</span>}
                 </span>
               </label>
             )) : <p className="text-sm text-muted-foreground">No active sales orders available.</p>}

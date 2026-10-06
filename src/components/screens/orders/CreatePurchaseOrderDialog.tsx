@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import { api } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
+import { useLookup } from "@/hooks/useLookup";
+import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
 import type { Product, PurchaseOrder, SaleOrder, Supplier } from "@/types";
 
 interface PurchaseLine {
@@ -11,23 +13,32 @@ interface PurchaseLine {
   unit_cost: string;
 }
 
+interface CreatedPOInfo {
+  id: string;
+  number: string;
+  items: { product_id: string; quantity: number }[];
+}
+
 interface CreatePurchaseOrderDialogProps {
   onClose: () => void;
   onCreated: () => void;
+  initialItems?: { product_id: string; quantity_ordered: string; unit_cost: string }[];
+  linkedSaleOrderId?: string;
 }
 
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
-export default function CreatePurchaseOrderDialog({ onClose, onCreated }: CreatePurchaseOrderDialogProps) {
+export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId }: CreatePurchaseOrderDialogProps) {
   const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>("/api/suppliers");
   const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>("/api/products");
   const { data: fetchedSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { options: fulfillmentOptions } = useLookup("po_fulfillment_type");
   const [supplierId, setSupplierId] = useState("");
-  const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>([]);
+  const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);
   const [fulfillmentType, setFulfillmentType] = useState("warehouse");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<PurchaseLine[]>([{ product_id: "", quantity_ordered: "1", unit_cost: "" }]);
+  const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length ? initialItems : [{ product_id: "", quantity_ordered: "1", unit_cost: "" }]);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: "", email: "", phone: "", default_lead_days: "1" });
@@ -36,7 +47,8 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated }: Create
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdPurchaseOrderNumber, setCreatedPurchaseOrderNumber] = useState<string | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<CreatedPOInfo | null>(null);
+  const [showCreateSo, setShowCreateSo] = useState(false);
 
   const suppliers = fetchedSuppliers ?? [];
   const products = fetchedProducts ?? [];
@@ -104,21 +116,35 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated }: Create
       setSaving(true);
       setError(null);
       const purchaseOrder = await api.post<PurchaseOrder>("/api/purchase-orders", { supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), items: normalizedLines });
-      setCreatedPurchaseOrderNumber(purchaseOrder.po_number);
       try {
-        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => api.patch(`/api/sale-orders/${saleOrderId}`, { linked_po_id: purchaseOrder.id })));
+        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => api.post(`/api/sale-orders/${saleOrderId}/po-links`, { purchase_order_id: purchaseOrder.id })));
       } catch (linkError) {
         onCreated();
         setError(`PO ${purchaseOrder.po_number} was created, but its Sales Order links could not be saved: ${linkError instanceof Error ? linkError.message : "Unknown error"}`);
         return;
       }
       onCreated();
-      onClose();
+      setCreatedOrder({
+        id: purchaseOrder.id,
+        number: purchaseOrder.po_number,
+        items: normalizedLines.map((l) => ({ product_id: l.product_id, quantity: l.quantity_ordered })),
+      });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create purchase order.");
     } finally {
       setSaving(false);
     }
+  }
+
+  if (showCreateSo && createdOrder) {
+    return (
+      <CreateSaleOrderDialog
+        onClose={onClose}
+        onCreated={onCreated}
+        initialItems={createdOrder.items.map((i) => ({ product_id: i.product_id, quantity: String(i.quantity), unit_price: "" }))}
+        linkedPurchaseOrderId={createdOrder.id}
+      />
+    );
   }
 
   return (
@@ -130,14 +156,25 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated }: Create
           <label className="grid gap-1 text-sm font-medium">Supplier<select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className={inputClass}><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
           <div className="flex items-end"><button type="button" onClick={() => setShowSupplierForm((value) => !value)} className="h-10 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">{showSupplierForm ? "Cancel new supplier" : "Add supplier"}</button></div>
           {showSupplierForm && <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_1fr_6rem_auto]"><input placeholder="Supplier name" value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input type="email" placeholder="Email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className={inputClass} /><input placeholder="Phone" value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className={inputClass} /><input type="number" min="1" step="1" placeholder="Lead days" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className={inputClass} /><button type="button" onClick={addSupplier} disabled={creatingSupplier} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingSupplier ? "…" : "Add"}</button></div>}
-          <label className="grid gap-1 text-sm font-medium">Type<select value={fulfillmentType} onChange={(event) => setFulfillmentType(event.target.value)} className={inputClass}><option value="warehouse">Warehouse</option><option value="direct_delivery">Direct delivery</option></select></label>
+          <label className="grid gap-1 text-sm font-medium">Type<select value={fulfillmentType} onChange={(event) => setFulfillmentType(event.target.value)} className={inputClass}>{(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Warehouse", value: "warehouse" }, { label: "Direct delivery", value: "direct_delivery" }]).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label>
           <label className="grid gap-1 text-sm font-medium">Order date<input required type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} className={inputClass} /></label>
           <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2"><legend className="px-1 text-sm font-medium">Link open sales orders</legend><p className="text-xs text-muted-foreground">Selected sales orders will be assigned to this PO when it is created.</p><div className="max-h-36 space-y-2 overflow-y-auto pr-1">{saleOrders.length ? saleOrders.map((saleOrder) => <label key={saleOrder.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={linkedSaleOrderIds.includes(saleOrder.id)} onChange={() => toggleLinkedSaleOrder(saleOrder.id)} className="size-4 accent-primary" /><span>{saleOrder.so_number} · {saleOrder.customer?.name ?? "Unknown customer"} · {saleOrder.status}</span></label>) : <p className="text-sm text-muted-foreground">No open sales orders available.</p>}</div></fieldset>
         </div>
         <div className="mt-6"><div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">Items</h3><div className="flex gap-2"><button type="button" onClick={() => setShowProductForm((value) => !value)} className="text-sm font-medium text-primary hover:underline">Add product</button><button type="button" onClick={() => setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="text-sm font-medium text-primary hover:underline">Add line</button></div></div>{showProductForm && <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><input placeholder="Product name" value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input placeholder="Category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))} className={inputClass} /><input placeholder="SKU" value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} className={inputClass} /><button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button></div>}<div className="space-y-2">{lines.map((line, index) => <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]"><select value={line.product_id} onChange={(event) => updateLine(index, { product_id: event.target.value })} className={inputClass}><option value="">Select product</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select><input type="number" min="1" step="1" value={line.quantity_ordered} onChange={(event) => updateLine(index, { quantity_ordered: event.target.value })} className={inputClass} placeholder="Qty" /><input type="number" min="0" step="0.01" value={line.unit_cost} onChange={(event) => updateLine(index, { unit_cost: event.target.value })} className={inputClass} placeholder="Unit cost" /><button type="button" onClick={() => setLines((current) => current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button></div>)}</div></div>
         <label className="mt-5 grid gap-1 text-sm font-medium">Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="rounded-md border border-input bg-background px-3 py-2 font-normal" /></label>
-        <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button><button type="submit" disabled={saving || createdPurchaseOrderNumber !== null} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : createdPurchaseOrderNumber ? "PO created" : "Create Purchase Order"}</button></div>
+        <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button><button type="submit" disabled={saving || !!createdOrder} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Purchase Order"}</button></div>
       </form>
+
+      {createdOrder && !showCreateSo && (
+        <div onMouseDown={(e) => e.stopPropagation()} className="mx-auto -mt-4 w-full max-w-3xl rounded-xl border border-emerald-500/30 bg-card p-5 shadow-xl">
+          <p className="text-sm font-medium text-emerald-600">Purchase order {createdOrder.number} created successfully.</p>
+          <div className="mt-4 flex gap-2">
+            <button type="button" onClick={() => setShowCreateSo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Sales Order</button>
+            <button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Done</button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

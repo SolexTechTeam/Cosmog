@@ -1,18 +1,28 @@
 "use client";
 
+import { useMemo } from "react";
 import { useApi } from "@/hooks/useApi";
+import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
+import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
 
 export default function OrderMetricsWidget() {
   const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
 
   const orders = data ?? [];
-  const totalOpen = orders.filter((o) => o.status === "open").length;
-  const awaitingPayment = orders.filter((o) => o.payment_status === "awaiting_payment").length;
-
   const openOrders = orders.filter((o) => o.status === "open");
+  const activeOrders = orders.filter((o) => isActiveSaleOrderStatus(o.status));
+
+  const procurementCounts = useMemo(() => {
+    const counts = { need: 0, awaiting: 0, ready_to_ship: 0 };
+    for (const o of activeOrders) {
+      const label = allocationLabel(o.allocation_status);
+      if (label in counts) counts[label as keyof typeof counts]++;
+    }
+    return counts;
+  }, [activeOrders]);
 
   const totalOpenValue = openOrders.reduce((sum, o) => {
     const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
@@ -24,16 +34,29 @@ export default function OrderMetricsWidget() {
     return sum + itemTotal + o.shipping_cost - o.amount_paid;
   }, 0);
 
+  const awaitingPayment = orders.filter((o) => o.payment_status === "awaiting_payment").length;
+
   if (error) {
     return <p className="text-sm text-red-500">Failed to load order metrics: {error}</p>;
   }
 
+  const l = loading;
+
   return (
-    <MetricCardRow>
-      <MetricCard label="Open Orders" value={loading ? "—" : totalOpen} />
-      <MetricCard label="Awaiting Payment" value={loading ? "—" : awaitingPayment} />
-      <MetricCard label="Total Open $" value={loading ? "—" : `$${totalOpenValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
-      <MetricCard label="Total Outstanding $" value={loading ? "—" : `$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+    <MetricCardRow className="grid grid-cols-2 gap-4 md:grid-cols-[1fr_minmax(14rem,1.5fr)_1fr_1fr_1fr]">
+      <MetricCard label="Open Orders" value={l ? "—" : openOrders.length} />
+      <MetricCard label="Procurement Status" value="">
+        {l ? <span className="text-xl font-extrabold">—</span> : (
+          <div className="flex items-center gap-3">
+            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="need" /><span className="text-sm font-bold">{procurementCounts.need}</span></span>
+            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="awaiting" /><span className="text-sm font-bold">{procurementCounts.awaiting}</span></span>
+            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="ready_to_ship" /><span className="text-sm font-bold">{procurementCounts.ready_to_ship}</span></span>
+          </div>
+        )}
+      </MetricCard>
+      <MetricCard label="Awaiting Payment" value={l ? "—" : awaitingPayment} />
+      <MetricCard label="Total Open $" value={l ? "—" : `$${totalOpenValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+      <MetricCard label="Outstanding $" value={l ? "—" : `$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
     </MetricCardRow>
   );
 }

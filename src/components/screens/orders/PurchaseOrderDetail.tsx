@@ -4,6 +4,9 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/lib/api";
+import MetricCard from "@/components/common/MetricCard";
+import MetricCardRow from "@/components/common/MetricCardRow";
+import StatusBadge from "@/components/common/StatusBadge";
 import OrderStatusWidget from "@/components/screens/orders/OrderStatusWidget";
 import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
 import type { PurchaseOrder, SaleOrder } from "@/types";
@@ -18,6 +21,10 @@ interface DraftPurchaseOrderValues {
   expected_arrival: string;
   received_date: string;
   notes: string;
+}
+
+function isLinkedTo(order: SaleOrder, poId: string) {
+  return (order.po_links ?? []).some((link) => link.purchase_order_id === poId);
 }
 
 function DraftPurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
@@ -69,7 +76,10 @@ function DraftPurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: P
 
   return (
     <section className="rounded-xl border border-primary/30 bg-card p-5">
-      <div className="mb-4 flex items-center justify-between gap-3"><h2 className="text-header">Edit draft</h2><button type="button" onClick={() => setValues(null)} disabled={saving} className="text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button></div>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="text-header">Edit draft</h2>
+        <button type="button" onClick={() => setValues(null)} disabled={saving} className="text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+      </div>
       <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-1 text-sm font-medium">Type<select value={values.fulfillment_type} onChange={(event) => setValues({ ...values, fulfillment_type: event.target.value })} className="h-9 rounded-md border border-border bg-background px-2 font-normal"><option value="warehouse">Warehouse</option><option value="direct_delivery">Direct delivery</option></select></label>
         <label className="grid gap-1 text-sm font-medium">Expected arrival<input type="date" value={values.expected_arrival} onChange={(event) => setValues({ ...values, expected_arrival: event.target.value })} className="h-9 rounded-md border border-border bg-background px-2 font-normal" /></label>
@@ -97,8 +107,18 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   return (
     <div className="space-y-6">
       <Link href="/orders/procurement" className="text-sm font-medium text-primary hover:underline">← Purchase Orders</Link>
+
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-title">{purchaseOrder.po_number}</h1><p className="mt-1 text-sm text-muted-foreground">Purchase order details</p></div>
+        <div className="border-l-4 border-primary pl-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-title">{purchaseOrder.po_number}</h1>
+            <StatusBadge status={purchaseOrder.status} />
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {purchaseOrder.supplier?.name ?? "Unknown supplier"} · {purchaseOrder.order_date}
+          </p>
+        </div>
         <OrderStatusWidget
           status={purchaseOrder.status}
           isComplete={purchaseOrder.status === "received"}
@@ -131,31 +151,71 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
       {purchaseOrder.status === "draft" && <DraftPurchaseOrderEditor purchaseOrder={purchaseOrder} onSaved={refetch} />}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-lg border border-border bg-card p-4"><p className="text-subheader">Total Cost</p><p className="mt-1 text-xl font-bold">${totalCost.toFixed(2)}</p></div>
-        <div className="rounded-lg border border-border bg-card p-4"><p className="text-subheader">Items</p><p className="mt-1 text-xl font-bold">{(purchaseOrder.items ?? []).length}</p></div>
-        <div className="rounded-lg border border-border bg-card p-4"><p className="text-subheader">Fulfillment</p><p className="mt-1 font-medium capitalize">{purchaseOrder.fulfillment_type.replace(/_/g, " ")}</p></div>
-        <div className="rounded-lg border border-border bg-card p-4"><p className="text-subheader">Expected Arrival</p><p className="mt-1 font-medium">{purchaseOrder.expected_arrival ?? "—"}</p></div>
-      </div>
+      {/* Metrics */}
+      <MetricCardRow>
+        <MetricCard label="Total Cost" value={`$${totalCost.toFixed(2)}`} />
+        <MetricCard label="Items" value={(purchaseOrder.items ?? []).length} />
+        <MetricCard label="Fulfillment" value={purchaseOrder.fulfillment_type.replace(/_/g, " ")} valueClassName="capitalize" />
+        <MetricCard label="Expected Arrival" value={purchaseOrder.expected_arrival ?? "—"} />
+      </MetricCardRow>
 
+      {/* Content */}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
+        {/* Items table */}
         <section className="rounded-lg border border-border bg-card p-5">
           <h2 className="text-header mb-4">Items</h2>
           <div className="overflow-x-auto rounded-md border border-border">
             <table className="w-full min-w-[540px] text-left text-sm">
-              <thead className="bg-muted text-muted-foreground"><tr><th className="px-3 py-2 font-medium">Product</th><th className="px-3 py-2 text-right font-medium">Ordered</th><th className="px-3 py-2 text-right font-medium">Received</th><th className="px-3 py-2 text-right font-medium">Unit Cost</th></tr></thead>
+              <thead className="bg-muted text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Product</th>
+                  <th className="px-3 py-2 text-right font-medium">Ordered</th>
+                  <th className="px-3 py-2 text-right font-medium">Received</th>
+                  <th className="px-3 py-2 text-right font-medium">Unit Cost</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-border">
-                {(purchaseOrder.items ?? []).map((item) => <tr key={item.id}><td className="px-3 py-2"><Link href={`/inventory/${item.product_id}`} className="font-medium text-primary hover:underline">{item.product?.name ?? item.product_id}</Link></td><td className="px-3 py-2 text-right">{item.quantity_ordered}</td><td className="px-3 py-2 text-right">{item.quantity_received}</td><td className="px-3 py-2 text-right">${item.unit_cost.toFixed(2)}</td></tr>)}
-                {(purchaseOrder.items ?? []).length === 0 && <tr><td colSpan={4} className="px-3 py-5 text-center text-muted-foreground">No items</td></tr>}
+                {(purchaseOrder.items ?? []).map((item) => (
+                  <tr key={item.id}>
+                    <td className="px-3 py-2">
+                      <Link href={`/inventory/${item.product_id}`} className="font-medium text-primary hover:underline">
+                        {item.product?.name ?? item.product_id}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2 text-right">{item.quantity_ordered}</td>
+                    <td className="px-3 py-2 text-right">{item.quantity_received}</td>
+                    <td className="px-3 py-2 text-right">${item.unit_cost.toFixed(2)}</td>
+                  </tr>
+                ))}
+                {(purchaseOrder.items ?? []).length === 0 && (
+                  <tr><td colSpan={4} className="px-3 py-5 text-center text-muted-foreground">No items</td></tr>
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
+        {/* Sidebar */}
         <div className="space-y-6">
-          <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-header mb-3">Supplier</h2><p className="font-medium">{purchaseOrder.supplier?.name ?? "—"}</p></section>
-          <section className="rounded-lg border border-border bg-card p-5"><h2 className="text-header mb-3">Dates</h2><dl className="space-y-2 text-sm"><div><dt className="text-muted-foreground">Order date</dt><dd>{purchaseOrder.order_date}</dd></div><div><dt className="text-muted-foreground">Shipped</dt><dd>{purchaseOrder.shipped_date ?? "—"}</dd></div><div><dt className="text-muted-foreground">Received</dt><dd>{purchaseOrder.received_date ?? "—"}</dd></div></dl></section>
-          <LinkedSaleOrdersEditor purchaseOrderId={purchaseOrder.id} saleOrders={saleOrders ?? []} onUpdated={refetchSaleOrders} />
+          <section className="rounded-lg border border-border bg-card p-5">
+            <h2 className="text-header mb-3 border-b border-primary/20 pb-2">Supplier</h2>
+            <p className="font-medium">{purchaseOrder.supplier?.name ?? "—"}</p>
+          </section>
+
+          <section className="rounded-lg border border-border bg-card p-5">
+            <h2 className="text-header mb-3 border-b border-primary/20 pb-2">Dates</h2>
+            <dl className="space-y-2 text-sm">
+              <div><dt className="text-muted-foreground">Order date</dt><dd>{purchaseOrder.order_date}</dd></div>
+              <div><dt className="text-muted-foreground">Shipped</dt><dd>{purchaseOrder.shipped_date ?? "—"}</dd></div>
+              <div><dt className="text-muted-foreground">Received</dt><dd>{purchaseOrder.received_date ?? "—"}</dd></div>
+            </dl>
+          </section>
+
+          <LinkedSaleOrdersEditor
+            purchaseOrderId={purchaseOrder.id}
+            saleOrders={saleOrders ?? []}
+            onUpdated={refetchSaleOrders}
+          />
         </div>
       </div>
     </div>

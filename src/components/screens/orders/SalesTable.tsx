@@ -10,7 +10,8 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
-import type { PurchaseOrder, SaleOrder } from "@/types";
+import { allocationLabel } from "@/lib/utils";
+import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
@@ -22,8 +23,10 @@ function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
           {saleOrder.customer?.name ?? "—"}
         </p>
         <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Assigned PO</span>
-          {saleOrder.linked_po_id ?? "—"}
+          <span className="mr-2 text-muted-foreground">Linked POs</span>
+          {(saleOrder.po_links ?? []).length
+            ? (saleOrder.po_links ?? []).map((link) => link.purchase_order?.po_number ?? link.purchase_order_id).join(", ")
+            : "—"}
         </p>
       </div>
 
@@ -61,19 +64,18 @@ function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
 
 export default function SalesTable() {
   const { data, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
+  const { data: profiles } = useApi<Profile[]>("/api/profiles");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
+  const [procurementFilter, setProcurementFilter] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const sources = useMemo(() => {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
     return Array.from(set).sort().map((s) => ({ label: s, value: s }));
   }, [data]);
-  const assignablePurchaseOrders = (purchaseOrders ?? []).filter((purchaseOrder) => purchaseOrder.status !== "cancelled");
-
   const filtered = useMemo(() => {
     let rows = data ?? [];
     if (search) {
@@ -88,8 +90,9 @@ export default function SalesTable() {
     if (statusFilter) rows = rows.filter((r) => r.status === statusFilter);
     if (paymentFilter) rows = rows.filter((r) => r.payment_status === paymentFilter);
     if (sourceFilter) rows = rows.filter((r) => r.source === sourceFilter);
+    if (procurementFilter) rows = rows.filter((r) => allocationLabel(r.allocation_status) === procurementFilter);
     return rows;
-  }, [data, search, statusFilter, paymentFilter, sourceFilter]);
+  }, [data, search, statusFilter, paymentFilter, sourceFilter, procurementFilter]);
 
   const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
@@ -103,7 +106,7 @@ export default function SalesTable() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => p.data?.owner?.name ?? "—",
+        valueGetter: (p) => p.data?.owner?.name ?? "Unassigned",
         minWidth: 120,
       },
       {
@@ -128,6 +131,16 @@ export default function SalesTable() {
         headerName: "Payment",
         minWidth: 140,
         cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
+      },
+      {
+        colId: "procurement",
+        headerName: "Procurement",
+        minWidth: 140,
+        valueGetter: (p) => p.data ? allocationLabel(p.data.allocation_status) : "—",
+        cellRenderer: (p: { value: string; data?: SaleOrder }) => {
+          if (!p.data || (p.data.status !== "open" && p.data.status !== "shipped")) return "—";
+          return StatusBadge({ status: p.value });
+        },
       },
       {
         field: "priority",
@@ -193,6 +206,17 @@ export default function SalesTable() {
             onChange: setPaymentFilter,
           },
           {
+            key: "procurement",
+            label: "Procurement",
+            options: [
+              { label: "Need", value: "need" },
+              { label: "Awaiting", value: "awaiting" },
+              { label: "Ready to Ship", value: "ready_to_ship" },
+            ],
+            value: procurementFilter,
+            onChange: setProcurementFilter,
+          },
+          {
             key: "source",
             label: "Source",
             options: sources,
@@ -254,19 +278,6 @@ export default function SalesTable() {
                 { label: "Drop Ship", value: "drop_ship" },
               ],
             },
-            {
-              key: "linked_po_id",
-              label: "Assigned Purchase Order",
-              type: "select",
-              emptyValue: null,
-              options: [
-                { label: "No purchase order assigned", value: "" },
-                ...assignablePurchaseOrders.map((purchaseOrder) => ({
-                  label: `${purchaseOrder.po_number} · ${purchaseOrder.supplier?.name ?? "Unknown supplier"} · ${purchaseOrder.status}`,
-                  value: purchaseOrder.id,
-                })),
-              ],
-            },
             { key: "shipped_date", label: "Shipped Date", type: "date" },
             { key: "delivered_date", label: "Delivered Date", type: "date" },
             { key: "shipping_cost", label: "Shipping Cost", type: "number" },
@@ -281,6 +292,19 @@ export default function SalesTable() {
                 { label: "Normal", value: "normal" },
                 { label: "High", value: "high" },
                 { label: "Urgent", value: "urgent" },
+              ],
+            },
+            {
+              key: "owner_id",
+              label: "Owner",
+              type: "select",
+              emptyValue: null,
+              options: [
+                { label: "Unassigned", value: "" },
+                ...(profiles ?? []).filter((p) => p.is_active).map((p) => ({
+                  label: p.name,
+                  value: p.id,
+                })),
               ],
             },
             { key: "shipping_details", label: "Shipping Details", type: "textarea" },
@@ -315,7 +339,7 @@ export default function SalesTable() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Owner</dt>
-                  <dd className="mt-1 text-sm text-foreground">{saleOrder.owner?.name ?? "—"}</dd>
+                  <dd className="mt-1 text-sm text-foreground">{saleOrder.owner?.name ?? "Unassigned"}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Status</dt>
@@ -398,15 +422,19 @@ export default function SalesTable() {
               </div>
 
               <div>
-                <h3 className="mb-3 text-sm font-semibold text-foreground">Attached Procurement Order</h3>
-                <dl className="rounded-md border border-border">
-                  <div className="grid gap-1 px-3 py-2 sm:grid-cols-[10rem_1fr] sm:gap-4">
-                    <dt className="text-sm font-medium text-muted-foreground">Purchase Order</dt>
-                    <dd className="min-w-0 break-words text-sm text-foreground">
-                      {saleOrder.linked_po_id ?? "No procurement order attached"}
-                    </dd>
-                  </div>
-                </dl>
+                <h3 className="mb-3 text-sm font-semibold text-foreground">Linked Purchase Orders</h3>
+                {(saleOrder.po_links ?? []).length ? (
+                  <ul className="space-y-1">
+                    {(saleOrder.po_links ?? []).map((link) => (
+                      <li key={link.purchase_order_id} className="text-sm text-foreground">
+                        <Link href={`/orders/procurement/${link.purchase_order_id}`} className="font-medium text-primary hover:underline">
+                          {link.purchase_order?.po_number ?? link.purchase_order_id}
+                        </Link>
+                        {link.purchase_order && <span className="ml-2 text-muted-foreground">{link.purchase_order.status}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : <p className="text-sm text-muted-foreground">No purchase orders linked</p>}
               </div>
 
               <div>
@@ -456,7 +484,7 @@ export default function SalesTable() {
                       "fulfillment_type",
                       "business_channel",
                       "source",
-                      "linked_po_id",
+                      "po_links",
                       "order_date",
                       "shipped_date",
                       "delivered_date",

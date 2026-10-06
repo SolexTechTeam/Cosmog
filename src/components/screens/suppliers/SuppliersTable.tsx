@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, type FormEvent } from "react";
+import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
@@ -28,7 +29,14 @@ export default function SuppliersTable() {
 
   const allColumns: ColDef<Supplier>[] = useMemo(
     () => [
-      { field: "name", headerName: "Name", minWidth: 250 },
+      {
+        field: "name",
+        headerName: "Name",
+        minWidth: 250,
+        cellRenderer: (params: { value: string; data?: Supplier }) => params.data ? (
+          <Link href={`/suppliers/${params.data.id}`} className="font-medium text-primary hover:underline">{params.value}</Link>
+        ) : params.value,
+      },
       { field: "default_lead_days", headerName: "Lead Days", minWidth: 110 },
       {
         headerName: "Email",
@@ -86,7 +94,14 @@ export default function SuppliersTable() {
           onSearchChange={setSearch}
           trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Supplier</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
         />
-        <DataGrid<Supplier> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
+        <DataGrid<Supplier>
+          rows={filtered}
+          columns={visibleColumns}
+          loading={loading}
+          pageSize={25}
+          showDetailsMenu
+          detailsPageHref={(supplier) => `/suppliers/${supplier.id}`}
+        />
       </div>
       {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createSupplier} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-supplier-title"><h2 id="add-supplier-title" className="text-lg font-semibold">Add Supplier</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Email<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Phone<input value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Lead days<input required type="number" min="1" step="1" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add Supplier"}</button></div></form></div>}
     </div>

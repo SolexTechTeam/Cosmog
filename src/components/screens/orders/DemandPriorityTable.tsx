@@ -10,8 +10,8 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
-import { isActiveSaleOrderStatus } from "@/lib/utils";
-import type { PurchaseOrder, SaleOrder } from "@/types";
+import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 type PriorityLabel = "High Attention" | "Med Attention" | "Low Attention";
@@ -32,9 +32,9 @@ interface DemandPriorityLine {
   age_points: number;
   total_points: number;
   priority_label: PriorityLabel;
+  allocation_status: string | null;
   items: SaleOrder["items"];
-  linked_po_id: string | null;
-  linked_purchase_order?: PurchaseOrder;
+  po_links: SaleOrder["po_links"];
 }
 
 function agePoints(daysPast: number) {
@@ -106,34 +106,27 @@ function OrderItems({ items }: { items: SaleOrder["items"] }) {
   );
 }
 
-function AssociatedPurchaseOrder({ line }: { line: DemandPriorityLine }) {
-  const purchaseOrder = line.linked_purchase_order;
+function AssociatedPurchaseOrders({ line }: { line: DemandPriorityLine }) {
+  const links = line.po_links ?? [];
 
-  if (!line.linked_po_id) {
-    return <p className="text-sm text-muted-foreground">No procurement order assigned</p>;
-  }
-
-  if (!purchaseOrder) {
-    return (
-      <Link
-        href={`/orders/procurement/${line.linked_po_id}`}
-        className="break-words text-sm font-medium text-primary hover:underline"
-      >
-        {line.linked_po_id}
-      </Link>
-    );
+  if (!links.length) {
+    return <p className="text-sm text-muted-foreground">No procurement orders linked</p>;
   }
 
   return (
-    <div className="space-y-1 text-sm text-foreground">
-      <Link
-        href={`/orders/procurement/${purchaseOrder.id}`}
-        className="font-medium text-primary hover:underline"
-      >
-        {purchaseOrder.po_number}
-      </Link>
-      <p className="text-muted-foreground">{purchaseOrder.supplier?.name ?? "—"} · {purchaseOrder.status}</p>
-    </div>
+    <ul className="space-y-1 text-sm text-foreground">
+      {links.map((link) => (
+        <li key={link.purchase_order_id}>
+          <Link
+            href={`/orders/procurement/${link.purchase_order_id}`}
+            className="font-medium text-primary hover:underline"
+          >
+            {link.purchase_order?.po_number ?? link.purchase_order_id}
+          </Link>
+          {link.purchase_order && <span className="ml-2 text-muted-foreground">{link.purchase_order.status}</span>}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -151,7 +144,7 @@ function DemandPriorityExpandedDetails({ line }: { line: DemandPriorityLine }) {
         </div>
         <div>
           <p className="mb-1 text-muted-foreground">Associated PO</p>
-          <AssociatedPurchaseOrder line={line} />
+          <AssociatedPurchaseOrders line={line} />
         </div>
       </div>
       <div>
@@ -212,7 +205,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 
       <div className="mt-6">
         <h3 className="mb-3 text-sm font-semibold text-foreground">Associated Procurement Order</h3>
-        <AssociatedPurchaseOrder line={line} />
+        <AssociatedPurchaseOrders line={line} />
       </div>
 
       <div className="mt-6">
@@ -225,14 +218,9 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 
 export default function DemandPriorityTable() {
   const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
-
-  const purchaseOrdersById = useMemo(
-    () => new Map((purchaseOrders ?? []).map((purchaseOrder) => [purchaseOrder.id, purchaseOrder])),
-    [purchaseOrders]
-  );
+  const [procurementFilter, setProcurementFilter] = useState("");
 
   const lines = useMemo<DemandPriorityLine[]>(() => {
     return (data ?? [])
@@ -262,8 +250,8 @@ export default function DemandPriorityTable() {
           total_points: totalPoints,
           priority_label: priorityLabel(totalPoints),
           items,
-          linked_po_id: order.linked_po_id,
-          linked_purchase_order: order.linked_po_id ? purchaseOrdersById.get(order.linked_po_id) : undefined,
+          allocation_status: order.allocation_status,
+          po_links: order.po_links,
         };
       })
       .sort((first, second) =>
@@ -272,7 +260,7 @@ export default function DemandPriorityTable() {
         second.days_past - first.days_past ||
         first.order_date.localeCompare(second.order_date)
       );
-  }, [data, purchaseOrdersById]);
+  }, [data]);
 
   const highCount = lines.filter((line) => line.priority_label === "High Attention").length;
   const medCount = lines.filter((line) => line.priority_label === "Med Attention").length;
@@ -291,8 +279,9 @@ export default function DemandPriorityTable() {
       );
     }
     if (priorityFilter) rows = rows.filter((line) => line.priority_label === priorityFilter);
+    if (procurementFilter) rows = rows.filter((line) => allocationLabel(line.allocation_status) === procurementFilter);
     return rows;
-  }, [lines, search, priorityFilter]);
+  }, [lines, search, priorityFilter, procurementFilter]);
 
   const allColumns: ColDef<DemandPriorityLine>[] = useMemo(
     () => [
@@ -326,6 +315,13 @@ export default function DemandPriorityTable() {
         headerName: "Payment",
         minWidth: 145,
         cellRenderer: (params: { value: string }) => StatusBadge({ status: params.value }),
+      },
+      {
+        colId: "procurement",
+        headerName: "Procurement",
+        minWidth: 140,
+        valueGetter: (p) => p.data ? allocationLabel(p.data.allocation_status) : "—",
+        cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
       },
       { field: "customer_name", headerName: "Customer", minWidth: 180 },
       { field: "product_name", headerName: "Product", minWidth: 180 },
@@ -385,6 +381,17 @@ export default function DemandPriorityTable() {
               ],
               value: priorityFilter,
               onChange: setPriorityFilter,
+            },
+            {
+              key: "procurement",
+              label: "Procurement",
+              options: [
+                { label: "Need", value: "need" },
+                { label: "Awaiting", value: "awaiting" },
+                { label: "Ready to Ship", value: "ready_to_ship" },
+              ],
+              value: procurementFilter,
+              onChange: setProcurementFilter,
             },
           ]}
           trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}

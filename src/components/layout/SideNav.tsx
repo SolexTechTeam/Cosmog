@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
+import { useApi } from "@/hooks/useApi";
+import type { Profile } from "@/types";
 
 type NavLink = { label: string; href: string };
 type NavGroup = { label: string; children: NavLink[] };
@@ -45,14 +47,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
-  }, []);
+  const { data: profile } = useApi<Profile>("/api/profiles/me");
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
@@ -133,8 +128,8 @@ export default function SideNav() {
 
       {/* User info + sign out at bottom */}
       <div className={`border-t border-sidebar-border px-4 py-4 ${collapsed ? "px-2" : ""}`}>
-        {!collapsed && userEmail && (
-          <p className="text-xs text-gray-500 truncate mb-2">{userEmail}</p>
+        {!collapsed && profile && (
+          <p className="text-xs text-gray-500 truncate mb-2">{profile.name}</p>
         )}
         <button
           onClick={handleSignOut}

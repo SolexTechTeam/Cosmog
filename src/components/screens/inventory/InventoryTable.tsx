@@ -14,24 +14,16 @@ import type { ColDef } from "ag-grid-community";
 interface InventoryLot {
   id: string;
   product_id: string;
-  purchase_order_id?: string | null;
-  quantity_received?: number | null;
-  quantity_remaining?: number | null;
-  qty_on_hand?: number | null;
-  qty_reserved?: number | null;
-  qty_available?: number | null;
-  unit_cost?: number | null;
-  received_date?: string | null;
-  received_at?: string | null;
-  status?: string | null;
-}
-
-function lotOnHand(lot: InventoryLot) {
-  return lot.qty_on_hand ?? lot.quantity_remaining ?? lot.quantity_received ?? 0;
-}
-
-function lotAvailable(lot: InventoryLot) {
-  return lot.qty_available ?? Math.max(0, lotOnHand(lot) - (lot.qty_reserved ?? 0));
+  purchase_order_item_id: string;
+  quantity_total: number;
+  quantity_on_hand: number;
+  quantity_reserved: number;
+  lot_status: string;
+  unit_cost: number;
+  received_at: string | null;
+  created_at: string;
+  updated_at: string;
+  purchase_order_item?: { id: string; purchase_order_id: string; unit_cost: number } | null;
 }
 
 function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | null }) {
@@ -56,11 +48,11 @@ function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | 
           {lots.map((lot) => (
             <tr key={lot.id}>
               <td className="px-3 py-2 font-mono text-xs text-foreground">{lot.id}</td>
-              <td className="px-3 py-2 text-foreground">{lot.received_date ?? lot.received_at?.slice(0, 10) ?? "—"}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lotOnHand(lot)}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lot.qty_reserved ?? 0}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lotAvailable(lot)}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lot.unit_cost == null ? "—" : `$${lot.unit_cost.toFixed(2)}`}</td>
+              <td className="px-3 py-2 text-foreground">{lot.received_at?.slice(0, 10) ?? "—"}</td>
+              <td className="px-3 py-2 text-right text-foreground">{lot.quantity_on_hand}</td>
+              <td className="px-3 py-2 text-right text-foreground">{lot.quantity_reserved}</td>
+              <td className="px-3 py-2 text-right text-foreground">{Math.max(0, lot.quantity_on_hand - lot.quantity_reserved)}</td>
+              <td className="px-3 py-2 text-right text-foreground">{`$${lot.unit_cost.toFixed(2)}`}</td>
             </tr>
           ))}
           {lots.length === 0 && (
@@ -104,6 +96,7 @@ function InventoryStockDetails({ stock, lots, lotsError }: { stock: StockStatus;
 }
 
 export default function InventoryTable() {
+  // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
   const { data, loading, error } = useApi<StockStatus[]>("/api/inventory/stock-status");
   const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>("/api/inventory/lots");
   const [search, setSearch] = useState("");
