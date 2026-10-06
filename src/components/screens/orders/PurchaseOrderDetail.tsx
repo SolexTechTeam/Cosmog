@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { api } from "@/lib/api";
@@ -23,10 +23,6 @@ interface DraftPurchaseOrderValues {
   notes: string;
 }
 
-function isLinkedTo(order: SaleOrder, poId: string) {
-  return (order.po_links ?? []).some((link) => link.purchase_order_id === poId);
-}
-
 function DraftPurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
   const [values, setValues] = useState<DraftPurchaseOrderValues | null>(null);
   const [saving, setSaving] = useState(false);
@@ -43,7 +39,7 @@ function DraftPurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: P
     setError(null);
   }
 
-  async function save(event: FormEvent<HTMLFormElement>) {
+  async function save(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!values) return;
 
@@ -98,11 +94,52 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
   const purchaseOrder = purchaseOrders?.find((order) => order.id === purchaseOrderId);
 
+  const [editing, setEditing] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading purchase order…</p>;
   if (error) return <p className="text-sm text-destructive">Failed to load purchase order: {error}</p>;
   if (!purchaseOrder) return <p className="text-sm text-muted-foreground">Purchase order not found.</p>;
 
   const totalCost = (purchaseOrder.items ?? []).reduce((total, item) => total + item.quantity_ordered * item.unit_cost, 0);
+  const po = purchaseOrder;
+  const canEdit = po.status !== "received" && po.status !== "cancelled";
+
+  function startEditing() {
+    setEditValues({
+      fulfillment_type: po.fulfillment_type,
+      expected_arrival: po.expected_arrival ?? "",
+      shipped_date: po.shipped_date ?? "",
+      received_date: po.received_date ?? "",
+      notes: po.notes ?? "",
+    });
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEdits() {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const changes: Record<string, unknown> = {};
+      if (editValues.fulfillment_type !== po.fulfillment_type) changes.fulfillment_type = editValues.fulfillment_type;
+      if (editValues.expected_arrival !== (po.expected_arrival ?? "")) changes.expected_arrival = editValues.expected_arrival || null;
+      if (editValues.shipped_date !== (po.shipped_date ?? "")) changes.shipped_date = editValues.shipped_date || null;
+      if (editValues.received_date !== (po.received_date ?? "")) changes.received_date = editValues.received_date || null;
+      if (editValues.notes !== (po.notes ?? "")) changes.notes = editValues.notes || null;
+      if (Object.keys(changes).length) {
+        await api.patch(`/api/purchase-orders/${po.id}`, changes);
+      }
+      setEditing(false);
+      refetch();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -119,6 +156,10 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             {purchaseOrder.supplier?.name ?? "Unknown supplier"} · {purchaseOrder.order_date}
           </p>
         </div>
+        <div className="flex items-center gap-3">
+          {canEdit && !editing && purchaseOrder.status !== "draft" && (
+            <button type="button" onClick={startEditing} className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted">Edit</button>
+          )}
         <OrderStatusWidget
           status={purchaseOrder.status}
           isComplete={purchaseOrder.status === "received"}
@@ -147,9 +188,30 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             refetch();
           }}
         />
+        </div>
       </div>
 
       {purchaseOrder.status === "draft" && <DraftPurchaseOrderEditor purchaseOrder={purchaseOrder} onSaved={refetch} />}
+
+      {editing && (
+        <section className="rounded-xl border border-primary/30 bg-card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-header">Edit Order</h2>
+            <button type="button" onClick={() => setEditing(false)} disabled={savingEdit} className="text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium">Fulfillment type<select value={editValues.fulfillment_type} onChange={(e) => setEditValues((v) => ({ ...v, fulfillment_type: e.target.value }))} className="h-9 rounded-md border border-border bg-background px-2 font-normal"><option value="warehouse">Warehouse</option><option value="direct_delivery">Direct delivery</option></select></label>
+            <label className="grid gap-1 text-sm font-medium">Expected arrival<input type="date" value={editValues.expected_arrival} onChange={(e) => setEditValues((v) => ({ ...v, expected_arrival: e.target.value }))} className="h-9 rounded-md border border-border bg-background px-2 font-normal" /></label>
+            <label className="grid gap-1 text-sm font-medium">Shipped date<input type="date" value={editValues.shipped_date} onChange={(e) => setEditValues((v) => ({ ...v, shipped_date: e.target.value }))} className="h-9 rounded-md border border-border bg-background px-2 font-normal" /></label>
+            <label className="grid gap-1 text-sm font-medium">Received date<input type="date" value={editValues.received_date} onChange={(e) => setEditValues((v) => ({ ...v, received_date: e.target.value }))} className="h-9 rounded-md border border-border bg-background px-2 font-normal" /></label>
+            <label className="grid gap-1 text-sm font-medium sm:col-span-2">Notes<textarea value={editValues.notes} onChange={(e) => setEditValues((v) => ({ ...v, notes: e.target.value }))} rows={3} className="rounded-md border border-border bg-background px-2 py-2 font-normal" /></label>
+          </div>
+          {editError && <p className="mt-3 text-sm text-destructive">{editError}</p>}
+          <div className="mt-4">
+            <button type="button" onClick={saveEdits} disabled={savingEdit} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{savingEdit ? "Saving..." : "Save changes"}</button>
+          </div>
+        </section>
+      )}
 
       {/* Metrics */}
       <MetricCardRow>

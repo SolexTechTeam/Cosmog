@@ -89,18 +89,6 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
 
       {selectedIds === null ? (
         <>
-          {allocationCounts && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {["ready_to_ship", "awaiting", "need"].map((key) =>
-                allocationCounts[key] ? (
-                  <span key={key} className="flex items-center gap-1.5 text-xs">
-                    <StatusBadge status={key} />
-                    <span className="font-semibold text-foreground">{allocationCounts[key]}</span>
-                  </span>
-                ) : null
-              )}
-            </div>
-          )}
           {linkedOrders.length ? (
             <ul className="mt-3 space-y-2">
               {linkedOrders.map((order) => (

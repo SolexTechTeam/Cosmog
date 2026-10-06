@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { api } from "@/lib/api";
-import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import { allocationLabel, isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -66,7 +66,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     try {
       const changes: Record<string, unknown> = {};
       if (editValues.priority !== so.priority) changes.priority = editValues.priority;
-      if (editValues.owner_id !== (so.owner_id ?? "")) changes.owner_id = editValues.owner_id || null;
+      if (editValues.owner_id && editValues.owner_id !== (so.owner_id ?? "")) changes.owner_id = editValues.owner_id;
       if (editValues.fulfillment_type !== so.fulfillment_type) changes.fulfillment_type = editValues.fulfillment_type;
       if (editValues.payment_status !== so.payment_status) changes.payment_status = editValues.payment_status;
       const cost = Number(editValues.shipping_cost);
@@ -104,12 +104,11 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           <p className="mt-1 text-sm text-muted-foreground">
             {saleOrder.customer?.name ?? "Unknown customer"} · {saleOrder.order_date}
           </p>
-        </div>
-        <div className="flex items-center gap-3">
           {canEdit && !editing && (
-            <button type="button" onClick={startEditing} className="rounded-md border border-border px-3 py-2 text-sm font-medium hover:bg-muted">Edit</button>
+            <button type="button" onClick={startEditing} className="mt-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">Edit order</button>
           )}
-          <OrderStatusWidget
+        </div>
+        <OrderStatusWidget
             status={saleOrder.status}
             isComplete={saleOrder.status === "completed"}
             options={[
@@ -124,7 +123,6 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               refetch();
             }}
           />
-        </div>
       </div>
 
       {/* Metrics */}
@@ -256,7 +254,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Owner</dt>
-                <dd className="mt-0.5 font-medium">{saleOrder.owner?.name ?? "Unassigned"}</dd>
+                <dd className="mt-0.5 font-medium">{ownerName(saleOrder.owner)}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Priority</dt>

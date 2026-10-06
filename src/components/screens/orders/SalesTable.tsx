@@ -10,7 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
-import { allocationLabel } from "@/lib/utils";
+import { allocationLabel, ownerName } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -106,7 +106,7 @@ export default function SalesTable() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => p.data?.owner?.name ?? "Unassigned",
+        valueGetter: (p) => ownerName(p.data?.owner),
         minWidth: 120,
       },
       {
@@ -298,7 +298,6 @@ export default function SalesTable() {
               key: "owner_id",
               label: "Owner",
               type: "select",
-              emptyValue: null,
               options: [
                 { label: "Unassigned", value: "" },
                 ...(profiles ?? []).filter((p) => p.is_active).map((p) => ({
@@ -339,7 +338,7 @@ export default function SalesTable() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Owner</dt>
-                  <dd className="mt-1 text-sm text-foreground">{saleOrder.owner?.name ?? "Unassigned"}</dd>
+                  <dd className="mt-1 text-sm text-foreground">{ownerName(saleOrder.owner)}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Status</dt>

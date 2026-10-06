@@ -69,6 +69,13 @@ function DetailsMenu({ onOpen, onEdit, pageHref }: DetailsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    function handleClickOutside() { setIsOpen(false); }
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [isOpen]);
+
   return (
     <div className="relative flex h-full items-center justify-center">
       <button
@@ -87,6 +94,7 @@ function DetailsMenu({ onOpen, onEdit, pageHref }: DetailsMenuProps) {
       </button>
       {isOpen && menuPosition && createPortal(
         <div
+          onMouseDown={(e) => e.stopPropagation()}
           className="fixed z-[60] w-36 -translate-y-1/2 rounded-md border border-border bg-card p-1 shadow-lg"
           style={{ top: menuPosition.top, left: menuPosition.left }}
         >
@@ -362,7 +370,7 @@ export default function DataGrid<T extends object>({
             );
           }}
           getRowHeight={(params) =>
-            isInlineDetailRow(params.data as T | InlineDetailRow<T>) ? expandedRowHeight : undefined
+            isInlineDetailRow(params.data as T | InlineDetailRow<T>) ? Math.min(Math.max(expandedRowHeight, 200), 500) : undefined
           }
           suppressCellFocus
           defaultColDef={{

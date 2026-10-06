@@ -13,10 +13,24 @@ interface SaleLine {
   unit_price: string;
 }
 
+interface StockWarning {
+  product_id: string;
+  requested: number;
+  available: number;
+  in_transit: number;
+  shortfall: number;
+  message: string;
+}
+
+interface CreateResponse extends SaleOrder {
+  stock_warnings?: StockWarning[];
+}
+
 interface CreatedOrderInfo {
   id: string;
   number: string;
   items: { product_id: string; quantity: number }[];
+  stockWarnings: StockWarning[];
 }
 
 interface CreateSaleOrderDialogProps {
@@ -81,7 +95,8 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const customers = fetchedCustomers ?? [];
   const products = fetchedProducts ?? [];
   const profiles = (fetchedProfiles ?? []).filter((p) => p.is_active);
-  const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((purchaseOrder) => purchaseOrder.status !== "cancelled");
+  const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((po) => po.status !== "cancelled" && po.status !== "received");
+  const [poSearch, setPoSearch] = useState("");
 
   function updateLine(index: number, changes: Partial<SaleLine>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
@@ -145,7 +160,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
     try {
       setSaving(true);
       setError(null);
-      const created = await api.post<SaleOrder>("/api/sale-orders", {
+      const created = await api.post<CreateResponse>("/api/sale-orders", {
         customer_id: customerId,
         order_date: orderDate,
         fulfillment_type: fulfillmentType,
@@ -166,6 +181,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         id: created.id,
         number: created.so_number,
         items: normalizedLines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
+        stockWarnings: created.stock_warnings ?? [],
       });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create sales order.");
@@ -259,14 +275,39 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           {/* PO links */}
           <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2">
             <legend className="px-1 text-sm font-medium">Link purchase orders</legend>
-            <div className="max-h-36 space-y-2 overflow-y-auto pr-1">
-              {purchaseOrders.length ? purchaseOrders.map((po) => (
-                <label key={po.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                  <input type="checkbox" checked={linkedPoIds.includes(po.id)} onChange={() => setLinkedPoIds((cur) => cur.includes(po.id) ? cur.filter((id) => id !== po.id) : [...cur, po.id])} className="size-4 accent-primary" />
-                  <span>{po.po_number} · {po.supplier?.name ?? "Unknown supplier"} · {po.status}</span>
-                </label>
-              )) : <p className="text-sm text-muted-foreground">No purchase orders available.</p>}
-            </div>
+            {linkedPoIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {linkedPoIds.map((id) => {
+                  const po = purchaseOrders.find((p) => p.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {po?.po_number ?? id.slice(0, 8)}
+                      <button type="button" onClick={() => setLinkedPoIds((cur) => cur.filter((i) => i !== id))} className="ml-0.5 text-primary/60 hover:text-primary">x</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <input placeholder="Search purchase orders..." value={poSearch} onChange={(e) => setPoSearch(e.target.value)} className={inputClass} />
+            {poSearch && (
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2">
+                {purchaseOrders
+                  .filter((po) => !linkedPoIds.includes(po.id) && (
+                    po.po_number.toLowerCase().includes(poSearch.toLowerCase()) ||
+                    (po.supplier?.name ?? "").toLowerCase().includes(poSearch.toLowerCase())
+                  ))
+                  .slice(0, 10)
+                  .map((po) => (
+                    <button key={po.id} type="button" onClick={() => { setLinkedPoIds((cur) => [...cur, po.id]); setPoSearch(""); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted">
+                      <span className="font-medium">{po.po_number}</span>
+                      <span className="text-muted-foreground">{po.supplier?.name ?? "Unknown"} · {po.status}</span>
+                    </button>
+                  ))}
+                {purchaseOrders.filter((po) => !linkedPoIds.includes(po.id) && (po.po_number.toLowerCase().includes(poSearch.toLowerCase()) || (po.supplier?.name ?? "").toLowerCase().includes(poSearch.toLowerCase()))).length === 0 && (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No matching purchase orders</p>
+                )}
+              </div>
+            )}
           </fieldset>
         </div>
 
@@ -312,23 +353,36 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
         </label>
 
-        {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button>
-          <button type="submit" disabled={saving || !!createdOrder} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Sales Order"}</button>
-        </div>
-      </form>
+        {!createdOrder && (
+          <>
+            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button>
+              <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Sales Order"}</button>
+            </div>
+          </>
+        )}
 
-      {createdOrder && !showCreatePo && (
-        <div onMouseDown={(e) => e.stopPropagation()} className="mx-auto -mt-4 w-full max-w-3xl rounded-xl border border-emerald-500/30 bg-card p-5 shadow-xl">
-          <p className="text-sm font-medium text-emerald-600">Sales order {createdOrder.number} created successfully.</p>
-          <div className="mt-4 flex gap-2">
-            <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Purchase Order</button>
-            <button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Done</button>
+        {createdOrder && (
+          <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-50/50 p-4">
+            <p className="text-sm font-medium text-emerald-700">Sales order {createdOrder.number} created successfully.</p>
+            {createdOrder.stockWarnings.length > 0 && (
+              <div className="mt-2 rounded-md border border-amber-300/50 bg-amber-50/50 p-3">
+                <p className="text-xs font-semibold text-amber-700">Stock warnings</p>
+                <ul className="mt-1 space-y-0.5">
+                  {createdOrder.stockWarnings.map((w) => (
+                    <li key={w.product_id} className="text-xs text-amber-600">{w.message}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Purchase Order</button>
+              <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
+            </div>
           </div>
-        </div>
-      )}
-
+        )}
+      </form>
     </div>
   );
 }

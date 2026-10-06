@@ -52,17 +52,14 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
 
   const suppliers = fetchedSuppliers ?? [];
   const products = fetchedProducts ?? [];
-  const saleOrders = (fetchedSaleOrders ?? []).filter((saleOrder) => saleOrder.status === "open" || saleOrder.status === "shipped");
+  const saleOrders = (fetchedSaleOrders ?? []).filter((so) => so.status === "open" || so.status === "shipped");
+  const [soSearch, setSoSearch] = useState("");
 
   function updateLine(index: number, changes: Partial<PurchaseLine>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
   }
 
-  function toggleLinkedSaleOrder(saleOrderId: string) {
-    setLinkedSaleOrderIds((current) => current.includes(saleOrderId)
-      ? current.filter((currentId) => currentId !== saleOrderId)
-      : [...current, saleOrderId]);
-  }
+
 
   async function addSupplier() {
     const leadDays = Number(newSupplier.default_lead_days);
@@ -158,23 +155,62 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
           {showSupplierForm && <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_1fr_6rem_auto]"><input placeholder="Supplier name" value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input type="email" placeholder="Email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className={inputClass} /><input placeholder="Phone" value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className={inputClass} /><input type="number" min="1" step="1" placeholder="Lead days" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className={inputClass} /><button type="button" onClick={addSupplier} disabled={creatingSupplier} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingSupplier ? "…" : "Add"}</button></div>}
           <label className="grid gap-1 text-sm font-medium">Type<select value={fulfillmentType} onChange={(event) => setFulfillmentType(event.target.value)} className={inputClass}>{(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Warehouse", value: "warehouse" }, { label: "Direct delivery", value: "direct_delivery" }]).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label>
           <label className="grid gap-1 text-sm font-medium">Order date<input required type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} className={inputClass} /></label>
-          <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2"><legend className="px-1 text-sm font-medium">Link open sales orders</legend><p className="text-xs text-muted-foreground">Selected sales orders will be assigned to this PO when it is created.</p><div className="max-h-36 space-y-2 overflow-y-auto pr-1">{saleOrders.length ? saleOrders.map((saleOrder) => <label key={saleOrder.id} className="flex cursor-pointer items-center gap-2 text-sm"><input type="checkbox" checked={linkedSaleOrderIds.includes(saleOrder.id)} onChange={() => toggleLinkedSaleOrder(saleOrder.id)} className="size-4 accent-primary" /><span>{saleOrder.so_number} · {saleOrder.customer?.name ?? "Unknown customer"} · {saleOrder.status}</span></label>) : <p className="text-sm text-muted-foreground">No open sales orders available.</p>}</div></fieldset>
+          <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2">
+            <legend className="px-1 text-sm font-medium">Link open sales orders</legend>
+            {linkedSaleOrderIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {linkedSaleOrderIds.map((id) => {
+                  const so = saleOrders.find((s) => s.id === id);
+                  return (
+                    <span key={id} className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      {so?.so_number ?? id.slice(0, 8)}
+                      <button type="button" onClick={() => setLinkedSaleOrderIds((cur) => cur.filter((i) => i !== id))} className="ml-0.5 text-primary/60 hover:text-primary">x</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <input placeholder="Search sales orders..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className={inputClass} />
+            {soSearch && (
+              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2">
+                {saleOrders
+                  .filter((so) => !linkedSaleOrderIds.includes(so.id) && (
+                    so.so_number.toLowerCase().includes(soSearch.toLowerCase()) ||
+                    (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase())
+                  ))
+                  .slice(0, 10)
+                  .map((so) => (
+                    <button key={so.id} type="button" onClick={() => { setLinkedSaleOrderIds((cur) => [...cur, so.id]); setSoSearch(""); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted">
+                      <span className="font-medium">{so.so_number}</span>
+                      <span className="text-muted-foreground">{so.customer?.name ?? "Unknown"} · {so.status}</span>
+                    </button>
+                  ))}
+                {saleOrders.filter((so) => !linkedSaleOrderIds.includes(so.id) && (so.so_number.toLowerCase().includes(soSearch.toLowerCase()) || (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase()))).length === 0 && (
+                  <p className="px-2 py-1 text-xs text-muted-foreground">No matching sales orders</p>
+                )}
+              </div>
+            )}
+          </fieldset>
         </div>
         <div className="mt-6"><div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">Items</h3><div className="flex gap-2"><button type="button" onClick={() => setShowProductForm((value) => !value)} className="text-sm font-medium text-primary hover:underline">Add product</button><button type="button" onClick={() => setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="text-sm font-medium text-primary hover:underline">Add line</button></div></div>{showProductForm && <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><input placeholder="Product name" value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input placeholder="Category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))} className={inputClass} /><input placeholder="SKU" value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} className={inputClass} /><button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button></div>}<div className="space-y-2">{lines.map((line, index) => <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]"><select value={line.product_id} onChange={(event) => updateLine(index, { product_id: event.target.value })} className={inputClass}><option value="">Select product</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select><input type="number" min="1" step="1" value={line.quantity_ordered} onChange={(event) => updateLine(index, { quantity_ordered: event.target.value })} className={inputClass} placeholder="Qty" /><input type="number" min="0" step="0.01" value={line.unit_cost} onChange={(event) => updateLine(index, { unit_cost: event.target.value })} className={inputClass} placeholder="Unit cost" /><button type="button" onClick={() => setLines((current) => current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button></div>)}</div></div>
         <label className="mt-5 grid gap-1 text-sm font-medium">Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="rounded-md border border-input bg-background px-3 py-2 font-normal" /></label>
-        <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button><button type="submit" disabled={saving || !!createdOrder} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Purchase Order"}</button></div>
-      </form>
-
-      {createdOrder && !showCreateSo && (
-        <div onMouseDown={(e) => e.stopPropagation()} className="mx-auto -mt-4 w-full max-w-3xl rounded-xl border border-emerald-500/30 bg-card p-5 shadow-xl">
-          <p className="text-sm font-medium text-emerald-600">Purchase order {createdOrder.number} created successfully.</p>
-          <div className="mt-4 flex gap-2">
-            <button type="button" onClick={() => setShowCreateSo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Sales Order</button>
-            <button type="button" onClick={onClose} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Done</button>
+        {!createdOrder && (
+          <div className="mt-6 flex justify-end gap-2">
+            <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button>
+            <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Purchase Order"}</button>
           </div>
-        </div>
-      )}
+        )}
 
+        {createdOrder && (
+          <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-50/50 p-4">
+            <p className="text-sm font-medium text-emerald-700">Purchase order {createdOrder.number} created successfully.</p>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => setShowCreateSo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Sales Order</button>
+              <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
+            </div>
+          </div>
+        )}
+      </form>
     </div>
   );
 }

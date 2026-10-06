@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import StatusBadge from "@/components/common/StatusBadge";
-import { isActiveSaleOrderStatus } from "@/lib/utils";
+import { isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -30,7 +30,7 @@ export default function ActiveOrdersWidget() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => p.data?.owner?.name ?? "Unassigned",
+        valueGetter: (p) => ownerName(p.data?.owner),
         width: 120,
       },
       {

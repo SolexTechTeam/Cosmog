@@ -12,6 +12,7 @@ import type { ColDef } from "ag-grid-community";
 interface LedgerEntry {
   id: number;
   product_id: string;
+  product_name: string | null;
   inventory_lot_id: string | null;
   movement_type: string;
   quantity_change: number;
@@ -35,6 +36,7 @@ export default function HistoryTable() {
       rows = rows.filter(
         (r) =>
           r.movement_type.toLowerCase().includes(q) ||
+          (r.product_name ?? "").toLowerCase().includes(q) ||
           (r.notes ?? "").toLowerCase().includes(q) ||
           (r.reference_type ?? "").toLowerCase().includes(q)
       );
@@ -51,6 +53,12 @@ export default function HistoryTable() {
         minWidth: 170,
         sort:"desc",
         valueFormatter: (p) => p.value ? new Date(p.value).toLocaleString() : "—",
+      },
+      {
+        field: "product_name",
+        headerName: "Product",
+        minWidth: 180,
+        valueFormatter: (p) => p.value ?? "—",
       },
       {
         field: "movement_type",
