@@ -1,14 +1,16 @@
 "use client";
 
-import { useApi } from "@/hooks/useApi";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import type { PurchaseOrder } from "@/types";
 
-export default function ProcurementOverviewCards() {
-  const { data, loading, error } = useApi<PurchaseOrder[]>("/api/purchase-orders");
+interface ProcurementOverviewCardsProps {
+  orders: PurchaseOrder[];
+  loading: boolean;
+  error: string | null;
+}
 
-  const orders = data ?? [];
+export default function ProcurementOverviewCards({ orders, loading, error }: ProcurementOverviewCardsProps) {
   const draft = orders.filter((o) => o.status === "draft").length;
   const inTransit = orders.filter((o) => o.status === "in transit").length;
   const received = orders.filter((o) => o.status === "received").length;

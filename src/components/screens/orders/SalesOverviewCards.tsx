@@ -1,14 +1,16 @@
 "use client";
 
-import { useApi } from "@/hooks/useApi";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import type { SaleOrder } from "@/types";
 
-export default function SalesOverviewCards() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
+interface SalesOverviewCardsProps {
+  orders: SaleOrder[];
+  loading: boolean;
+  error: string | null;
+}
 
-  const orders = data ?? [];
+export default function SalesOverviewCards({ orders, loading, error }: SalesOverviewCardsProps) {
   const openCount = orders.filter((o) => o.status === "open").length;
   const totalCount = orders.length;
 

@@ -10,6 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
+import ProcurementOverviewCards from "@/components/screens/orders/ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -26,44 +27,104 @@ interface ItemDraft {
   unit_cost: string;
 }
 
-function PurchaseOrderExpandedDetails({ purchaseOrder }: { purchaseOrder: PurchaseOrder }) {
+const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
+const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
+
+function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function patch(changes: Record<string, unknown>) {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, changes);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleStatusChange(status: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      if (status === "in transit") {
+        if (purchaseOrder.status !== "confirmed") { setError("PO must be confirmed before shipping."); setSaving(false); return; }
+        await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+      } else if (status === "received") {
+        if (purchaseOrder.status !== "in transit") { setError("PO must be in transit before receiving."); setSaving(false); return; }
+        await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+      } else {
+        await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+      }
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update status.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isDone = purchaseOrder.status === "received" || purchaseOrder.status === "cancelled";
+
   return (
-    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
-      <div className="space-y-2 self-center">
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Supplier</span>
-          {purchaseOrder.supplier?.name ?? "—"}
+    <div className="grid gap-3 p-3 text-xs md:grid-cols-[minmax(16rem,1fr)_minmax(0,1.5fr)]">
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Status
+            <select defaultValue={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
+              <option value="draft">Draft</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="in transit">In transit</option>
+              <option value="received">Received</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Fulfillment
+            <select defaultValue={purchaseOrder.fulfillment_type} onChange={(e) => patch({ fulfillment_type: e.target.value })} disabled={saving || isDone} className={poSelectClass}>
+              <option value="warehouse">Warehouse</option>
+              <option value="direct_delivery">Direct delivery</option>
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Expected arrival
+            <input type="date" defaultValue={purchaseOrder.expected_arrival ?? ""} onChange={(e) => patch({ expected_arrival: e.target.value || undefined })} disabled={saving || isDone} className={poInputClass} />
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Notes
+            <input defaultValue={purchaseOrder.notes ?? ""} onBlur={(e) => { if (e.target.value !== (purchaseOrder.notes ?? "")) patch({ notes: e.target.value || undefined }); }} disabled={saving || isDone} className={poInputClass} placeholder="—" />
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Supplier: <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="text-primary hover:underline">{purchaseOrder.supplier?.name ?? "—"}</Link>
         </p>
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Fulfillment</span>
-          {purchaseOrder.fulfillment_type.replace(/_/g, " ")}
-        </p>
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border bg-card">
-        <table className="w-full min-w-[420px] text-left text-sm">
+        <table className="w-full min-w-[420px] text-left text-xs">
           <thead className="bg-muted text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 text-right font-medium">Qty</th>
-              <th className="px-3 py-2 text-right font-medium">Total Cost</th>
+              <th className="px-3 py-1.5 font-medium">Product</th>
+              <th className="px-3 py-1.5 text-right font-medium">Qty</th>
+              <th className="px-3 py-1.5 text-right font-medium">Total Cost</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {(purchaseOrder.items ?? []).map((item) => (
               <tr key={item.id}>
-                <td className="px-3 py-2 text-foreground">
-                  <span>{item.product?.name ?? "—"}</span>
-                  {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
-                </td>
-                <td className="px-3 py-2 text-right text-foreground">{item.quantity_ordered}</td>
-                <td className="px-3 py-2 text-right text-foreground">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
+                <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
+                <td className="px-3 py-1.5 text-right">{item.quantity_ordered}</td>
+                <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
               </tr>
             ))}
             {(purchaseOrder.items ?? []).length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
-              </tr>
+              <tr><td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">No items</td></tr>
             )}
           </tbody>
         </table>
@@ -414,7 +475,12 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
+        <ProcurementOverviewCards orders={data ?? []} loading={loading} error={error} />
+      </section>
+      <div className="flex flex-col gap-4">
       <SearchFilterBar
         searchPlaceholder="Search POs, suppliers..."
         searchValue={search}
@@ -456,9 +522,9 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         showDetailsMenu
         detailsPageHref={(purchaseOrder) => `/orders/procurement/${purchaseOrder.id}`}
         expandOnRowDoubleClick
-        expandedRowHeight={210}
+        expandedRowHeight={260}
         getExpandedDetailsTitle={(purchaseOrder) => `${purchaseOrder.po_number} Details`}
-        renderExpandedRowDetails={(purchaseOrder) => <PurchaseOrderExpandedDetails purchaseOrder={purchaseOrder} />}
+        renderExpandedRowDetails={(purchaseOrder) => <InlinePurchaseOrderEditor purchaseOrder={purchaseOrder} onSaved={refetch} />}
         editConfig={{
           fields: [
             {
@@ -592,6 +658,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         )}
       />
       {isCreating && <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
+      </div>
     </div>
   );
 }

@@ -2,19 +2,22 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import StatusBadge from "@/components/common/StatusBadge";
-import { allocationLabel, isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
-import type { Profile, SaleOrder } from "@/types";
+import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
-export default function ActiveOrdersWidget() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: profiles } = useApi<Profile[]>("/api/profiles");
+interface ActiveOrdersWidgetProps {
+  orders: SaleOrder[];
+  loading: boolean;
+  error: string | null;
+}
+
+export default function ActiveOrdersWidget({ orders, loading, error }: ActiveOrdersWidgetProps) {
   const activeOrders = useMemo(
-    () => (data ?? []).filter((order) => isActiveSaleOrderStatus(order.status)),
-    [data]
+    () => orders.filter((order) => isActiveSaleOrderStatus(order.status)),
+    [orders]
   );
 
   const columns: ColDef<SaleOrder>[] = useMemo(
@@ -31,7 +34,7 @@ export default function ActiveOrdersWidget() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => ownerName(p.data?.owner_id, profiles ?? []),
+        valueGetter: (p) => p.data?.owner_name ?? "Unassigned",
         width: 120,
       },
       {
@@ -80,7 +83,7 @@ export default function ActiveOrdersWidget() {
         },
       },
     ],
-    [profiles]
+    []
   );
 
   if (error) {

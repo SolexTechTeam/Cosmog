@@ -1,14 +1,16 @@
 "use client";
 
-import { useApi } from "@/hooks/useApi";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import type { StockStatus } from "@/types";
 
-export default function InventoryOverviewCards() {
-  const { data, loading, error } = useApi<StockStatus[]>("/api/inventory/stock-status");
+interface InventoryOverviewCardsProps {
+  items: StockStatus[];
+  loading: boolean;
+  error: string | null;
+}
 
-  const items = data ?? [];
+export default function InventoryOverviewCards({ items, loading, error }: InventoryOverviewCardsProps) {
   const totalSkus = items.length;
   const onHand = items.reduce((sum, i) => sum + i.qty_on_hand, 0);
   const inTransit = items.reduce((sum, i) => sum + i.qty_in_transit, 0);

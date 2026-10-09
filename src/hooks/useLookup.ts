@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "@/lib/api";
 
 interface LookupValue {
@@ -21,12 +21,14 @@ export interface LookupOption {
 export function useLookup(category: string) {
   const [options, setOptions] = useState<LookupOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const categoryRef = useRef(category);
+  categoryRef.current = category;
 
-  const fetch = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await api.get<LookupValue[]>(
-        `/api/lookups?category=${encodeURIComponent(category)}&active_only=true`
+        `/api/lookups?category=${encodeURIComponent(categoryRef.current)}&active_only=true`
       );
       setOptions(data.map((v) => ({ label: v.label, value: v.value })));
     } catch {
@@ -34,11 +36,12 @@ export function useLookup(category: string) {
     } finally {
       setLoading(false);
     }
-  }, [category]);
+  }, []);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return { options, loading };
 }

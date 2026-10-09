@@ -88,6 +88,7 @@ export interface SaleOrder {
   created_at: string;
   updated_at: string;
   allocation_status: string | null;
+  owner_name: string | null;
   customer?: Pick<Customer, "id" | "name" | "handle">;
   po_links?: SaleOrderPoLink[];
   items?: SaleOrderItem[];
@@ -104,7 +105,7 @@ export interface SaleOrderItem {
 
 export interface SaleOrderPoLink {
   purchase_order_id: string;
-  purchase_order?: Pick<PurchaseOrder, "id" | "po_number" | "status">;
+  purchase_order?: Pick<PurchaseOrder, "id" | "po_number" | "status" | "supplier">;
 }
 
 export interface InventorySummary {

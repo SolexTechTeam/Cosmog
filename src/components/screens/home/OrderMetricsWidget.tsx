@@ -1,17 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
-import { useApi } from "@/hooks/useApi";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
 
-export default function OrderMetricsWidget() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
+interface OrderMetricsWidgetProps {
+  orders: SaleOrder[];
+  loading: boolean;
+  error: string | null;
+}
 
-  const orders = data ?? [];
+export default function OrderMetricsWidget({ orders, loading, error }: OrderMetricsWidgetProps) {
   const openOrders = orders.filter((o) => o.status === "open");
   const activeOrders = orders.filter((o) => isActiveSaleOrderStatus(o.status));
 

@@ -1,5 +1,4 @@
 import PageHeader from "@/components/common/PageHeader";
-import ProcurementOverviewCards from "@/components/screens/orders/ProcurementOverviewCards";
 import ProcurementTable from "@/components/screens/orders/ProcurementTable";
 
 export default async function PurchaseOrdersScreen({
@@ -13,14 +12,7 @@ export default async function PurchaseOrdersScreen({
   return (
     <>
       <PageHeader title="Purchase Orders" />
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <ProcurementOverviewCards />
-      </section>
-      <section>
-        <h2 className="text-header mb-3 pl-[var(--radius)]">Orders</h2>
-        <ProcurementTable detailsRowId={detailsRowId} />
-      </section>
+      <ProcurementTable detailsRowId={detailsRowId} />
     </>
   );
 }

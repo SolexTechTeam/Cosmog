@@ -8,6 +8,7 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
+import InventoryOverviewCards from "@/components/screens/inventory/InventoryOverviewCards";
 import type { StockStatus } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -184,7 +185,12 @@ export default function InventoryTable() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
+        <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
+      </section>
+      <div className="flex flex-col gap-4">
       <SearchFilterBar
         searchPlaceholder="Search products..."
         searchValue={search}
@@ -236,6 +242,7 @@ export default function InventoryTable() {
           </div>
         )}
       />
+      </div>
     </div>
   );
 }

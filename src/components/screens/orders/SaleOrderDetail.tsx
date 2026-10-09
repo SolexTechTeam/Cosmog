@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { api } from "@/lib/api";
-import { allocationLabel, isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
+import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -262,7 +262,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Owner</dt>
-                <dd className="mt-0.5 font-medium">{saleOrder.owner_id ? <Link href={`/users/${saleOrder.owner_id}`} className="text-primary hover:underline">{ownerName(saleOrder.owner_id, profiles ?? [])}</Link> : "Unassigned"}</dd>
+                <dd className="mt-0.5 font-medium">{saleOrder.owner_id ? <Link href={`/users/${saleOrder.owner_id}`} className="text-primary hover:underline">{saleOrder.owner_name ?? "Unknown"}</Link> : "Unassigned"}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Priority</dt>
@@ -282,11 +282,14 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             {poLinks.length ? (
               <ul className="space-y-2">
                 {poLinks.map((link) => (
-                  <li key={link.purchase_order_id} className="flex items-center gap-2">
+                  <li key={link.purchase_order_id} className="flex flex-wrap items-center gap-2">
                     <Link href={`/orders/procurement/${link.purchase_order_id}`} className="font-medium text-primary hover:underline">
                       {link.purchase_order?.po_number ?? link.purchase_order_id}
                     </Link>
                     {link.purchase_order && <StatusBadge status={link.purchase_order.status} />}
+                    {link.purchase_order?.supplier && (
+                      <span className="text-xs text-muted-foreground">{link.purchase_order.supplier.name}</span>
+                    )}
                   </li>
                 ))}
               </ul>

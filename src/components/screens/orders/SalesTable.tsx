@@ -10,53 +10,110 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
-import { allocationLabel, ownerName } from "@/lib/utils";
+import SalesOverviewCards from "@/components/screens/orders/SalesOverviewCards";
+import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
-function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
+const selectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
+const inputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
+
+function InlineSaleOrderEditor({ saleOrder, profiles, onSaved }: { saleOrder: SaleOrder; profiles: Profile[]; onSaved: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function patch(changes: Record<string, unknown>) {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.patch(`/api/sale-orders/${saleOrder.id}`, changes);
+      onSaved();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isOpen = saleOrder.status === "open";
+
   return (
-    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
-      <div className="space-y-2 self-center">
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Customer</span>
-          {saleOrder.customer?.name ?? "—"}
+    <div className="grid gap-3 p-3 text-xs md:grid-cols-[minmax(16rem,1fr)_minmax(0,1.5fr)]">
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Status
+            <select defaultValue={saleOrder.status} onChange={(e) => patch({ status: e.target.value })} disabled={saving || !isOpen} className={selectClass}>
+              <option value="open">Open</option>
+              <option value="shipped">Shipped</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="returned">Returned</option>
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Payment
+            <select defaultValue={saleOrder.payment_status} onChange={(e) => patch({ payment_status: e.target.value })} disabled={saving} className={selectClass}>
+              <option value="not_requested">Not requested</option>
+              <option value="awaiting_payment">Awaiting</option>
+              <option value="part_paid">Part paid</option>
+              <option value="paid">Paid</option>
+              <option value="refunded">Refunded</option>
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Priority
+            <select defaultValue={saleOrder.priority} onChange={(e) => patch({ priority: e.target.value })} disabled={saving} className={selectClass}>
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Owner
+            <select defaultValue={saleOrder.owner_id ?? ""} onChange={(e) => { if (e.target.value) patch({ owner_id: e.target.value }); }} disabled={saving} className={selectClass}>
+              <option value="">Unassigned</option>
+              {profiles.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Tracking
+            <input defaultValue={saleOrder.tracking_reference ?? ""} onBlur={(e) => { if (e.target.value !== (saleOrder.tracking_reference ?? "")) patch({ tracking_reference: e.target.value || undefined }); }} disabled={saving} className={inputClass} placeholder="—" />
+          </label>
+          <label className="grid gap-0.5 font-medium text-muted-foreground">
+            Shipped
+            <input type="date" defaultValue={saleOrder.shipped_date ?? ""} onChange={(e) => patch({ shipped_date: e.target.value || undefined })} disabled={saving} className={inputClass} />
+          </label>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Customer: <Link href={`/customers/${saleOrder.customer_id}`} className="text-primary hover:underline">{saleOrder.customer?.name ?? "—"}</Link>
         </p>
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Linked POs</span>
-          {(saleOrder.po_links ?? []).length
-            ? (saleOrder.po_links ?? []).map((link) => link.purchase_order?.po_number ?? link.purchase_order_id).join(", ")
-            : "—"}
-        </p>
+        {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border bg-card">
-        <table className="w-full min-w-[420px] text-left text-sm">
-            <thead className="bg-muted text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 text-right font-medium">Qty</th>
-                <th className="px-3 py-2 text-right font-medium">Total</th>
+        <table className="w-full min-w-[420px] text-left text-xs">
+          <thead className="bg-muted text-muted-foreground">
+            <tr>
+              <th className="px-3 py-1.5 font-medium">Product</th>
+              <th className="px-3 py-1.5 text-right font-medium">Qty</th>
+              <th className="px-3 py-1.5 text-right font-medium">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {(saleOrder.items ?? []).map((item) => (
+              <tr key={item.id}>
+                <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
+                <td className="px-3 py-1.5 text-right">{item.quantity}</td>
+                <td className="px-3 py-1.5 text-right">${(item.quantity * item.unit_price).toFixed(2)}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {(saleOrder.items ?? []).map((item) => (
-                <tr key={item.id}>
-                  <td className="px-3 py-2 text-foreground">
-                    <span>{item.product?.name ?? "—"}</span>
-                    {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">{item.quantity}</td>
-                  <td className="px-3 py-2 text-right text-foreground">${(item.quantity * item.unit_price).toFixed(2)}</td>
-                </tr>
-              ))}
-              {(saleOrder.items ?? []).length === 0 && (
-                <tr>
-                  <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+            ))}
+            {(saleOrder.items ?? []).length === 0 && (
+              <tr><td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">No items</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -64,7 +121,7 @@ function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
 
 export default function SalesTable() {
   const { data, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: profiles } = useApi<Profile[]>("/api/profiles");
+  const { data: profiles } = useApi<Profile[]>("/api/profiles");  // needed for owner edit dropdown
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -106,7 +163,7 @@ export default function SalesTable() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => ownerName(p.data?.owner_id, profiles ?? []),
+        valueGetter: (p) => p.data?.owner_name ?? "Unassigned",
         minWidth: 120,
       },
       {
@@ -160,7 +217,7 @@ export default function SalesTable() {
         },
       },
     ],
-    [profiles]
+    []
   );
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
@@ -173,7 +230,12 @@ export default function SalesTable() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
+        <h2 className="text-header mb-2">Overview</h2>
+        <SalesOverviewCards orders={data ?? []} loading={loading} error={error} />
+      </section>
+      <div className="flex flex-col gap-4">
       <SearchFilterBar
         searchPlaceholder="Search orders, customers..."
         searchValue={search}
@@ -235,9 +297,9 @@ export default function SalesTable() {
         showDetailsMenu
         detailsPageHref={(saleOrder) => `/orders/sales/${saleOrder.id}`}
         expandOnRowDoubleClick
-        expandedRowHeight={210}
+        expandedRowHeight={280}
         getExpandedDetailsTitle={(saleOrder) => `${saleOrder.so_number} Details`}
-        renderExpandedRowDetails={(saleOrder) => <SaleOrderExpandedDetails saleOrder={saleOrder} />}
+        renderExpandedRowDetails={(saleOrder) => <InlineSaleOrderEditor saleOrder={saleOrder} profiles={profiles ?? []} onSaved={refetch} />}
         editConfig={{
           fields: [
             {
@@ -338,7 +400,7 @@ export default function SalesTable() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Owner</dt>
-                  <dd className="mt-1 text-sm text-foreground">{ownerName(saleOrder.owner_id, profiles ?? [])}</dd>
+                  <dd className="mt-1 text-sm text-foreground">{saleOrder.owner_name ?? "Unassigned"}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Status</dt>
@@ -425,11 +487,12 @@ export default function SalesTable() {
                 {(saleOrder.po_links ?? []).length ? (
                   <ul className="space-y-1">
                     {(saleOrder.po_links ?? []).map((link) => (
-                      <li key={link.purchase_order_id} className="text-sm text-foreground">
+                      <li key={link.purchase_order_id} className="flex flex-wrap items-center gap-1.5 text-sm text-foreground">
                         <Link href={`/orders/procurement/${link.purchase_order_id}`} className="font-medium text-primary hover:underline">
                           {link.purchase_order?.po_number ?? link.purchase_order_id}
                         </Link>
-                        {link.purchase_order && <span className="ml-2 text-muted-foreground">{link.purchase_order.status}</span>}
+                        {link.purchase_order && <StatusBadge status={link.purchase_order.status} />}
+                        {link.purchase_order?.supplier && <span className="text-xs text-muted-foreground">{link.purchase_order.supplier.name}</span>}
                       </li>
                     ))}
                   </ul>
@@ -511,6 +574,7 @@ export default function SalesTable() {
         }}
       />
       {isCreating && <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
+      </div>
     </div>
   );
 }
