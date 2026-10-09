@@ -123,15 +123,14 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     setSavingEdit(true);
     setEditError(null);
     try {
-      const changes: Record<string, unknown> = {};
-      if (editValues.fulfillment_type !== po.fulfillment_type) changes.fulfillment_type = editValues.fulfillment_type;
-      if (editValues.expected_arrival !== (po.expected_arrival ?? "")) changes.expected_arrival = editValues.expected_arrival || null;
-      if (editValues.shipped_date !== (po.shipped_date ?? "")) changes.shipped_date = editValues.shipped_date || null;
-      if (editValues.received_date !== (po.received_date ?? "")) changes.received_date = editValues.received_date || null;
-      if (editValues.notes !== (po.notes ?? "")) changes.notes = editValues.notes || null;
-      if (Object.keys(changes).length) {
-        await api.patch(`/api/purchase-orders/${po.id}`, changes);
-      }
+      const payload: Record<string, unknown> = {
+        fulfillment_type: editValues.fulfillment_type,
+      };
+      if (editValues.expected_arrival) payload.expected_arrival = editValues.expected_arrival;
+      if (editValues.shipped_date) payload.shipped_date = editValues.shipped_date;
+      if (editValues.received_date) payload.received_date = editValues.received_date;
+      if (editValues.notes) payload.notes = editValues.notes;
+      await api.patch(`/api/purchase-orders/${po.id}`, payload);
       setEditing(false);
       refetch();
     } catch (e) {
@@ -153,7 +152,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             <StatusBadge status={purchaseOrder.status} />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {purchaseOrder.supplier?.name ?? "Unknown supplier"} · {purchaseOrder.order_date}
+            <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="text-primary hover:underline">{purchaseOrder.supplier?.name ?? "Unknown supplier"}</Link> · {purchaseOrder.order_date}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -261,7 +260,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         <div className="space-y-6">
           <section className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-header mb-3 border-b border-primary/20 pb-2">Supplier</h2>
-            <p className="font-medium">{purchaseOrder.supplier?.name ?? "—"}</p>
+            <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="font-medium text-primary hover:underline">{purchaseOrder.supplier?.name ?? "—"}</Link>
           </section>
 
           <section className="rounded-lg border border-border bg-card p-5">

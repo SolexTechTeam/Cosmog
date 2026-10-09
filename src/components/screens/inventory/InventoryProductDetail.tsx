@@ -23,6 +23,7 @@ interface InventoryLot {
 interface LedgerEntry {
   id: number;
   product_id: string;
+  product_name: string | null;
   movement_type: string;
   quantity_change: number;
   reference_type: string | null;

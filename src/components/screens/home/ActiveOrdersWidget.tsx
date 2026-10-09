@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import DataGrid from "@/components/common/DataGrid";
 import StatusBadge from "@/components/common/StatusBadge";
-import { isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
-import type { SaleOrder } from "@/types";
+import { allocationLabel, isActiveSaleOrderStatus, ownerName } from "@/lib/utils";
+import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ActiveOrdersWidget() {
   const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: profiles } = useApi<Profile[]>("/api/profiles");
   const activeOrders = useMemo(
     () => (data ?? []).filter((order) => isActiveSaleOrderStatus(order.status)),
     [data]
@@ -30,7 +31,7 @@ export default function ActiveOrdersWidget() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => ownerName(p.data?.owner),
+        valueGetter: (p) => ownerName(p.data?.owner_id, profiles ?? []),
         width: 120,
       },
       {
@@ -44,6 +45,12 @@ export default function ActiveOrdersWidget() {
         field: "status",
         headerName: "Status",
         width: 120,
+        cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
+      },
+      {
+        headerName: "Procurement",
+        width: 140,
+        valueGetter: (p) => p.data ? allocationLabel(p.data.allocation_status) : "—",
         cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
       },
       {
@@ -73,7 +80,7 @@ export default function ActiveOrdersWidget() {
         },
       },
     ],
-    []
+    [profiles]
   );
 
   if (error) {

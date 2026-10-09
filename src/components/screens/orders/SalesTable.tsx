@@ -106,7 +106,7 @@ export default function SalesTable() {
       },
       {
         headerName: "Owner",
-        valueGetter: (p) => ownerName(p.data?.owner),
+        valueGetter: (p) => ownerName(p.data?.owner_id, profiles ?? []),
         minWidth: 120,
       },
       {
@@ -160,7 +160,7 @@ export default function SalesTable() {
         },
       },
     ],
-    []
+    [profiles]
   );
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
@@ -338,7 +338,7 @@ export default function SalesTable() {
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Owner</dt>
-                  <dd className="mt-1 text-sm text-foreground">{ownerName(saleOrder.owner)}</dd>
+                  <dd className="mt-1 text-sm text-foreground">{ownerName(saleOrder.owner_id, profiles ?? [])}</dd>
                 </div>
                 <div>
                   <dt className="text-sm font-medium text-muted-foreground">Status</dt>
@@ -476,7 +476,7 @@ export default function SalesTable() {
                     .filter(([field]) => ![
                       "so_number",
                       "customer",
-                      "owner",
+                      "owner_id",
                       "status",
                       "payment_status",
                       "priority",

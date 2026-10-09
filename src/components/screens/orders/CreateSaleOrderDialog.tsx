@@ -166,6 +166,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         fulfillment_type: fulfillmentType,
         business_channel: businessChannel,
         priority,
+        ...(ownerId ? { owner_id: ownerId } : {}),
         ...(source ? { source } : {}),
         ...(linkedPoIds.length ? { linked_po_ids: linkedPoIds } : {}),
         shipping_cost: cost,
@@ -173,9 +174,6 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         items: normalizedLines,
       });
-      if (ownerId) {
-        await api.patch(`/api/sale-orders/${created.id}`, { owner_id: ownerId });
-      }
       onCreated();
       setCreatedOrder({
         id: created.id,

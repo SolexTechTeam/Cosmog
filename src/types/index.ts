@@ -89,7 +89,6 @@ export interface SaleOrder {
   updated_at: string;
   allocation_status: string | null;
   customer?: Pick<Customer, "id" | "name" | "handle">;
-  owner?: Pick<Profile, "id" | "name">;
   po_links?: SaleOrderPoLink[];
   items?: SaleOrderItem[];
 }

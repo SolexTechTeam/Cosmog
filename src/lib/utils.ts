@@ -4,11 +4,10 @@ export function isActiveSaleOrderStatus(status: string) {
   return status === "open" || status === "shipped";
 }
 
-export function ownerName(owner: unknown): string {
-  if (!owner) return "Unassigned";
-  if (Array.isArray(owner)) return owner[0]?.name ?? "Unassigned";
-  if (typeof owner === "object" && "name" in owner) return (owner as { name: string }).name;
-  return "Unassigned";
+export function ownerName(ownerId: string | null | undefined, profiles: { id: string; name: string }[]): string {
+  if (!ownerId) return "Unassigned";
+  const match = profiles.find((p) => p.id === ownerId);
+  return match?.name ?? "Unknown";
 }
 
 export function allocationLabel(status: string | null | undefined): string {

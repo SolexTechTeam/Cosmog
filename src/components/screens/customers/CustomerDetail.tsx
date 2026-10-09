@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
+import { useLookup } from "@/hooks/useLookup";
+import { api } from "@/lib/api";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -12,9 +14,12 @@ interface CustomerDetailProps {
   customerId: string;
 }
 
+const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
+
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
-  const { data: customers, loading, error } = useApi<Customer[]>("/api/customers");
+  const { data: customers, loading, error, refetch } = useApi<Customer[]>("/api/customers");
   const { data: saleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { options: customerTypeOptions } = useLookup("customer_type");
 
   const customer = customers?.find((c) => c.id === customerId);
   const orders = useMemo(
@@ -22,9 +27,16 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
     [saleOrders, customerId]
   );
 
+  const [editing, setEditing] = useState(false);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading customer...</p>;
   if (error) return <p className="text-sm text-destructive">Failed to load customer: {error}</p>;
   if (!customer) return <p className="text-sm text-muted-foreground">Customer not found.</p>;
+
+  const c = customer;
 
   const totalRevenue = orders.reduce((sum, o) => {
     const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
@@ -32,8 +44,46 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   }, 0);
   const openOrders = orders.filter((o) => o.status === "open" || o.status === "shipped");
   const totalPaid = orders.reduce((sum, o) => sum + o.amount_paid, 0);
+  const contactEntries = Object.entries(c.contact_info ?? {}).filter(([, v]) => v != null && v !== "");
 
-  const contactEntries = Object.entries(customer.contact_info ?? {}).filter(([, v]) => v != null && v !== "");
+  function startEditing() {
+    setEditValues({
+      name: c.name,
+      handle: c.handle ?? "",
+      email: c.email ?? "",
+      customer_type: c.customer_type,
+      payment_terms: c.payment_terms ?? "",
+      contact_email: String((c.contact_info as Record<string, unknown>)?.email ?? ""),
+      contact_phone: String((c.contact_info as Record<string, unknown>)?.phone ?? ""),
+    });
+    setEditError(null);
+    setEditing(true);
+  }
+
+  async function saveEdits() {
+    setSaving(true);
+    setEditError(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: editValues.name,
+        customer_type: editValues.customer_type,
+      };
+      if (editValues.handle) payload.handle = editValues.handle;
+      if (editValues.email) payload.email = editValues.email;
+      if (editValues.payment_terms) payload.payment_terms = editValues.payment_terms;
+      const contactInfo: Record<string, string> = {};
+      if (editValues.contact_email) contactInfo.email = editValues.contact_email;
+      if (editValues.contact_phone) contactInfo.phone = editValues.contact_phone;
+      if (Object.keys(contactInfo).length) payload.contact_info = contactInfo;
+      await api.patch(`/api/customers/${c.id}`, payload);
+      setEditing(false);
+      refetch();
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -47,7 +97,55 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
         <p className="mt-1 text-sm text-muted-foreground">
           {customer.handle ?? "No handle"} · {customer.email ?? "No email"}
         </p>
+        {!editing && (
+          <button type="button" onClick={startEditing} className="mt-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">Edit customer</button>
+        )}
       </div>
+
+      {editing && (
+        <section className="rounded-xl border border-primary/30 bg-card p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-header">Edit Customer</h2>
+            <button type="button" onClick={() => setEditing(false)} disabled={saving} className="text-sm font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="grid gap-1 text-sm font-medium">
+              Name
+              <input value={editValues.name ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, name: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Type
+              <select value={editValues.customer_type ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, customer_type: e.target.value }))} className={inputClass}>
+                {(customerTypeOptions.length ? customerTypeOptions : [{ label: "B2B", value: "b2b" }, { label: "B2C", value: "b2c" }, { label: "Special", value: "special" }]).map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Handle
+              <input value={editValues.handle ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, handle: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Email
+              <input type="email" value={editValues.email ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, email: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Payment Terms
+              <input value={editValues.payment_terms ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, payment_terms: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Phone
+              <input value={editValues.contact_phone ?? ""} onChange={(e) => setEditValues((v) => ({ ...v, contact_phone: e.target.value }))} className={inputClass} />
+            </label>
+          </div>
+          {editError && <p className="mt-3 text-sm text-destructive">{editError}</p>}
+          <div className="mt-4">
+            <button type="button" onClick={saveEdits} disabled={saving} className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+        </section>
+      )}
 
       <MetricCardRow>
         <MetricCard label="Total Orders" value={orders.length} />

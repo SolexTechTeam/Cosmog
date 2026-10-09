@@ -52,6 +52,8 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
       payment_status: so.payment_status,
       shipping_cost: String(so.shipping_cost),
       amount_paid: String(so.amount_paid),
+      shipped_date: so.shipped_date ?? "",
+      delivered_date: so.delivered_date ?? "",
       tracking_reference: so.tracking_reference ?? "",
       shipping_details: so.shipping_details ?? "",
       notes: so.notes ?? "",
@@ -64,22 +66,20 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     setSaving(true);
     setEditError(null);
     try {
-      const changes: Record<string, unknown> = {};
-      if (editValues.priority !== so.priority) changes.priority = editValues.priority;
-      if (editValues.owner_id && editValues.owner_id !== (so.owner_id ?? "")) changes.owner_id = editValues.owner_id;
-      if (editValues.fulfillment_type !== so.fulfillment_type) changes.fulfillment_type = editValues.fulfillment_type;
-      if (editValues.payment_status !== so.payment_status) changes.payment_status = editValues.payment_status;
-      const cost = Number(editValues.shipping_cost);
-      if (Number.isFinite(cost) && cost !== so.shipping_cost) changes.shipping_cost = cost;
-      const paid = Number(editValues.amount_paid);
-      if (Number.isFinite(paid) && paid !== so.amount_paid) changes.amount_paid = paid;
-      if (editValues.tracking_reference !== (so.tracking_reference ?? "")) changes.tracking_reference = editValues.tracking_reference || null;
-      if (editValues.shipping_details !== (so.shipping_details ?? "")) changes.shipping_details = editValues.shipping_details || null;
-      if (editValues.notes !== (so.notes ?? "")) changes.notes = editValues.notes || null;
-
-      if (Object.keys(changes).length) {
-        await api.patch(`/api/sale-orders/${so.id}`, changes);
-      }
+      const payload: Record<string, unknown> = {
+        priority: editValues.priority,
+        fulfillment_type: editValues.fulfillment_type,
+        payment_status: editValues.payment_status,
+        shipping_cost: Number(editValues.shipping_cost) || 0,
+        amount_paid: Number(editValues.amount_paid) || 0,
+      };
+      if (editValues.owner_id) payload.owner_id = editValues.owner_id;
+      if (editValues.shipped_date) payload.shipped_date = editValues.shipped_date;
+      if (editValues.delivered_date) payload.delivered_date = editValues.delivered_date;
+      if (editValues.tracking_reference) payload.tracking_reference = editValues.tracking_reference;
+      if (editValues.shipping_details) payload.shipping_details = editValues.shipping_details;
+      if (editValues.notes) payload.notes = editValues.notes;
+      await api.patch(`/api/sale-orders/${so.id}`, payload);
       setEditing(false);
       refetch();
     } catch (e) {
@@ -102,7 +102,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             {isActive && procurementStatus && <StatusBadge status={procurementStatus} />}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            {saleOrder.customer?.name ?? "Unknown customer"} · {saleOrder.order_date}
+            <Link href={`/customers/${saleOrder.customer_id}`} className="text-primary hover:underline">{saleOrder.customer?.name ?? "Unknown customer"}</Link> · {saleOrder.order_date}
           </p>
           {canEdit && !editing && (
             <button type="button" onClick={startEditing} className="mt-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">Edit order</button>
@@ -190,6 +190,14 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               <input type="number" min="0" step="0.01" value={editValues.amount_paid} onChange={(e) => setEditValues((v) => ({ ...v, amount_paid: e.target.value }))} className={inputClass} />
             </label>
             <label className="grid gap-1 text-sm font-medium">
+              Shipped date
+              <input type="date" value={editValues.shipped_date} onChange={(e) => setEditValues((v) => ({ ...v, shipped_date: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
+              Delivered date
+              <input type="date" value={editValues.delivered_date} onChange={(e) => setEditValues((v) => ({ ...v, delivered_date: e.target.value }))} className={inputClass} />
+            </label>
+            <label className="grid gap-1 text-sm font-medium">
               Tracking reference
               <input value={editValues.tracking_reference} onChange={(e) => setEditValues((v) => ({ ...v, tracking_reference: e.target.value }))} className={inputClass} />
             </label>
@@ -254,7 +262,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Owner</dt>
-                <dd className="mt-0.5 font-medium">{ownerName(saleOrder.owner)}</dd>
+                <dd className="mt-0.5 font-medium">{saleOrder.owner_id ? <Link href={`/users/${saleOrder.owner_id}`} className="text-primary hover:underline">{ownerName(saleOrder.owner_id, profiles ?? [])}</Link> : "Unassigned"}</dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Priority</dt>
@@ -265,7 +273,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
 
           <section className="rounded-lg border border-border bg-card p-5">
             <h2 className="text-header mb-3 border-b border-primary/20 pb-2">Customer</h2>
-            <p className="font-medium">{saleOrder.customer?.name ?? "—"}</p>
+            <Link href={`/customers/${saleOrder.customer_id}`} className="font-medium text-primary hover:underline">{saleOrder.customer?.name ?? "—"}</Link>
             <p className="mt-1 text-sm text-muted-foreground">{saleOrder.customer?.handle ?? "No handle"}</p>
           </section>
 
