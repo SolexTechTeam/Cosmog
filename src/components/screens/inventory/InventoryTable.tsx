@@ -9,7 +9,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "@/components/screens/inventory/InventoryOverviewCards";
-import type { StockStatus } from "@/types";
+import type { StockStatus, PurchaseOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 interface InventoryLot {
@@ -27,7 +27,7 @@ interface InventoryLot {
   purchase_order_item?: { id: string; purchase_order_id: string; unit_cost: number } | null;
 }
 
-function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | null }) {
+function InventoryLots({ lots, error, poMap }: { lots: InventoryLot[]; error: string | null; poMap: Map<string, PurchaseOrder> }) {
   if (error) {
     return <p className="text-sm text-destructive">Unable to load inventory lots: {error}</p>;
   }
@@ -37,7 +37,7 @@ function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | 
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="bg-muted text-muted-foreground">
           <tr>
-            <th className="px-3 py-2 font-medium">Lot</th>
+            <th className="px-3 py-2 font-medium">PO #</th>
             <th className="px-3 py-2 font-medium">Received</th>
             <th className="px-3 py-2 text-right font-medium">On-Hand</th>
             <th className="px-3 py-2 text-right font-medium">Reserved</th>
@@ -46,16 +46,24 @@ function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | 
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
-          {lots.map((lot) => (
-            <tr key={lot.id}>
-              <td className="px-3 py-2 font-mono text-xs text-foreground">{lot.id}</td>
-              <td className="px-3 py-2 text-foreground">{lot.received_at?.slice(0, 10) ?? "—"}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lot.quantity_on_hand}</td>
-              <td className="px-3 py-2 text-right text-foreground">{lot.quantity_reserved}</td>
-              <td className="px-3 py-2 text-right text-foreground">{Math.max(0, lot.quantity_on_hand - lot.quantity_reserved)}</td>
-              <td className="px-3 py-2 text-right text-foreground">{`$${lot.unit_cost.toFixed(2)}`}</td>
-            </tr>
-          ))}
+          {lots.map((lot) => {
+            const poId = lot.purchase_order_item?.purchase_order_id;
+            const po = poId ? poMap.get(poId) : undefined;
+            return (
+              <tr key={lot.id}>
+                <td className="px-3 py-2 text-foreground">
+                  {po ? (
+                    <Link href={`/orders/procurement/${po.id}`} className="font-medium text-primary hover:underline">{po.po_number}</Link>
+                  ) : "—"}
+                </td>
+                <td className="px-3 py-2 text-foreground">{lot.received_at?.slice(0, 10) ?? "—"}</td>
+                <td className="px-3 py-2 text-right text-foreground">{lot.quantity_on_hand}</td>
+                <td className="px-3 py-2 text-right text-foreground">{lot.quantity_reserved}</td>
+                <td className="px-3 py-2 text-right text-foreground">{Math.max(0, lot.quantity_on_hand - lot.quantity_reserved)}</td>
+                <td className="px-3 py-2 text-right text-foreground">{`$${lot.unit_cost.toFixed(2)}`}</td>
+              </tr>
+            );
+          })}
           {lots.length === 0 && (
             <tr>
               <td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">No inventory lots</td>
@@ -67,7 +75,7 @@ function InventoryLots({ lots, error }: { lots: InventoryLot[]; error: string | 
   );
 }
 
-function InventoryStockDetails({ stock, lots, lotsError }: { stock: StockStatus; lots: InventoryLot[]; lotsError: string | null }) {
+function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: StockStatus; lots: InventoryLot[]; lotsError: string | null; poMap: Map<string, PurchaseOrder> }) {
   return (
     <div className="space-y-5 p-5">
       <dl className="grid gap-4 sm:grid-cols-2">
@@ -90,7 +98,7 @@ function InventoryStockDetails({ stock, lots, lotsError }: { stock: StockStatus;
       </dl>
       <div>
         <h3 className="mb-3 text-sm font-semibold text-foreground">Inventory Lots</h3>
-        <InventoryLots lots={lots} error={lotsError} />
+        <InventoryLots lots={lots} error={lotsError} poMap={poMap} />
       </div>
     </div>
   );
@@ -100,6 +108,7 @@ export default function InventoryTable() {
   // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
   const { data, loading, error } = useApi<StockStatus[]>("/api/inventory/stock-status");
   const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>("/api/inventory/lots");
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -129,6 +138,12 @@ export default function InventoryTable() {
     }
     return lots;
   }, [inventoryLots]);
+
+  const poMap = useMemo(() => {
+    const map = new Map<string, PurchaseOrder>();
+    for (const po of purchaseOrders ?? []) map.set(po.id, po);
+    return map;
+  }, [purchaseOrders]);
 
   const allColumns: ColDef<StockStatus>[] = useMemo(
     () => [
@@ -234,11 +249,12 @@ export default function InventoryTable() {
             stock={stock}
             lots={lotsByProductId.get(stock.product_id) ?? []}
             lotsError={lotsError}
+            poMap={poMap}
           />
         )}
         renderExpandedRowDetails={(stock) => (
           <div className="p-3">
-            <InventoryLots lots={lotsByProductId.get(stock.product_id) ?? []} error={lotsError} />
+            <InventoryLots lots={lotsByProductId.get(stock.product_id) ?? []} error={lotsError} poMap={poMap} />
           </div>
         )}
       />

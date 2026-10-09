@@ -51,11 +51,20 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
     setSaving(true);
     setError(null);
     try {
+      const current = purchaseOrder.status;
+
       if (status === "in transit") {
-        if (purchaseOrder.status !== "confirmed") { setError("PO must be confirmed before shipping."); setSaving(false); return; }
+        if (current === "draft") {
+          await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
+        }
         await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
       } else if (status === "received") {
-        if (purchaseOrder.status !== "in transit") { setError("PO must be in transit before receiving."); setSaving(false); return; }
+        if (current === "draft") {
+          await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
+          await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+        } else if (current === "confirmed") {
+          await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+        }
         await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
       } else {
         await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });

@@ -51,6 +51,7 @@ const colorMap: Record<string, string> = {
 
   // Ledger movement types
   lot_created: "bg-indigo-50 text-indigo-700 border-indigo-200",
+  po_in_transit: "bg-indigo-50 text-indigo-700 border-indigo-200",
   reserved: "bg-amber-50 text-amber-700 border-amber-200",
   adjustment: "bg-gray-50 text-gray-600 border-gray-200",
 };

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useMemo, type FormEvent } from "react";
 import { api } from "@/lib/api";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
-import type { Customer, Product, Profile, PurchaseOrder, SaleOrder } from "@/types";
+import type { Customer, Product, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
 
 interface SaleLine {
   product_id: string;
@@ -62,6 +62,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>("/api/products");
   const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
   const { data: fetchedProfiles } = useApi<Profile[]>("/api/profiles");
+  const { data: fetchedStock } = useApi<StockStatus[]>("/api/inventory/stock-status");
 
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
   const { options: channelOptions } = useLookup("so_business_channel");
@@ -96,10 +97,25 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const products = fetchedProducts ?? [];
   const profiles = (fetchedProfiles ?? []).filter((p) => p.is_active);
   const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((po) => po.status !== "cancelled" && po.status !== "received");
+  const stockByProductId = useMemo(() => {
+    const map = new Map<string, StockStatus>();
+    for (const s of fetchedStock ?? []) map.set(s.product_id, s);
+    return map;
+  }, [fetchedStock]);
   const [poSearch, setPoSearch] = useState("");
 
   function updateLine(index: number, changes: Partial<SaleLine>) {
-    setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
+    setLines((current) => current.map((line, lineIndex) => {
+      if (lineIndex !== index) return line;
+      const updated = { ...line, ...changes };
+      if (changes.product_id && changes.product_id !== line.product_id) {
+        const stock = stockByProductId.get(changes.product_id);
+        if (stock && stock.avg_cost > 0) {
+          updated.unit_price = (stock.avg_cost * 1.25 * 1.14).toFixed(2);
+        }
+      }
+      return updated;
+    }));
   }
 
   async function addCustomer() {
@@ -326,18 +342,36 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
               <button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button>
             </div>
           )}
+          {lines.length > 0 && (
+            <div className="mb-1 grid gap-2 sm:grid-cols-[1fr_7rem_8rem_4rem]">
+              <p className="text-xs font-medium text-muted-foreground text-left">Product name</p>
+              <p className="text-xs font-medium text-muted-foreground text-left">Quantity</p>
+              <p className="text-xs font-medium text-muted-foreground text-left">Sale price</p>
+              <span />
+            </div>
+          )}
           <div className="space-y-2">
-            {lines.map((line, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]">
-                <select value={line.product_id} onChange={(e) => updateLine(index, { product_id: e.target.value })} className={inputClass}>
-                  <option value="">Select product</option>
-                  {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-                <input type="number" min="1" step="1" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} className={inputClass} placeholder="Qty" />
-                <input type="number" min="0" step="0.01" value={line.unit_price} onChange={(e) => updateLine(index, { unit_price: e.target.value })} className={inputClass} placeholder="Unit price" />
-                <button type="button" onClick={() => setLines((c) => c.length === 1 ? c : c.filter((_, i) => i !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button>
-              </div>
-            ))}
+            {lines.map((line, index) => {
+              const stock = line.product_id ? stockByProductId.get(line.product_id) : undefined;
+              return (
+                <div key={index} className="space-y-1">
+                  <div className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_4rem]">
+                    <select value={line.product_id} onChange={(e) => updateLine(index, { product_id: e.target.value })} className={inputClass}>
+                      <option value="">Select product</option>
+                      {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <input type="number" min="1" step="1" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} className={inputClass} placeholder="Qty" />
+                    <input type="number" min="0" step="0.01" value={line.unit_price} onChange={(e) => updateLine(index, { unit_price: e.target.value })} className={inputClass} placeholder="Sale price" />
+                    <button type="button" onClick={() => setLines((c) => c.length === 1 ? c : c.filter((_, i) => i !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button>
+                  </div>
+                  {stock && stock.avg_cost > 0 && (
+                    <p className="pl-1 text-xs text-muted-foreground">
+                      AC: ${stock.avg_cost.toFixed(2)} · Recommended: ${(stock.avg_cost * 1.25 * 1.14).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -375,7 +409,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
               </div>
             )}
             <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Purchase Order</button>
+              {createdOrder.stockWarnings.length > 0 && (
+                <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Purchase Order</button>
+              )}
               <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
             </div>
           </div>

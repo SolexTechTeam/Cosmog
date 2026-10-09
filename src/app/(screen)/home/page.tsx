@@ -4,7 +4,7 @@ import { useApi } from "@/hooks/useApi";
 import PageHeader from "@/components/common/PageHeader";
 import InventorySummaryWidget from "@/components/screens/home/InventorySummaryWidget";
 import OrderMetricsWidget from "@/components/screens/home/OrderMetricsWidget";
-import ActiveOrdersWidget from "@/components/screens/home/ActiveOrdersWidget";
+import SalesTable from "@/components/screens/orders/SalesTable";
 import type { SaleOrder } from "@/types";
 
 export default function HomeScreen() {
@@ -23,7 +23,7 @@ export default function HomeScreen() {
       </section>
       <section>
         <h2 className="text-header mb-3 pl-[var(--radius)]">Active Orders</h2>
-        <ActiveOrdersWidget orders={saleOrders ?? []} loading={loading} error={error} />
+        <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact pageSize={10} hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
       </section>
     </>
   );

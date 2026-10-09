@@ -15,102 +15,50 @@ import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
-const selectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
-const inputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
-
-function InlineSaleOrderEditor({ saleOrder, profiles, onSaved }: { saleOrder: SaleOrder; profiles: Profile[]; onSaved: () => void }) {
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function patch(changes: Record<string, unknown>) {
-    setSaving(true);
-    setError(null);
-    try {
-      await api.patch(`/api/sale-orders/${saleOrder.id}`, changes);
-      onSaved();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const isOpen = saleOrder.status === "open";
-
+function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
   return (
-    <div className="grid gap-3 p-3 text-xs md:grid-cols-[minmax(16rem,1fr)_minmax(0,1.5fr)]">
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Status
-            <select defaultValue={saleOrder.status} onChange={(e) => patch({ status: e.target.value })} disabled={saving || !isOpen} className={selectClass}>
-              <option value="open">Open</option>
-              <option value="shipped">Shipped</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="returned">Returned</option>
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Payment
-            <select defaultValue={saleOrder.payment_status} onChange={(e) => patch({ payment_status: e.target.value })} disabled={saving} className={selectClass}>
-              <option value="not_requested">Not requested</option>
-              <option value="awaiting_payment">Awaiting</option>
-              <option value="part_paid">Part paid</option>
-              <option value="paid">Paid</option>
-              <option value="refunded">Refunded</option>
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Priority
-            <select defaultValue={saleOrder.priority} onChange={(e) => patch({ priority: e.target.value })} disabled={saving} className={selectClass}>
-              <option value="low">Low</option>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="urgent">Urgent</option>
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Owner
-            <select defaultValue={saleOrder.owner_id ?? ""} onChange={(e) => { if (e.target.value) patch({ owner_id: e.target.value }); }} disabled={saving} className={selectClass}>
-              <option value="">Unassigned</option>
-              {profiles.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Tracking
-            <input defaultValue={saleOrder.tracking_reference ?? ""} onBlur={(e) => { if (e.target.value !== (saleOrder.tracking_reference ?? "")) patch({ tracking_reference: e.target.value || undefined }); }} disabled={saving} className={inputClass} placeholder="—" />
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Shipped
-            <input type="date" defaultValue={saleOrder.shipped_date ?? ""} onChange={(e) => patch({ shipped_date: e.target.value || undefined })} disabled={saving} className={inputClass} />
-          </label>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Customer: <Link href={`/customers/${saleOrder.customer_id}`} className="text-primary hover:underline">{saleOrder.customer?.name ?? "—"}</Link>
+    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
+      <div className="space-y-2 self-center">
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Customer</span>
+          <Link href={`/customers/${saleOrder.customer_id}`} className="text-primary hover:underline">{saleOrder.customer?.name ?? "—"}</Link>
         </p>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Owner</span>
+          {saleOrder.owner_name ?? "Unassigned"}
+        </p>
+        <p className="min-w-0 truncate text-foreground">
+          <span className="mr-2 text-muted-foreground">Linked POs</span>
+          {(saleOrder.po_links ?? []).length
+            ? (saleOrder.po_links ?? []).map((link) => link.purchase_order?.po_number ?? link.purchase_order_id).join(", ")
+            : "—"}
+        </p>
       </div>
 
       <div className="overflow-x-auto rounded-md border border-border bg-card">
-        <table className="w-full min-w-[420px] text-left text-xs">
+        <table className="w-full min-w-[420px] text-left text-sm">
           <thead className="bg-muted text-muted-foreground">
             <tr>
-              <th className="px-3 py-1.5 font-medium">Product</th>
-              <th className="px-3 py-1.5 text-right font-medium">Qty</th>
-              <th className="px-3 py-1.5 text-right font-medium">Total</th>
+              <th className="px-3 py-2 font-medium">Name</th>
+              <th className="px-3 py-2 text-right font-medium">Qty</th>
+              <th className="px-3 py-2 text-right font-medium">Total</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {(saleOrder.items ?? []).map((item) => (
               <tr key={item.id}>
-                <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
-                <td className="px-3 py-1.5 text-right">{item.quantity}</td>
-                <td className="px-3 py-1.5 text-right">${(item.quantity * item.unit_price).toFixed(2)}</td>
+                <td className="px-3 py-2 text-foreground">
+                  <span>{item.product?.name ?? "—"}</span>
+                  {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
+                </td>
+                <td className="px-3 py-2 text-right text-foreground">{item.quantity}</td>
+                <td className="px-3 py-2 text-right text-foreground">${(item.quantity * item.unit_price).toFixed(2)}</td>
               </tr>
             ))}
             {(saleOrder.items ?? []).length === 0 && (
-              <tr><td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">No items</td></tr>
+              <tr>
+                <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
+              </tr>
             )}
           </tbody>
         </table>
@@ -119,9 +67,23 @@ function InlineSaleOrderEditor({ saleOrder, profiles, onSaved }: { saleOrder: Sa
   );
 }
 
-export default function SalesTable() {
-  const { data, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: profiles } = useApi<Profile[]>("/api/profiles");  // needed for owner edit dropdown
+interface SalesTableProps {
+  orders?: SaleOrder[] | null;
+  loading?: boolean;
+  error?: string | null;
+  activeOnly?: boolean;
+  hiddenColumns?: Set<string>;
+  pageSize?: number;
+  compact?: boolean;
+}
+
+export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
+  const own = useApi<SaleOrder[]>("/api/sale-orders");
+  const data = externalOrders !== undefined ? externalOrders : own.data;
+  const loading = externalLoading !== undefined ? externalLoading : own.loading;
+  const error = externalError !== undefined ? externalError : own.error;
+  const refetch = own.refetch;
+  const { data: profiles } = useApi<Profile[]>("/api/profiles");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -135,6 +97,7 @@ export default function SalesTable() {
   }, [data]);
   const filtered = useMemo(() => {
     let rows = data ?? [];
+    if (activeOnly) rows = rows.filter((r) => r.status === "open" || r.status === "shipped");
     if (search) {
       const q = search.toLowerCase();
       rows = rows.filter(
@@ -221,12 +184,29 @@ export default function SalesTable() {
   );
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
-    allColumns, 
-    new Set(["Customer", "handle", "source"])
-    );
+    allColumns,
+    hiddenColumns ?? new Set(["Customer", "handle", "source"])
+  );
 
   if (error) {
     return <p className="text-sm text-red-500">Failed to load sales orders: {error}</p>;
+  }
+
+  if (compact) {
+    return (
+      <DataGrid<SaleOrder>
+        rows={filtered}
+        columns={visibleColumns}
+        loading={loading}
+        pageSize={pageSize}
+        showDetailsMenu
+        detailsPageHref={(so) => `/orders/sales/${so.id}`}
+        expandOnRowDoubleClick
+        expandedRowHeight={210}
+        getExpandedDetailsTitle={(so) => `${so.so_number} Details`}
+        renderExpandedRowDetails={(so) => <SaleOrderExpandedDetails saleOrder={so} />}
+      />
+    );
   }
 
   return (
@@ -297,9 +277,9 @@ export default function SalesTable() {
         showDetailsMenu
         detailsPageHref={(saleOrder) => `/orders/sales/${saleOrder.id}`}
         expandOnRowDoubleClick
-        expandedRowHeight={280}
+        expandedRowHeight={210}
         getExpandedDetailsTitle={(saleOrder) => `${saleOrder.so_number} Details`}
-        renderExpandedRowDetails={(saleOrder) => <InlineSaleOrderEditor saleOrder={saleOrder} profiles={profiles ?? []} onSaved={refetch} />}
+        renderExpandedRowDetails={(saleOrder) => <SaleOrderExpandedDetails saleOrder={saleOrder} />}
         editConfig={{
           fields: [
             {
