@@ -9,11 +9,14 @@ import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
+import ErrorBlock from "@/components/ui/error-block";
+import { useToast } from "@/components/ui/toast";
 import type { Profile } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function UsersTable() {
   const { data, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -79,6 +82,7 @@ export default function UsersTable() {
       await AetherClient.createUser({ name: newUser.name.trim(), email: newUser.email.trim(), password: newUser.password, role: newUser.role });
       setNewUser({ name: "", email: "", password: "", role: "staff" });
       setShowCreate(false);
+      toast("User created");
       refetch();
     } catch (caughtError) {
       setCreateError(caughtError instanceof Error ? caughtError.message : "Unable to create user.");
@@ -88,7 +92,7 @@ export default function UsersTable() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load users: {error}</p>;
+    return <ErrorBlock message={`Failed to load users: ${error}`} onRetry={refetch} />;
   }
 
   return (
@@ -139,6 +143,7 @@ export default function UsersTable() {
             ],
             onSave: async (profile, changes) => {
               await AetherClient.updateProfile(profile.id, changes);
+              toast(`User "${profile.name}" updated`);
               refetch();
             },
           }}

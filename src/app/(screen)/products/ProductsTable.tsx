@@ -10,11 +10,14 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
+import ErrorBlock from "@/components/ui/error-block";
+import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ProductsTable() {
   const { data, loading, error, refetch } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
@@ -93,6 +96,7 @@ export default function ProductsTable() {
       });
       setNewProduct({ name: "", category: "", sku: "", image_url: "" });
       setIsAdding(false);
+      toast("Product created");
       refetch();
     } catch (addProductError) {
       setAddError(addProductError instanceof Error ? addProductError.message : "Unable to add the product.");
@@ -102,7 +106,7 @@ export default function ProductsTable() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load products: {error}</p>;
+    return <ErrorBlock message={`Failed to load products: ${error}`} onRetry={refetch} />;
   }
 
   return (
@@ -170,6 +174,7 @@ export default function ProductsTable() {
             ],
             onSave: async (product, changes) => {
               await AetherClient.updateProduct(product.id, changes);
+              toast(`Product "${product.name}" updated`);
               refetch();
             },
           }}
@@ -178,6 +183,7 @@ export default function ProductsTable() {
             isAvailable: (product) => product.is_active,
             onArchive: async (product) => {
               await AetherClient.updateProduct(product.id, { is_active: false });
+              toast(`Product "${product.name}" archived`);
               refetch();
             },
           }}

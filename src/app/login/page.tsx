@@ -33,8 +33,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center"
-      style={{ background: "radial-gradient(circle at 50% 50%, #001422 0.000%, #35120a 20.000%, #6e2012 40.000%, #a1381e 60.000%, #ca572c 80.000%, #e57c3d 100.000%)" }}>
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_50%_50%,#001422_0%,#35120a_20%,#6e2012_40%,#a1381e_60%,#ca572c_80%,#e57c3d_100%)]">
       <div className="w-full max-w-lg rounded-xl border-2 border-border bg-card p-12 shadow-md">
         <div className="mb-8 text-center">
           <h1 className="text-5xl font-bold tracking-tight text-primary">Solext</h1>
@@ -54,7 +53,7 @@ export default function LoginScreen() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="h-11 w-full rounded-md border border-border bg-white px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+              className="h-11 w-full rounded-md border border-border bg-background px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
             />
           </div>
           <div>
@@ -68,7 +67,7 @@ export default function LoginScreen() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="h-11 w-full rounded-md border border-border bg-white px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
+              className="h-11 w-full rounded-md border border-border bg-background px-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-colors"
             />
           </div>
           {error && (

@@ -8,11 +8,14 @@ import { useApi } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import ErrorBlock from "@/components/ui/error-block";
+import { useToast } from "@/components/ui/toast";
 import type { Supplier } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function SuppliersTable() {
   const { data, loading, error, refetch } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -73,6 +76,7 @@ export default function SuppliersTable() {
       await AetherClient.createSupplier({ name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
       setNewSupplier({ name: "", email: "", phone: "", default_lead_days: "1" });
       setShowCreate(false);
+      toast("Supplier created");
       refetch();
     } catch (caughtError) {
       setCreateError(caughtError instanceof Error ? caughtError.message : "Unable to create supplier.");
@@ -82,7 +86,7 @@ export default function SuppliersTable() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load suppliers: {error}</p>;
+    return <ErrorBlock message={`Failed to load suppliers: ${error}`} onRetry={refetch} />;
   }
 
   return (

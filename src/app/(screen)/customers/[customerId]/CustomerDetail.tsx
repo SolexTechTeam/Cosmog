@@ -8,6 +8,7 @@ import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
+import { useToast } from "@/components/ui/toast";
 import type { Customer, SaleOrder } from "@/types";
 
 interface CustomerDetailProps {
@@ -17,6 +18,7 @@ interface CustomerDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
+  const { toast } = useToast();
   const { data: customers, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
   const { data: saleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const { options: customerTypeOptions } = useLookup("customer_type");
@@ -77,6 +79,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       if (Object.keys(contactInfo).length) payload.contact_info = contactInfo;
       await AetherClient.updateCustomer(c.id, payload);
       setEditing(false);
+      toast(`${c.name} updated`);
       refetch();
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save.");

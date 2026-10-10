@@ -13,6 +13,7 @@ import SaleOrderExpandedDetails from "@/components/common/orders/SaleOrderExpand
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import ErrorBlock from "@/components/ui/error-block";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -209,7 +210,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 }
 
 export default function DemandPriorityTable() {
-  const { data, loading, error } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data, loading, error, refetch } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");
@@ -329,7 +330,7 @@ export default function DemandPriorityTable() {
   );
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load open sales orders: {error}</p>;
+    return <ErrorBlock message={`Failed to load open sales orders: ${error}`} onRetry={refetch} />;
   }
 
   return (

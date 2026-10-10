@@ -12,6 +12,8 @@ import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
 import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
+import ErrorBlock from "@/components/ui/error-block";
+import { useToast } from "@/components/ui/toast";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -31,6 +33,7 @@ const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 tex
 const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
 
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
+  const { toast } = useToast();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,6 +42,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
     setError(null);
     try {
       await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes);
+      toast(`PO ${purchaseOrder.po_number} updated`);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save.");
@@ -69,6 +73,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
       } else {
         await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
       }
+      toast(`PO ${purchaseOrder.po_number} status changed to ${status}`);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update status.");
@@ -143,6 +148,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
 }
 
 function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrderItemsProps) {
+  const { toast } = useToast();
   const [items, setItems] = useState<PurchaseOrderItem[]>(purchaseOrder.items ?? []);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -188,6 +194,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
       setItems((current) => current.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
       setEditingItemId(null);
       setDraft(null);
+      toast("PO item updated");
       onUpdated();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to save the item.");
@@ -218,6 +225,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
       setItems((current) => [...current, newItem]);
       setIsAdding(false);
       setDraft(null);
+      toast("PO item added");
       onUpdated();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Unable to add the item.");
@@ -412,6 +420,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   const { data, loading, error, refetch } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
   const { data: products } = useApi<Product[]>(() => AetherClient.getProducts());
   const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -480,7 +489,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   );
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load purchase orders: {error}</p>;
+    return <ErrorBlock message={`Failed to load purchase orders: ${error}`} onRetry={refetch} />;
   }
 
   return (
@@ -576,6 +585,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             } else if (status !== undefined) {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
             }
+            toast(`PO ${purchaseOrder.po_number} updated`);
             refetch();
           },
         }}
@@ -666,7 +676,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
           </div>
         )}
       />
-      {isCreating && <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
+      {isCreating && <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { toast("Purchase order created"); refetch(); }} />}
       </div>
     </div>
   );

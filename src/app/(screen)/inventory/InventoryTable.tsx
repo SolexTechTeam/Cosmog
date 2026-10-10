@@ -10,6 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
+import ErrorBlock from "@/components/ui/error-block";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -92,7 +93,7 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
 
 export default function InventoryTable() {
   // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
-  const { data, loading, error } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
+  const { data, loading, error, refetch } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
   const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
   const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
   const [search, setSearch] = useState("");
@@ -154,10 +155,10 @@ export default function InventoryTable() {
         },
         cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
       },
-      { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_in_transit", headerName: "In-Transit", minWidth: 150, cellClass: "text-center text-[15px] font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_in_transit", headerName: "In-Transit", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
         headerName: "Avg Cost",
@@ -182,7 +183,7 @@ export default function InventoryTable() {
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns, new Set(["sku"]));
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load inventory: {error}</p>;
+    return <ErrorBlock message={`Failed to load inventory: ${error}`} onRetry={refetch} />;
   }
 
   return (

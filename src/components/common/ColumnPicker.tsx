@@ -25,7 +25,7 @@ export default function ColumnPicker({ columns, hiddenColumns, onToggle }: Colum
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="h-10 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-3 bg-white transition-colors whitespace-nowrap"
+        className="h-10 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-3 bg-background transition-colors whitespace-nowrap"
       >
         Columns ({visibleCount}/{columns.length})
       </button>

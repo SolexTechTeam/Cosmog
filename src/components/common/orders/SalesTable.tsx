@@ -9,9 +9,11 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
+import ErrorBlock from "@/components/ui/error-block";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import SalesOverviewCards from "./SalesOverviewCards";
 import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
+import { useToast } from "@/components/ui/toast";
 import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -27,6 +29,7 @@ interface SalesTableProps {
 }
 
 export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
+  const { toast } = useToast();
   const own = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const data = externalOrders !== undefined ? externalOrders : own.data;
   const loading = externalLoading !== undefined ? externalLoading : own.loading;
@@ -138,7 +141,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
   );
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load sales orders: {error}</p>;
+    return <ErrorBlock message={`Failed to load sales orders: ${error}`} onRetry={refetch} />;
   }
 
   if (compact) {
@@ -154,6 +157,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
         expandedRowHeight={210}
         getExpandedDetailsTitle={(so) => `${so.so_number} Details`}
         renderExpandedRowDetails={(so) => <SaleOrderExpandedDetails saleOrder={so} />}
+        onSaveSuccess={(so) => toast(`${so.so_number} updated`)}
       />
     );
   }
@@ -229,6 +233,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
         expandedRowHeight={210}
         getExpandedDetailsTitle={(saleOrder) => `${saleOrder.so_number} Details`}
         renderExpandedRowDetails={(saleOrder) => <SaleOrderExpandedDetails saleOrder={saleOrder} />}
+        onSaveSuccess={(so) => toast(`${so.so_number} updated`)}
         editConfig={{
           fields: [
             {
@@ -524,7 +529,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
           );
         }}
       />
-      {isCreating && <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={refetch} />}
+      {isCreating && <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { refetch(); toast("Sales order created"); }} />}
       </div>
     </div>
   );

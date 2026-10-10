@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
+import { useToast } from "@/components/ui/toast";
 import type { Profile } from "@/types";
 
 interface UserDetailProps {
@@ -14,6 +15,7 @@ interface UserDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function UserDetail({ userId }: UserDetailProps) {
+  const { toast } = useToast();
   const { data: profiles, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
   const profile = profiles?.find((p) => p.id === userId);
 
@@ -50,6 +52,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
         await AetherClient.updateProfile(u.id, changes);
       }
       setEditing(false);
+      toast(`${u.name} updated`);
       refetch();
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save.");

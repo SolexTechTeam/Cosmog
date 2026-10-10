@@ -8,6 +8,7 @@ import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
+import ErrorBlock from "@/components/ui/error-block";
 import type { Product, LedgerEntry } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -149,9 +150,9 @@ export default function HistoryTable() {
         cellStyle: (p) => {
           const val = p.value as number;
           const type = (p.data as LedgerEntry)?.movement_type;
-          if (type === "po_in_transit" || type === "reserved") return { color: "#6b7280", fontWeight: 500 } as const;
-          if (val > 0) return { color: "#16a34a", fontWeight: 500 } as const;
-          if (val < 0) return { color: "#dc2626", fontWeight: 500 } as const;
+          if (type === "po_in_transit" || type === "reserved") return { color: "var(--muted-foreground)", fontWeight: 500 } as const;
+          if (val > 0) return { color: "var(--chart-3)", fontWeight: 500 } as const;
+          if (val < 0) return { color: "var(--destructive)", fontWeight: 500 } as const;
           return null;
         },
       },
@@ -190,7 +191,7 @@ export default function HistoryTable() {
   );
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load ledger: {error}</p>;
+    return <ErrorBlock message={`Failed to load ledger: ${error}`} onRetry={refetch} />;
   }
 
   return (

@@ -21,17 +21,17 @@ export default function ProcurementOverviewCards({ orders, loading, error }: Pro
   }, 0);
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load procurement data: {error}</p>;
+    return <p className="text-sm text-destructive">Failed to load procurement data: {error}</p>;
   }
 
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <MetricCardRow>
-      <MetricCard label="Draft POs" value={loading ? "—" : draft} />
-      <MetricCard label="In-Transit" value={loading ? "—" : inTransit} />
-      <MetricCard label="Received" value={loading ? "—" : received} />
-      <MetricCard label="Total Spend" value={loading ? "—" : fmt(totalSpend)} />
+      <MetricCard label="Draft POs" loading={loading} value={draft} />
+      <MetricCard label="In-Transit" loading={loading} value={inTransit} />
+      <MetricCard label="Received" loading={loading} value={received} />
+      <MetricCard label="Total Spend" loading={loading} value={fmt(totalSpend)} />
     </MetricCardRow>
   );
 }

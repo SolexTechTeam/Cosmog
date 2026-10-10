@@ -17,15 +17,15 @@ export default function InventoryOverviewCards({ items, loading, error }: Invent
   const outOfStock = items.filter((i) => i.stock_status === "Out of Stock").length;
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load inventory: {error}</p>;
+    return <p className="text-sm text-destructive">Failed to load inventory: {error}</p>;
   }
 
   return (
     <MetricCardRow>
-      <MetricCard label="Total SKUs" value={loading ? "—" : totalSkus} />
-      <MetricCard label="On-Hand Units" value={loading ? "—" : onHand.toLocaleString()} />
-      <MetricCard label="In-Transit" value={loading ? "—" : inTransit.toLocaleString()} />
-      <MetricCard label="Out of Stock" value={loading ? "—" : outOfStock} />
+      <MetricCard label="Total SKUs" loading={loading} value={totalSkus} />
+      <MetricCard label="On-Hand Units" loading={loading} value={onHand.toLocaleString()} />
+      <MetricCard label="In-Transit" loading={loading} value={inTransit.toLocaleString()} />
+      <MetricCard label="Out of Stock" loading={loading} value={outOfStock} />
     </MetricCardRow>
   );
 }

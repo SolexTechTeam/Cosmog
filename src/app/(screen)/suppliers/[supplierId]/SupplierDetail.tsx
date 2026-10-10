@@ -7,6 +7,7 @@ import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
+import { useToast } from "@/components/ui/toast";
 import type { PurchaseOrder, Supplier } from "@/types";
 
 interface SupplierDetailProps {
@@ -16,6 +17,7 @@ interface SupplierDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
+  const { toast } = useToast();
   const { data: suppliers, loading, error, refetch } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
   const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
 
@@ -68,6 +70,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
       if (Object.keys(contactInfo).length) payload.contact_info = contactInfo;
       await AetherClient.updateSupplier(s.id, payload);
       setEditing(false);
+      toast(`${s.name} updated`);
       refetch();
     } catch (e) {
       setEditError(e instanceof Error ? e.message : "Failed to save.");

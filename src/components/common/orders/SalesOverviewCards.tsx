@@ -27,17 +27,17 @@ export default function SalesOverviewCards({ orders, loading, error }: SalesOver
   }, 0);
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load sales data: {error}</p>;
+    return <p className="text-sm text-destructive">Failed to load sales data: {error}</p>;
   }
 
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <MetricCardRow>
-      <MetricCard label="Open Sales" value={loading ? "—" : openCount} />
-      <MetricCard label="Total Sales" value={loading ? "—" : totalCount} />
-      <MetricCard label="Open Value" value={loading ? "—" : fmt(openValue)} />
-      <MetricCard label="Total Value" value={loading ? "—" : fmt(totalValue)} />
+      <MetricCard label="Open Sales" loading={loading} value={openCount} />
+      <MetricCard label="Total Sales" loading={loading} value={totalCount} />
+      <MetricCard label="Open Value" loading={loading} value={fmt(openValue)} />
+      <MetricCard label="Total Value" loading={loading} value={fmt(totalValue)} />
     </MetricCardRow>
   );
 }

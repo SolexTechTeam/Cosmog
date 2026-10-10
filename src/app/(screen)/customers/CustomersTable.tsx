@@ -10,11 +10,14 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
+import ErrorBlock from "@/components/ui/error-block";
+import { useToast } from "@/components/ui/toast";
 import type { Customer } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function CustomersTable() {
   const { data, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -91,6 +94,7 @@ export default function CustomersTable() {
       });
       setNewCustomer({ name: "", handle: "", email: "", customer_type: "b2b", payment_terms: "" });
       setShowCreate(false);
+      toast("Customer created");
       refetch();
     } catch (caughtError) {
       setCreateError(caughtError instanceof Error ? caughtError.message : "Unable to create customer.");
@@ -100,7 +104,7 @@ export default function CustomersTable() {
   }
 
   if (error) {
-    return <p className="text-sm text-red-500">Failed to load customers: {error}</p>;
+    return <ErrorBlock message={`Failed to load customers: ${error}`} onRetry={refetch} />;
   }
 
   return (

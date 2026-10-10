@@ -14,16 +14,16 @@ export default function HomeScreen() {
   return (
     <>
       <PageHeader title="Home" />
-      <section className="w-[97.5%] mx-auto rounded-lg border border-border bg-muted px-5 py-3">
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
         <h2 className="text-header mb-2">Inventory Summary</h2>
         <InventorySummaryWidget />
       </section>
-      <section className="w-[97.5%] mx-auto rounded-lg border border-border bg-muted px-5 py-3">
+      <section className="rounded-lg border border-border bg-muted px-5 py-3">
         <h2 className="text-header mb-2">Order Metrics</h2>
         <OrderMetricsWidget orders={saleOrders ?? []} loading={loading} error={error} />
       </section>
       <section>
-        <h2 className="text-header mb-3 pl-[var(--radius)]">Active Orders</h2>
+        <h2 className="text-header mb-3">Active Orders</h2>
         <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact pageSize={10} hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
       </section>
     </>
