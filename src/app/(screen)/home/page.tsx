@@ -2,7 +2,6 @@
 
 import { useApi } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
-import PageHeader from "@/components/common/PageHeader";
 import InventorySummaryWidget from "./InventorySummaryWidget";
 import OrderMetricsWidget from "./OrderMetricsWidget";
 import SalesTable from "@/components/common/orders/SalesTable";
@@ -13,17 +12,25 @@ export default function HomeScreen() {
 
   return (
     <>
-      <PageHeader title="Home" />
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Inventory Summary</h2>
+      <div className="flex items-baseline justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">Inventory and order overview</p>
+        </div>
+      </div>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Inventory</h2>
         <InventorySummaryWidget />
       </section>
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Order Metrics</h2>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Orders</h2>
         <OrderMetricsWidget orders={saleOrders ?? []} loading={loading} error={error} />
       </section>
+
       <section>
-        <h2 className="text-header mb-3">Active Orders</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Active Orders</h2>
         <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact pageSize={10} hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
       </section>
     </>

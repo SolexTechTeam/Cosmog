@@ -10,6 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
+import OrderScreenLayout from "@/components/common/orders/OrderScreenLayout";
 import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import ErrorBlock from "@/components/ui/error-block";
@@ -493,13 +494,11 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <ProcurementOverviewCards orders={data ?? []} loading={loading} error={error} />
-      </section>
-      <div className="flex flex-col gap-4">
-      <SearchFilterBar
+    <OrderScreenLayout
+      title="Purchase Orders"
+      subtitle="Manage supplier procurement and receiving"
+      overview={<ProcurementOverviewCards orders={data ?? []} loading={loading} error={error} />}
+      filters={<SearchFilterBar
         searchPlaceholder="Search POs, suppliers..."
         searchValue={search}
         onSearchChange={setSearch}
@@ -528,9 +527,9 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             onChange: setTypeFilter,
           },
         ]}
-        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Purchase Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
-      />
-      <DataGrid<PurchaseOrder>
+        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Purchase Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+      />}
+      table={<DataGrid<PurchaseOrder>
         rows={filtered}
         columns={visibleColumns}
         loading={loading}
@@ -675,9 +674,8 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             </div>
           </div>
         )}
-      />
-      {isCreating && <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { toast("Purchase order created"); refetch(); }} />}
-      </div>
-    </div>
+      />}
+      dialog={isCreating ? <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { toast("Purchase order created"); refetch(); }} /> : undefined}
+    />
   );
 }

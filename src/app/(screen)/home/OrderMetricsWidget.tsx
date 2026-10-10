@@ -43,21 +43,23 @@ export default function OrderMetricsWidget({ orders, loading, error }: OrderMetr
     return <p className="text-sm text-destructive">Failed to load order metrics: {error}</p>;
   }
 
+  const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
-    <MetricCardRow className="grid grid-cols-2 gap-4 md:grid-cols-[1fr_minmax(14rem,1.5fr)_1fr_1fr_1fr]">
-      <MetricCard label="Open Orders" loading={loading} value={openOrders.length} />
-      <MetricCard label="Procurement Status" value="">
-        {loading ? <Skeleton className="h-6 w-32" /> : (
-          <div className="flex items-center gap-3">
-            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="need" /><span className="text-sm font-bold">{procurementCounts.need}</span></span>
-            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="awaiting" /><span className="text-sm font-bold">{procurementCounts.awaiting}</span></span>
-            <span className="flex flex-col items-center gap-0.5"><StatusBadge status="ready_to_ship" /><span className="text-sm font-bold">{procurementCounts.ready_to_ship}</span></span>
+    <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <MetricCard label="Open Orders" loading={loading} value={openOrders.length} accent="primary" />
+      <MetricCard label="Procurement" value="">
+        {loading ? <Skeleton className="h-7 w-32" /> : (
+          <div className="mt-1.5 flex items-center gap-2.5">
+            <span className="flex items-center gap-1.5"><StatusBadge status="need" /><span className="text-sm font-bold tabular-nums">{procurementCounts.need}</span></span>
+            <span className="flex items-center gap-1.5"><StatusBadge status="awaiting" /><span className="text-sm font-bold tabular-nums">{procurementCounts.awaiting}</span></span>
+            <span className="flex items-center gap-1.5"><StatusBadge status="ready_to_ship" /><span className="text-sm font-bold tabular-nums">{procurementCounts.ready_to_ship}</span></span>
           </div>
         )}
       </MetricCard>
-      <MetricCard label="Awaiting Payment" loading={loading} value={awaitingPayment} />
-      <MetricCard label="Total Open $" loading={loading} value={`$${totalOpenValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
-      <MetricCard label="Outstanding $" loading={loading} value={`$${outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+      <MetricCard label="Awaiting Payment" loading={loading} value={awaitingPayment} accent={awaitingPayment > 0 ? "warning" : "default"} />
+      <MetricCard label="Open Value" loading={loading} value={fmt(totalOpenValue)} />
+      <MetricCard label="Outstanding" loading={loading} value={fmt(outstanding)} accent={outstanding > 0 ? "danger" : "default"} />
     </MetricCardRow>
   );
 }

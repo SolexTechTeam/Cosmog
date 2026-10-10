@@ -25,13 +25,15 @@ export default function InventorySummaryWidget() {
     return <ErrorBlock message={`Failed to load inventory: ${error}`} onRetry={refetch} />;
   }
 
+  const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
-    <MetricCardRow className="grid grid-cols-2 gap-4 md:grid-cols-5">
-      <MetricCard label="Available" loading={loading} value={totals.available.toLocaleString()} />
+    <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-5">
+      <MetricCard label="Available" loading={loading} value={totals.available.toLocaleString()} accent="success" />
       <MetricCard label="On-Hand" loading={loading} value={totals.onHand.toLocaleString()} />
-      <MetricCard label="Incoming" loading={loading} value={totals.incoming.toLocaleString()} />
-      <MetricCard label="Reserved" loading={loading} value={totals.reserved.toLocaleString()} />
-      <MetricCard label="On-Hand Value" loading={loading} value={`$${totals.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+      <MetricCard label="Incoming" loading={loading} value={totals.incoming.toLocaleString()} accent="primary" />
+      <MetricCard label="Reserved" loading={loading} value={totals.reserved.toLocaleString()} accent="warning" />
+      <MetricCard label="On-Hand Value" loading={loading} value={fmt(totals.value)} />
     </MetricCardRow>
   );
 }

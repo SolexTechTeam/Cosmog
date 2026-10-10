@@ -80,6 +80,17 @@ src/
 - Keep `page.tsx` files thin — they import and compose screen-sections, they don't contain implementation
 - Use server components by default; add `"use client"` only when the component needs interactivity or browser APIs
 
+### Performance — avoid unnecessary re-fetches and re-renders
+API calls should not re-fire just because a component re-rendered. State changes in one part of the UI should not cause unrelated components to refetch data or rebuild.
+
+- **Fetch once, not on every render.** `useApi` calls should run on mount (or when their dependencies change), not unconditionally. Never put an AetherClient call directly in a render body — always go through a hook with proper dependency tracking.
+- **Stable dependencies.** Objects and arrays created inline (`[a, b]`, `{ key: val }`) are new references every render and will re-trigger effects. Memoize them with `useMemo`, or move them outside the component if they're static.
+- **Stable callbacks.** Functions passed as props or used in effect dependency arrays must be wrapped in `useCallback` so they don't cause child re-renders or effect re-runs on every parent render.
+- **Push state down.** Keep state in the lowest component that needs it. A search input's text belongs in the search bar, not the screen — changing it shouldn't re-render sibling sections or re-fetch their data.
+- **Split components at state boundaries.** If one piece of a component has fast-changing state (e.g., a text input, a hover effect) and the rest is expensive to render, extract the fast-changing part into its own component so the expensive part doesn't re-render.
+- **Memoize expensive derived data.** If you're filtering, sorting, or transforming a large list on every render, wrap it in `useMemo` with the correct dependency array.
+- **No cascading fetches from prop changes.** A parent re-rendering with the same logical data (but a new object reference) should not cause children to refetch. Compare values, not references, or memoize the prop at the parent.
+
 ### General style
 - Componentize aggressively — if a block of JSX has a clear name, extract it
 - Prefer composition over props-sprawl; a component with 10+ props probably needs to be split
