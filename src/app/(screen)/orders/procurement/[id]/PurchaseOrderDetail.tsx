@@ -20,7 +20,7 @@ interface PurchaseOrderDetailProps {
 type Tab = "items" | "details" | "notes";
 
 type DialogData =
-  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Set<string> }
+  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
   | { type: "receive"; result: ReceivePoResponse };
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
@@ -65,13 +65,19 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     return previews;
   }
 
-  async function fetchOwnLotIds(): Promise<Set<string>> {
-    if (!purchaseOrder) return new Set();
+  async function fetchOwnLotIds(): Promise<Map<string, number>> {
+    if (!purchaseOrder) return new Map();
     const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
     try {
       const lots = await AetherClient.getInventoryLots();
-      return new Set(lots.filter((l) => l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)).map((l) => l.id));
-    } catch { return new Set(); }
+      const map = new Map<string, number>();
+      for (const l of lots) {
+        if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
+          map.set(l.id, l.quantity_total);
+        }
+      }
+      return map;
+    } catch { return new Map(); }
   }
 
   async function doAllocateAndContinue(allocateFn?: (soId: string) => Promise<void>) {

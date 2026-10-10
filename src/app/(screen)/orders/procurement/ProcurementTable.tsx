@@ -35,7 +35,7 @@ const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 tex
 const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
 
 type DialogData =
-  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Set<string> }
+  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
   | { type: "receive"; result: ReceivePoResponse };
 
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { purchaseOrder: PurchaseOrder; onSaved: () => void; saleOrders: SaleOrder[] }) {
@@ -78,12 +78,18 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
     return previews;
   }
 
-  async function fetchOwnLotIds(): Promise<Set<string>> {
+  async function fetchOwnLotIds(): Promise<Map<string, number>> {
     const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
     try {
       const lots = await AetherClient.getInventoryLots();
-      return new Set(lots.filter((l) => l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)).map((l) => l.id));
-    } catch { return new Set(); }
+      const map = new Map<string, number>();
+      for (const l of lots) {
+        if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
+          map.set(l.id, l.quantity_total);
+        }
+      }
+      return map;
+    } catch { return new Map(); }
   }
 
   async function completeReceive() {
@@ -740,10 +746,14 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
                 }
                 // Get own lot IDs and previews
                 const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
-                let ownLotIds = new Set<string>();
+                let ownLotIds = new Map<string, number>();
                 try {
                   const lots = await AetherClient.getInventoryLots();
-                  ownLotIds = new Set(lots.filter((l) => l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)).map((l) => l.id));
+                  for (const l of lots) {
+                    if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
+                      ownLotIds.set(l.id, l.quantity_total);
+                    }
+                  }
                 } catch {}
                 const openSOs = (saleOrders ?? []).filter((so) => so.status === "open");
                 const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];

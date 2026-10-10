@@ -24,7 +24,7 @@ interface AllocationConfirmDialogProps {
   description?: string;
   suggestions: SoAllocationGroup[];
   mode: "confirm" | "review";
-  ownLotIds?: Set<string>;
+  ownLotIds?: Map<string, number>;
   onAutoAllocate?: (soIds: string[]) => Promise<void>;
   onManualAllocate?: (soId: string, allocations: ManualAllocation[]) => Promise<void>;
   onClose: () => void;
@@ -66,7 +66,20 @@ export default function AllocationConfirmDialog({ title, description, suggestion
   const [loading, setLoading] = useState(false);
   const [editState, setEditState] = useState<EditState>(() => buildEditState(suggestions));
 
-  const validSuggestions = suggestions.filter((s) => !s.error);
+  const filteredSuggestions = useMemo(() => {
+    const valid = suggestions.filter((s) => !s.error);
+    if (!ownLotIds || ownLotIds.size === 0) return valid;
+    return valid
+      .map((group) => {
+        if (!group.suggested_allocations) return null;
+        const relevantItems = group.suggested_allocations.filter((item) =>
+          item.allocations.some((lot) => ownLotIds.has(lot.lot_id))
+        );
+        if (relevantItems.length === 0) return null;
+        return { ...group, suggested_allocations: relevantItems };
+      })
+      .filter(Boolean) as SoAllocationGroup[];
+  }, [suggestions, ownLotIds]);
   const errorCount = suggestions.filter((s) => s.error).length;
   const hasEdits = useMemo(() => isEdited(suggestions, editState), [suggestions, editState]);
 
@@ -74,11 +87,38 @@ export default function AllocationConfirmDialog({ title, description, suggestion
     return !ownLotIds || ownLotIds.has(lotId);
   }
 
+  function getLotMax(lotId: string): number | undefined {
+    return ownLotIds?.get(lotId);
+  }
+
+  const unallocatedWarning = useMemo(() => {
+    if (!ownLotIds || ownLotIds.size === 0) return null;
+    let totalPo = 0;
+    let totalAllocated = 0;
+    for (const [lotId, maxQty] of ownLotIds) {
+      totalPo += maxQty;
+      for (const group of filteredSuggestions) {
+        for (const item of group.suggested_allocations ?? []) {
+          for (const lot of item.allocations) {
+            if (lot.lot_id === lotId) {
+              totalAllocated += editState.get(item.sale_order_item_id)?.get(lot.lot_id) ?? lot.quantity;
+            }
+          }
+        }
+      }
+    }
+    const remaining = totalPo - totalAllocated;
+    if (remaining > 0) return `${remaining} unit${remaining !== 1 ? "s" : ""} from this PO remain unallocated.`;
+    return null;
+  }, [ownLotIds, filteredSuggestions, editState]);
+
   function updateQty(itemId: string, lotId: string, qty: number) {
+    const max = getLotMax(lotId);
+    const clamped = max != null ? Math.min(Math.max(0, qty), max) : Math.max(0, qty);
     setEditState((prev) => {
       const next = new Map(prev);
       const lotMap = new Map(next.get(itemId) ?? new Map());
-      lotMap.set(lotId, Math.max(0, qty));
+      lotMap.set(lotId, clamped);
       next.set(itemId, lotMap);
       return next;
     });
@@ -97,7 +137,7 @@ export default function AllocationConfirmDialog({ title, description, suggestion
     if (!onAutoAllocate) return;
     setLoading(true);
     try {
-      const soIds = validSuggestions.map((s) => s.sale_order_id);
+      const soIds = filteredSuggestions.map((s) => s.sale_order_id);
       await onAutoAllocate(soIds);
     } finally {
       setLoading(false);
@@ -108,7 +148,7 @@ export default function AllocationConfirmDialog({ title, description, suggestion
     if (!onManualAllocate) return;
     setLoading(true);
     try {
-      for (const group of validSuggestions) {
+      for (const group of filteredSuggestions) {
         if (!group.suggested_allocations) continue;
         const allocations: ManualAllocation[] = [];
         for (const item of group.suggested_allocations) {
@@ -137,11 +177,11 @@ export default function AllocationConfirmDialog({ title, description, suggestion
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto px-5 py-3">
-          {validSuggestions.length === 0 ? (
+          {filteredSuggestions.length === 0 ? (
             <p className="py-4 text-center text-sm text-muted-foreground">No allocation suggestions available.</p>
           ) : (
             <div className="space-y-4">
-              {validSuggestions.map((group) => (
+              {filteredSuggestions.map((group) => (
                 <div key={group.sale_order_id} className="rounded-md border border-border bg-muted/50 p-3">
                   <p className="mb-2 text-xs font-semibold text-foreground">
                     {group.so_number ? (
@@ -183,6 +223,7 @@ export default function AllocationConfirmDialog({ title, description, suggestion
                                             <input
                                               type="number"
                                               min={0}
+                                              max={getLotMax(lot.lot_id)}
                                               value={getQty(item.sale_order_item_id, lot.lot_id, lot.quantity)}
                                               onChange={(e) => updateQty(item.sale_order_item_id, lot.lot_id, parseInt(e.target.value) || 0)}
                                               className="h-6 w-14 rounded border border-border bg-background px-1 text-center text-xs tabular-nums outline-none focus:ring-1 focus:ring-primary/50"
@@ -215,19 +256,25 @@ export default function AllocationConfirmDialog({ title, description, suggestion
             </div>
           )}
           {errorCount > 0 && <p className="mt-3 text-xs text-destructive">{errorCount} order(s) had allocation errors.</p>}
+          {unallocatedWarning && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700 dark:bg-amber-950/30">
+              <span className="mt-px text-amber-600 dark:text-amber-400">&#9888;</span>
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{unallocatedWarning}</p>
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
           {mode === "confirm" ? (
             <>
               <button type="button" onClick={onClose} disabled={loading} className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted">
-                {validSuggestions.length === 0 ? "Continue" : "Skip Allocation"}
+                {filteredSuggestions.length === 0 ? "Continue" : "Skip Allocation"}
               </button>
               {hasEdits ? (
                 <button
                   type="button"
                   onClick={handleManualAllocate}
-                  disabled={loading || validSuggestions.length === 0}
+                  disabled={loading || filteredSuggestions.length === 0}
                   className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
                   {loading ? "Allocating..." : "Save Manual Allocation"}
@@ -236,7 +283,7 @@ export default function AllocationConfirmDialog({ title, description, suggestion
                 <button
                   type="button"
                   onClick={handleAutoAllocate}
-                  disabled={loading || validSuggestions.length === 0}
+                  disabled={loading || filteredSuggestions.length === 0}
                   className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
                   {loading ? "Allocating..." : "Accept & Allocate"}
