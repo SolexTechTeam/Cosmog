@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import ProductsTable from "@/components/screens/products/ProductsTable";
+import ProductsTable from "./ProductsTable";
 
 export default function ProductsScreen() {
   return (

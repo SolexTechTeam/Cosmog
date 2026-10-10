@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import ProcurementTable from "@/components/screens/orders/ProcurementTable";
+import ProcurementTable from "./ProcurementTable";
 
 export default async function PurchaseOrdersScreen({
   searchParams,

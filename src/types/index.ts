@@ -140,3 +140,54 @@ export interface DemandPriority {
   total_points: number;
   priority_label: "High Attention" | "Med Attention" | "Low Attention";
 }
+
+export interface InventoryLot {
+  id: string;
+  product_id: string;
+  purchase_order_item_id: string;
+  quantity_total: number;
+  quantity_on_hand: number;
+  quantity_reserved: number;
+  lot_status: string;
+  unit_cost: number;
+  received_at: string | null;
+  created_at: string;
+  updated_at: string;
+  purchase_order_item?: { id: string; purchase_order_id: string; unit_cost: number } | null;
+}
+
+export interface LedgerEntry {
+  id: number;
+  product_id: string;
+  product_name: string | null;
+  inventory_lot_id: string | null;
+  movement_type: string;
+  quantity_change: number;
+  unit_cost: number | null;
+  unit_price: number | null;
+  reference_type: string | null;
+  reference_id: string | null;
+  performed_by: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface LookupValue {
+  id: string;
+  category: string;
+  value: string;
+  label: string;
+  sort_order: number;
+  is_active: boolean;
+  is_system: boolean;
+}
+
+export interface LookupOption {
+  label: string;
+  value: string;
+}
+
+export interface AllocationResponse {
+  allocation_status: string;
+  priority_points: number;
+}

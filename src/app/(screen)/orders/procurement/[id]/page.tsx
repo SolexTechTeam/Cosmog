@@ -1,4 +1,4 @@
-import PurchaseOrderDetail from "@/components/screens/orders/PurchaseOrderDetail";
+import PurchaseOrderDetail from "./PurchaseOrderDetail";
 
 export default async function PurchaseOrderDetailPage({
   params,

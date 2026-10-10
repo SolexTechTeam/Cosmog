@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import UsersTable from "@/components/screens/users/UsersTable";
+import UsersTable from "./UsersTable";
 
 export default function UsersScreen() {
   return (

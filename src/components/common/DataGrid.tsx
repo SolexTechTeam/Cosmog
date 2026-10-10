@@ -48,6 +48,8 @@ interface DataGridProps<T extends object> {
   editConfig?: RowEditConfig<T>;
   editLabel?: string;
   archiveAction?: RowArchiveAction<T>;
+  onSaveSuccess?: (row: T) => void;
+  onArchiveSuccess?: (row: T) => void;
 }
 
 type InlineDetailRow<T extends object> = T & {
@@ -176,6 +178,8 @@ export default function DataGrid<T extends object>({
   editConfig,
   editLabel = "Edit",
   archiveAction,
+  onSaveSuccess,
+  onArchiveSuccess,
 }: DataGridProps<T>) {
   const [selectedRow, setSelectedRow] = useState<T | null>(null);
   const [dismissedDetailsRowId, setDismissedDetailsRowId] = useState<string | null>(null);
@@ -285,6 +289,7 @@ export default function DataGrid<T extends object>({
       setSaving(true);
       setSaveError(null);
       await archiveAction.onArchive(activeDetailsRow);
+      onArchiveSuccess?.(activeDetailsRow);
       closeDetails();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to archive this record.");
@@ -324,6 +329,7 @@ export default function DataGrid<T extends object>({
       setSaving(true);
       setSaveError(null);
       await editConfig.onSave(activeDetailsRow, changes);
+      onSaveSuccess?.(activeDetailsRow);
       closeDetails();
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Unable to save changes.");

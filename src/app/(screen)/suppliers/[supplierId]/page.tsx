@@ -1,4 +1,4 @@
-import SupplierDetail from "@/components/screens/suppliers/SupplierDetail";
+import SupplierDetail from "./SupplierDetail";
 
 export default async function SupplierDetailPage({
   params,

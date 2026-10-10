@@ -1,4 +1,4 @@
-import InventoryProductDetail from "@/components/screens/inventory/InventoryProductDetail";
+import InventoryProductDetail from "./InventoryProductDetail";
 
 export default async function InventoryProductDetailPage({
   params,

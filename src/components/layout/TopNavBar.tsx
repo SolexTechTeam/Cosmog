@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
 import type { Profile } from "@/types";
 
 export default function TopNavBar() {
   const router = useRouter();
-  const { data: profile } = useApi<Profile>("/api/profiles/me");
+  const { data: profile } = useApi<Profile>(() => AetherClient.getMyProfile());
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();

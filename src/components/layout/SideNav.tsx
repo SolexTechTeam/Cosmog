@@ -5,9 +5,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
+import {
+  Home,
+  Package,
+  History,
+  ShoppingCart,
+  Truck,
+  Flame,
+  Users,
+  Building2,
+  Box,
+  UserCog,
+  LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import type { Profile } from "@/types";
 
-type NavLink = { label: string; href: string };
+type NavLink = { label: string; href: string; icon: React.ReactNode };
 type NavGroup = { label: string; children: NavLink[] };
 type NavItem = NavLink | NavGroup;
 
@@ -15,30 +31,32 @@ function isGroup(item: NavItem): item is NavGroup {
   return "children" in item;
 }
 
+const iconSize = 18;
+
 const navItems: NavItem[] = [
-  { label: "Home", href: "/home" },
+  { label: "Home", href: "/home", icon: <Home size={iconSize} /> },
   {
     label: "Inventory",
     children: [
-      { label: "Stock", href: "/inventory" },
-      { label: "History", href: "/inventory/history" },
+      { label: "Stock", href: "/inventory", icon: <Package size={iconSize} /> },
+      { label: "History", href: "/inventory/history", icon: <History size={iconSize} /> },
     ],
   },
   {
     label: "Orders",
     children: [
-      { label: "Sales", href: "/orders/sales" },
-      { label: "Procurement", href: "/orders/procurement" },
-      { label: "Demand Priority", href: "/orders/cooking" },
+      { label: "Sales", href: "/orders/sales", icon: <ShoppingCart size={iconSize} /> },
+      { label: "Procurement", href: "/orders/procurement", icon: <Truck size={iconSize} /> },
+      { label: "Demand Priority", href: "/orders/cooking", icon: <Flame size={iconSize} /> },
     ],
   },
   {
     label: "Data",
     children: [
-      { label: "Customers", href: "/customers" },
-      { label: "Suppliers", href: "/suppliers" },
-      { label: "Products", href: "/products" },
-      { label: "Users", href: "/users" },
+      { label: "Customers", href: "/customers", icon: <Users size={iconSize} /> },
+      { label: "Suppliers", href: "/suppliers", icon: <Building2 size={iconSize} /> },
+      { label: "Products", href: "/products", icon: <Box size={iconSize} /> },
+      { label: "Users", href: "/users", icon: <UserCog size={iconSize} /> },
     ],
   },
 ];
@@ -47,7 +65,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const { data: profile } = useApi<Profile>("/api/profiles/me");
+  const { data: profile } = useApi<Profile>(() => AetherClient.getMyProfile());
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
@@ -56,24 +74,22 @@ export default function SideNav() {
     router.refresh();
   }
 
+  const isActive = (href: string) => pathname === href;
+
   return (
     <aside
       className={`${
         collapsed ? "w-16" : "w-56"
       } relative bg-sidebar flex flex-col transition-all duration-200`}
     >
-      {/* Collapse toggle — vertical bar on right edge with centered arrow */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute top-0 right-0 w-[12px] h-full bg-sidebar-accent hover:bg-primary/40 transition-colors flex items-center justify-center group"
-        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        className="absolute top-3 right-0 translate-x-1/2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        <span className="text-[10px] text-gray-500 group-hover:text-white transition-colors select-none">
-          {collapsed ? "›" : "‹"}
-        </span>
+        {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
       </button>
 
-      {/* Title */}
       <div className={`px-5 pt-6 pb-6 ${collapsed ? "px-2 text-center" : ""}`}>
         {collapsed ? (
           <span className="text-xl font-bold text-primary">S</span>
@@ -82,7 +98,6 @@ export default function SideNav() {
         )}
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
         {navItems.map((item) =>
           isGroup(item) ? (
@@ -92,19 +107,22 @@ export default function SideNav() {
                   {item.label}
                 </span>
               )}
+              {collapsed && <div className="mx-auto mb-1 h-px w-6 bg-sidebar-border" />}
               <div className="flex flex-col gap-0.5">
                 {item.children.map((child) => (
                   <Link
                     key={child.href}
                     href={child.href}
                     title={collapsed ? child.label : undefined}
-                    className={`px-3 py-2 text-sm transition-all duration-200 ${
-                      pathname === child.href
-                        ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
-                        : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
-                    } ${collapsed ? "text-center" : ""}`}
+                    aria-label={collapsed ? child.label : undefined}
+                    className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-colors duration-150 ${
+                      isActive(child.href)
+                        ? "bg-primary/10 text-white font-medium"
+                        : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent"
+                    } ${collapsed ? "justify-center px-0" : ""}`}
                   >
-                    {collapsed ? child.label.charAt(0) : child.label}
+                    <span className={isActive(child.href) ? "text-primary" : ""}>{child.icon}</span>
+                    {!collapsed && child.label}
                   </Link>
                 ))}
               </div>
@@ -114,31 +132,34 @@ export default function SideNav() {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`px-3 py-2 text-sm transition-all duration-200 ${
-                pathname === item.href
-                  ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
-                  : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
-              } ${collapsed ? "text-center" : ""}`}
+              aria-label={collapsed ? item.label : undefined}
+              className={`flex items-center gap-2.5 px-3 py-2 text-sm rounded-md transition-colors duration-150 ${
+                isActive(item.href)
+                  ? "bg-primary/10 text-white font-medium"
+                  : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent"
+              } ${collapsed ? "justify-center px-0" : ""}`}
             >
-              {collapsed ? item.label.charAt(0) : item.label}
+              <span className={isActive(item.href) ? "text-primary" : ""}>{item.icon}</span>
+              {!collapsed && item.label}
             </Link>
           )
         )}
       </nav>
 
-      {/* User info + sign out at bottom */}
       <div className={`border-t border-sidebar-border px-4 py-4 ${collapsed ? "px-2" : ""}`}>
         {!collapsed && profile && (
           <p className="text-xs text-gray-500 truncate mb-2">{profile.name}</p>
         )}
         <button
           onClick={handleSignOut}
-          title={collapsed ? "Sign Out" : undefined}
-          className={`text-xs text-gray-500 hover:text-gray-300 transition-colors ${
-            collapsed ? "w-full text-center" : ""
+          title="Sign Out"
+          aria-label="Sign Out"
+          className={`flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors ${
+            collapsed ? "w-full justify-center" : ""
           }`}
         >
-          {collapsed ? "x" : "Sign Out"}
+          <LogOut size={14} />
+          {!collapsed && "Sign Out"}
         </button>
       </div>
     </aside>
