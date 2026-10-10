@@ -21,11 +21,11 @@ export default function InventoryOverviewCards({ items, loading, error }: Invent
   }
 
   return (
-    <MetricCardRow>
+    <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
       <MetricCard label="Total SKUs" loading={loading} value={totalSkus} />
       <MetricCard label="On-Hand Units" loading={loading} value={onHand.toLocaleString()} />
-      <MetricCard label="In-Transit" loading={loading} value={inTransit.toLocaleString()} />
-      <MetricCard label="Out of Stock" loading={loading} value={outOfStock} />
+      <MetricCard label="In-Transit" loading={loading} value={inTransit.toLocaleString()} accent="primary" />
+      <MetricCard label="Out of Stock" loading={loading} value={outOfStock} accent="danger" />
     </MetricCardRow>
   );
 }

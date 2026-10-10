@@ -28,6 +28,7 @@ export default function CustomersTable() {
   const customers = useMemo(() => data ?? [], [data]);
   const b2bCount = customers.filter((c) => c.customer_type === "b2b").length;
   const b2cCount = customers.filter((c) => c.customer_type === "b2c").length;
+  const specialCount = customers.filter((c) => c.customer_type === "special").length;
 
   const filtered = useMemo(() => {
     let rows = customers;
@@ -108,16 +109,23 @@ export default function CustomersTable() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <MetricCardRow>
-          <MetricCard label="Total Customers" value={loading ? "—" : customers.length} />
-          <MetricCard label="B2B" value={loading ? "—" : b2bCount} />
-          <MetricCard label="B2C" value={loading ? "—" : b2cCount} />
-        </MetricCardRow>
+    <>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Customers</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">Manage your customer accounts</p>
+        </div>
+        <div className="min-w-0 flex-1 lg:max-w-3xl">
+          <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            <MetricCard label="Total" loading={loading} value={customers.length} />
+            <MetricCard label="B2B" loading={loading} value={b2bCount} accent="primary" />
+            <MetricCard label="B2C" loading={loading} value={b2cCount} />
+            {specialCount > 0 && <MetricCard label="Special" loading={loading} value={specialCount} accent="warning" />}
+          </MetricCardRow>
+        </div>
       </div>
-      <div className="flex flex-col gap-4">
+
+      <div className="flex flex-col gap-3">
         <SearchFilterBar
           searchPlaceholder="Search name, handle, email..."
           searchValue={search}
@@ -135,7 +143,18 @@ export default function CustomersTable() {
               onChange: setTypeFilter,
             },
           ]}
-          trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Customer</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+          trailing={
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setCreateError(null); setShowCreate(true); }}
+                className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
+              >
+                Add Customer
+              </button>
+              <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
+            </div>
+          }
         />
         <DataGrid<Customer>
           rows={filtered}
@@ -146,7 +165,26 @@ export default function CustomersTable() {
           detailsPageHref={(customer) => `/customers/${customer.id}`}
         />
       </div>
-      {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createCustomer} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-customer-title"><h2 id="add-customer-title" className="text-lg font-semibold">Add Customer</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Handle<input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Type<select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></select></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add Customer"}</button></div></form></div>}
-    </div>
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}>
+          <form onSubmit={createCustomer} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-customer-title">
+            <h2 id="add-customer-title" className="text-lg font-semibold">Add Customer</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Handle<input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Type<select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></select></label>
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+            </div>
+            {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button>
+              <button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding..." : "Add Customer"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+    </>
   );
 }

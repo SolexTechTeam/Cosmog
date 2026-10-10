@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, type FormEvent } from "react";
+import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi, queryKeys } from "@/hooks/useApi";
@@ -98,6 +99,8 @@ export default function HistoryTable() {
   const { data, loading, error, refetch } = useApi<LedgerEntry[]>([...queryKeys.ledger], () => AetherClient.getLedger());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [showAdjustment, setShowAdjustment] = useState(false);
 
   const filtered = useMemo(() => {
@@ -113,8 +116,16 @@ export default function HistoryTable() {
       );
     }
     if (typeFilter) rows = rows.filter((r) => r.movement_type === typeFilter);
+    if (dateFrom) {
+      const from = new Date(dateFrom);
+      rows = rows.filter((r) => new Date(r.created_at) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo + "T23:59:59");
+      rows = rows.filter((r) => new Date(r.created_at) <= to);
+    }
     return rows;
-  }, [data, search, typeFilter]);
+  }, [data, search, typeFilter, dateFrom, dateTo]);
 
   const allColumns: ColDef<LedgerEntry>[] = useMemo(
     () => [
@@ -162,9 +173,8 @@ export default function HistoryTable() {
         minWidth: 100,
         valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : "—",
       },
-      // TODO: Add reference to the attribute
       {
-        headerName: "Cost Sold",
+        headerName: "Line Value",
         minWidth: 120,
         valueGetter: (p) => {
           const quantityChange = p.data?.quantity_change ?? 0;
@@ -173,12 +183,34 @@ export default function HistoryTable() {
         },
         valueFormatter: (p) => p.value != null ? `$${p.value.toFixed(2)}` : "—",
       },
-      { field: "reference_type", headerName: "Ref Type", minWidth: 140 },
       {
-        field: "reference_id",
-        headerName: "Ref ID",
-        minWidth: 120,
-        valueFormatter: (p) => p.value ? p.value.slice(0, 8) + "..." : "—",
+        colId: "reference",
+        headerName: "Reference",
+        minWidth: 200,
+        valueGetter: (p) => p.data?.reference_type ?? "",
+        cellRenderer: (p: { data?: LedgerEntry }) => {
+          const entry = p.data;
+          if (!entry?.reference_type || !entry?.reference_id) return "—";
+          const label = entry.reference_type.replace(/_/g, " ");
+          const shortId = entry.reference_id.slice(0, 8);
+          const hrefMap: Record<string, string> = {
+            sale_order: `/orders/sales/${entry.reference_id}`,
+            purchase_order: `/orders/procurement/${entry.reference_id}`,
+          };
+          const href = hrefMap[entry.reference_type];
+          return (
+            <span className="flex items-center gap-1.5">
+              <span className="text-foreground/60 text-xs">{label}</span>
+              {href ? (
+                <Link href={href} className="text-primary hover:underline text-xs" onClick={(e) => e.stopPropagation()}>
+                  {shortId}
+                </Link>
+              ) : (
+                <span className="text-xs">{shortId}</span>
+              )}
+            </span>
+          );
+        },
       },
       { field: "notes", headerName: "Notes", minWidth: 180 },
     ],
@@ -187,7 +219,7 @@ export default function HistoryTable() {
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(
     allColumns,
-    new Set(["reference_type", "reference_id", "notes"])
+    new Set(["notes"])
   );
 
   if (error) {
@@ -217,7 +249,14 @@ export default function HistoryTable() {
             onChange: setTypeFilter,
           },
         ]}
-        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setShowAdjustment(true)} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Adjustment</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+        trailing={
+          <div className="flex items-center gap-2">
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="From date" />
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="To date" />
+            <button type="button" onClick={() => setShowAdjustment(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Adjustment</button>
+            <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
+          </div>
+        }
       />
       <DataGrid<LedgerEntry> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
       {showAdjustment && <AdjustmentDialog onClose={() => setShowAdjustment(false)} onCreated={refetch} />}

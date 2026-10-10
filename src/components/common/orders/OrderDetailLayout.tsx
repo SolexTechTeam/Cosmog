@@ -32,7 +32,7 @@ export default function OrderDetailLayout({
         </div>
         <div className="flex gap-10">
           <div className="items-col">
-            <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">{orderNumber}</h1>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-foreground">{orderNumber}</h1>
           </div>
           <div className="pt-3">
             {statusWidget}
