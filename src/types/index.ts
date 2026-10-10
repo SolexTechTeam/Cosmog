@@ -114,7 +114,7 @@ export interface SaleOrderPoLink {
 export interface InventorySummary {
   product_id: string;
   qty_on_hand: number;
-  qty_in_transit: number;
+  qty_incoming: number;
   qty_reserved: number;
   qty_available: number;
   avg_cost: number;
@@ -129,7 +129,7 @@ export interface StockStatus {
   qty_on_hand: number;
   qty_reserved: number;
   qty_available: number;
-  qty_in_transit: number;
+  qty_incoming: number;
   avg_cost: number;
   stock_status: "In Stock" | "Low Stock" | "Out of Stock" | "Incoming";
 }

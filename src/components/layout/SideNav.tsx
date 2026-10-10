@@ -17,6 +17,7 @@ import {
   Building2,
   Box,
   UserCog,
+  Settings,
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
@@ -58,6 +59,12 @@ const navItems: NavItem[] = [
       { label: "Suppliers", href: "/suppliers", icon: <Building2 size={iconSize} /> },
       { label: "Products", href: "/products", icon: <Box size={iconSize} /> },
       { label: "Users", href: "/users", icon: <UserCog size={iconSize} /> },
+    ],
+  },
+  {
+    label: "Settings",
+    children: [
+      { label: "Lookups", href: "/settings/lookups", icon: <Settings size={iconSize} /> },
     ],
   },
 ];

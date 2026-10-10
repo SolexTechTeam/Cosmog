@@ -14,7 +14,7 @@ export default function InventorySummaryWidget() {
     (acc, item) => ({
       available: acc.available + item.qty_available,
       onHand: acc.onHand + item.qty_on_hand,
-      incoming: acc.incoming + item.qty_in_transit,
+      incoming: acc.incoming + item.qty_incoming,
       reserved: acc.reserved + item.qty_reserved,
       value: acc.value + item.avg_cost * item.qty_on_hand,
     }),

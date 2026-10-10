@@ -2,7 +2,8 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
+import { useToast } from "@/components/ui/toast";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -10,6 +11,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import ErrorBlock from "@/components/ui/error-block";
 import { Info } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
@@ -97,9 +99,13 @@ export default function InventoryTable() {
   const { data, loading, error, refetch } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
   const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>([...queryKeys.inventoryLots], () => AetherClient.getInventoryLots());
   const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const invalidate = useInvalidate();
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [showReallocate, setShowReallocate] = useState(false);
+  const [reallocating, setReallocating] = useState(false);
 
   const categories = useMemo(() => {
     const set = new Set((data ?? []).map((i) => i.category));
@@ -159,7 +165,7 @@ export default function InventoryTable() {
       { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_in_transit", headerName: "Incoming", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_incoming", headerName: "Incoming", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
         headerName: "Avg Cost",
@@ -225,7 +231,18 @@ export default function InventoryTable() {
             onChange: setStatusFilter,
           },
         ]}
-        trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
+        trailing={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowReallocate(true)}
+              className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+            >
+              Re-allocate Stock
+            </button>
+            <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
+          </div>
+        }
       />
       <DataGrid<StockStatus>
         rows={filtered}
@@ -254,6 +271,32 @@ export default function InventoryTable() {
       />
       <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><Info size={12} /> Sell Price = Avg Cost &times; 1.25 (margin) &times; 1.14 (GST)</p>
       </div>
+
+      {showReallocate && (
+        <ConfirmDialog
+          title="Re-allocate all warehouse stock?"
+          description="This will redistribute unassigned on-hand stock across all open sale orders by priority. Existing allocations are preserved — only unallocated stock is assigned."
+          confirmLabel="Re-allocate"
+          variant="primary"
+          loading={reallocating}
+          onConfirm={async () => {
+            setReallocating(true);
+            try {
+              const result = await AetherClient.reallocatePool();
+              const count = result.reallocations.filter(r => !r.error).length;
+              toast(count > 0 ? `${count} orders re-allocated` : "No orders needed re-allocation");
+              invalidate([...queryKeys.saleOrders]);
+              invalidate([...queryKeys.stockStatus]);
+            } catch (e) {
+              toast(e instanceof Error ? e.message : "Re-allocation failed", "error");
+            } finally {
+              setReallocating(false);
+              setShowReallocate(false);
+            }
+          }}
+          onCancel={() => setShowReallocate(false)}
+        />
+      )}
     </>
   );
 }

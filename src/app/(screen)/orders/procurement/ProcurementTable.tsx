@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -10,12 +10,13 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
+import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
 import OrderScreenLayout from "@/components/common/orders/OrderScreenLayout";
 import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
-import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder } from "@/types";
+import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, ReceivePoResponse } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -33,10 +34,16 @@ interface ItemDraft {
 const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
 const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
 
+type DialogData =
+  | { type: "confirm"; result: ConfirmPoResponse }
+  | { type: "receive"; result: ReceivePoResponse };
+
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
   const { toast } = useToast();
+  const invalidate = useInvalidate();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogData, setDialogData] = useState<DialogData | null>(null);
 
   async function patch(changes: Record<string, unknown>) {
     setSaving(true);
@@ -59,19 +66,56 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
       const current = purchaseOrder.status;
 
       if (status === "confirmed") {
-        await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+        const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+        toast(`PO confirmed — ${result.lots_created} lots created`);
+        invalidate([...queryKeys.saleOrders]);
+        invalidate([...queryKeys.purchaseOrders]);
+        if (result.suggested_allocations?.length) {
+          setDialogData({ type: "confirm", result });
+        } else {
+          onSaved();
+        }
       } else if (status === "in transit") {
-        if (current === "draft") await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+        if (current === "draft") {
+          const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+          if (confirmResult.suggested_allocations?.length) {
+            for (const sa of confirmResult.suggested_allocations) {
+              try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
+            }
+          }
+        }
         await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+        toast(`PO ${purchaseOrder.po_number} shipped`);
+        invalidate([...queryKeys.saleOrders]);
+        onSaved();
       } else if (status === "received") {
-        if (current === "draft") { await AetherClient.confirmPurchaseOrder(purchaseOrder.id); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
-        else if (current === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+        if (current === "draft") {
+          const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+          if (confirmResult.suggested_allocations?.length) {
+            for (const sa of confirmResult.suggested_allocations) {
+              try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
+            }
+          }
+          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+        } else if (current === "confirmed") {
+          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+        }
+        const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+        const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
+        toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}`);
+        invalidate([...queryKeys.saleOrders]);
+        invalidate([...queryKeys.purchaseOrders]);
+        if (result.reallocations?.length) {
+          setDialogData({ type: "receive", result });
+        } else {
+          onSaved();
+        }
       } else {
         await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
+        toast(`PO ${purchaseOrder.po_number} status changed to ${status}`);
+        invalidate([...queryKeys.saleOrders]);
+        onSaved();
       }
-      toast(`PO ${purchaseOrder.po_number} status changed to ${status}`);
-      onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to update status.");
     } finally {
@@ -82,65 +126,96 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
   const isDone = purchaseOrder.status === "received" || purchaseOrder.status === "cancelled";
 
   return (
-    <div className="grid gap-3 p-3 text-xs md:grid-cols-[minmax(16rem,1fr)_minmax(0,1.5fr)]">
-      <div className="space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Status
-            <select defaultValue={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
-              <option value="draft">Draft</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="in transit">In transit</option>
-              <option value="received">Received</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Fulfillment
-            <select defaultValue={purchaseOrder.fulfillment_type} onChange={(e) => patch({ fulfillment_type: e.target.value })} disabled={saving || isDone} className={poSelectClass}>
-              <option value="warehouse">Warehouse</option>
-              <option value="direct_delivery">Direct delivery</option>
-            </select>
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Expected arrival
-            <input type="date" defaultValue={purchaseOrder.expected_arrival ?? ""} onChange={(e) => patch({ expected_arrival: e.target.value || undefined })} disabled={saving || isDone} className={poInputClass} />
-          </label>
-          <label className="grid gap-0.5 font-medium text-muted-foreground">
-            Notes
-            <input defaultValue={purchaseOrder.notes ?? ""} onBlur={(e) => { if (e.target.value !== (purchaseOrder.notes ?? "")) patch({ notes: e.target.value || undefined }); }} disabled={saving || isDone} className={poInputClass} placeholder="—" />
-          </label>
+    <>
+      <div className="grid gap-3 p-3 text-xs md:grid-cols-[minmax(16rem,1fr)_minmax(0,1.5fr)]">
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="grid gap-0.5 font-medium text-muted-foreground">
+              Status
+              <select defaultValue={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
+                <option value="draft">Draft</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="in transit">In transit</option>
+                <option value="received">Received</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </label>
+            <label className="grid gap-0.5 font-medium text-muted-foreground">
+              Fulfillment
+              <select defaultValue={purchaseOrder.fulfillment_type} onChange={(e) => patch({ fulfillment_type: e.target.value })} disabled={saving || isDone} className={poSelectClass}>
+                <option value="warehouse">Warehouse</option>
+                <option value="direct_delivery">Direct delivery</option>
+              </select>
+            </label>
+            <label className="grid gap-0.5 font-medium text-muted-foreground">
+              Expected arrival
+              <input type="date" defaultValue={purchaseOrder.expected_arrival ?? ""} onChange={(e) => patch({ expected_arrival: e.target.value || undefined })} disabled={saving || isDone} className={poInputClass} />
+            </label>
+            <label className="grid gap-0.5 font-medium text-muted-foreground">
+              Notes
+              <input defaultValue={purchaseOrder.notes ?? ""} onBlur={(e) => { if (e.target.value !== (purchaseOrder.notes ?? "")) patch({ notes: e.target.value || undefined }); }} disabled={saving || isDone} className={poInputClass} placeholder="—" />
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Supplier: <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="text-primary hover:underline">{purchaseOrder.supplier?.name ?? "—"}</Link>
+          </p>
+          {error && <p className="text-xs text-destructive">{error}</p>}
         </div>
-        <p className="text-xs text-muted-foreground">
-          Supplier: <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="text-primary hover:underline">{purchaseOrder.supplier?.name ?? "—"}</Link>
-        </p>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full min-w-[420px] text-left text-xs">
+            <thead className="bg-muted text-muted-foreground">
+              <tr>
+                <th className="px-3 py-1.5 font-medium">Product</th>
+                <th className="px-3 py-1.5 text-right font-medium">Qty</th>
+                <th className="px-3 py-1.5 text-right font-medium">Total Cost</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {(purchaseOrder.items ?? []).map((item) => (
+                <tr key={item.id}>
+                  <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-right">{item.quantity_ordered}</td>
+                  <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
+                </tr>
+              ))}
+              {(purchaseOrder.items ?? []).length === 0 && (
+                <tr><td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">No items</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border bg-card">
-        <table className="w-full min-w-[420px] text-left text-xs">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-3 py-1.5 font-medium">Product</th>
-              <th className="px-3 py-1.5 text-right font-medium">Qty</th>
-              <th className="px-3 py-1.5 text-right font-medium">Total Cost</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {(purchaseOrder.items ?? []).map((item) => (
-              <tr key={item.id}>
-                <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
-                <td className="px-3 py-1.5 text-right">{item.quantity_ordered}</td>
-                <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
-              </tr>
-            ))}
-            {(purchaseOrder.items ?? []).length === 0 && (
-              <tr><td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">No items</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+      {dialogData?.type === "confirm" && (
+        <AllocationConfirmDialog
+          title="Allocation Preview"
+          description="Review suggested allocations for linked sale orders."
+          suggestions={dialogData.result.suggested_allocations}
+          mode="confirm"
+          onConfirm={async () => {
+            let allocated = 0;
+            for (const sa of dialogData.result.suggested_allocations) {
+              try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); allocated++; } catch { /* non-blocking */ }
+            }
+            invalidate([...queryKeys.saleOrders]);
+            toast(`${allocated} order(s) allocated`);
+            setDialogData(null);
+            onSaved();
+          }}
+          onClose={() => { setDialogData(null); onSaved(); }}
+        />
+      )}
+      {dialogData?.type === "receive" && (
+        <AllocationConfirmDialog
+          title="Re-allocation Results"
+          description="Stock was automatically re-allocated to these orders."
+          suggestions={dialogData.result.reallocations}
+          mode="review"
+          onClose={() => { setDialogData(null); onSaved(); }}
+        />
+      )}
+    </>
   );
 }
 
@@ -418,6 +493,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   const { data: products } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { toast } = useToast();
+  const invalidate = useInvalidate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -574,18 +650,39 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
             }
             if (status === "confirmed") {
-              await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+              const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+              toast(`PO confirmed — ${result.lots_created} lots created. Open the PO detail to review allocation suggestions.`);
             } else if (status === "in transit") {
-              if (purchaseOrder.status === "draft") await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+              if (purchaseOrder.status === "draft") {
+                const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                if (confirmResult.suggested_allocations?.length) {
+                  for (const sa of confirmResult.suggested_allocations) {
+                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
+                  }
+                }
+              }
               await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+              toast(`PO ${purchaseOrder.po_number} shipped`);
             } else if (status === "received") {
-              if (purchaseOrder.status === "draft") { await AetherClient.confirmPurchaseOrder(purchaseOrder.id); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
-              else if (purchaseOrder.status === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+              if (purchaseOrder.status === "draft") {
+                const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                if (confirmResult.suggested_allocations?.length) {
+                  for (const sa of confirmResult.suggested_allocations) {
+                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
+                  }
+                }
+                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+              } else if (purchaseOrder.status === "confirmed") {
+                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+              }
+              const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+              const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
+              toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}.`);
             } else if (status !== undefined) {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
+              toast(`PO ${purchaseOrder.po_number} updated`);
             }
-            toast(`PO ${purchaseOrder.po_number} updated`);
+            invalidate([...queryKeys.saleOrders]);
             refetch();
           },
         }}
