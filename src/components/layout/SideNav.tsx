@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
+import { useApi } from "@/hooks/useApi";
+import type { Profile } from "@/types";
 
 type NavLink = { label: string; href: string };
 type NavGroup = { label: string; children: NavLink[] };
@@ -30,24 +32,22 @@ const navItems: NavItem[] = [
       { label: "Demand Priority", href: "/orders/cooking" },
     ],
   },
-  { label: "Customers", href: "/customers" },
-  { label: "Suppliers", href: "/suppliers" },
-  { label: "Products", href: "/products" },
-  { label: "Users", href: "/users" },
+  {
+    label: "Data",
+    children: [
+      { label: "Customers", href: "/customers" },
+      { label: "Suppliers", href: "/suppliers" },
+      { label: "Products", href: "/products" },
+      { label: "Users", href: "/users" },
+    ],
+  },
 ];
 
 export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
-  }, []);
+  const { data: profile } = useApi<Profile>("/api/profiles/me");
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
@@ -86,22 +86,22 @@ export default function SideNav() {
       <nav className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
         {navItems.map((item) =>
           isGroup(item) ? (
-            <div key={item.label} className="mt-4">
+            <div key={item.label} className="mt-2">
               {!collapsed && (
-                <span className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-primary block">
+                <span className="px-3 py-1 text-xs font-bold uppercase tracking-widest text-primary block">
                   {item.label}
                 </span>
               )}
-              <div className="flex flex-col gap-0.5 mt-1">
+              <div className="flex flex-col gap-0.5">
                 {item.children.map((child) => (
                   <Link
                     key={child.href}
                     href={child.href}
                     title={collapsed ? child.label : undefined}
-                    className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                    className={`px-3 py-2 text-sm transition-all duration-200 ${
                       pathname === child.href
-                        ? "bg-primary text-primary-foreground font-medium"
-                        : "text-sidebar-foreground hover:bg-sidebar-accent"
+                        ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
+                        : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
                     } ${collapsed ? "text-center" : ""}`}
                   >
                     {collapsed ? child.label.charAt(0) : child.label}
@@ -114,10 +114,10 @@ export default function SideNav() {
               key={item.href}
               href={item.href}
               title={collapsed ? item.label : undefined}
-              className={`px-3 py-2 text-sm rounded-md transition-colors ${
+              className={`px-3 py-2 text-sm transition-all duration-200 ${
                 pathname === item.href
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent"
+                  ? "bg-accent text-accent-foreground font-medium border-l-3 border-primary rounded-r-md"
+                  : "text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md"
               } ${collapsed ? "text-center" : ""}`}
             >
               {collapsed ? item.label.charAt(0) : item.label}
@@ -128,8 +128,8 @@ export default function SideNav() {
 
       {/* User info + sign out at bottom */}
       <div className={`border-t border-sidebar-border px-4 py-4 ${collapsed ? "px-2" : ""}`}>
-        {!collapsed && userEmail && (
-          <p className="text-xs text-gray-500 truncate mb-2">{userEmail}</p>
+        {!collapsed && profile && (
+          <p className="text-xs text-gray-500 truncate mb-2">{profile.name}</p>
         )}
         <button
           onClick={handleSignOut}

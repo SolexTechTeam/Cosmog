@@ -1,19 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
+import { useApi } from "@/hooks/useApi";
+import type { Profile } from "@/types";
 
 export default function TopNavBar() {
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-
-  useEffect(() => {
-    const supabase = getSupabaseBrowser();
-    supabase.auth.getUser().then(({ data }) => {
-      setUserEmail(data.user?.email ?? null);
-    });
-  }, []);
+  const { data: profile } = useApi<Profile>("/api/profiles/me");
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
@@ -26,8 +20,8 @@ export default function TopNavBar() {
     <header className="h-14 border-b border-border bg-card flex items-center justify-between px-6">
       <span className="text-xl font-bold tracking-tight text-primary">Solext</span>
       <div className="flex items-center gap-4">
-        {userEmail && (
-          <span className="text-body-muted">{userEmail}</span>
+        {profile && (
+          <span className="text-body-muted">{profile.name}</span>
         )}
         <button
           onClick={handleSignOut}

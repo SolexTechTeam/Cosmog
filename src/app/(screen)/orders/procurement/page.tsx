@@ -1,23 +1,18 @@
 import PageHeader from "@/components/common/PageHeader";
-import MetricCard from "@/components/common/MetricCard";
-import MetricCardRow from "@/components/common/MetricCardRow";
+import ProcurementTable from "@/components/screens/orders/ProcurementTable";
 
-export default function PurchaseOrdersScreen() {
+export default async function PurchaseOrdersScreen({
+  searchParams,
+}: {
+  searchParams: Promise<{ po?: string | string[] }>;
+}) {
+  const { po } = await searchParams;
+  const detailsRowId = Array.isArray(po) ? po[0] : po;
+
   return (
     <>
       <PageHeader title="Purchase Orders" />
-      <MetricCardRow>
-        <MetricCard label="Draft POs" value="—" />
-        <MetricCard label="In-Transit" value="—" />
-        <MetricCard label="Received This Month" value="—" />
-        <MetricCard label="Total Spend" value="—" />
-      </MetricCardRow>
-      <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-        Search + filter bar placeholder
-      </div>
-      <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-        Purchase orders AG Grid table placeholder
-      </div>
+      <ProcurementTable detailsRowId={detailsRowId} />
     </>
   );
 }

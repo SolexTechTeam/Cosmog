@@ -33,10 +33,11 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1A1A1A] via-[#2A1A0A] to-[#1A1A1A]">
+    <div className="flex min-h-screen items-center justify-center"
+      style={{ background: "radial-gradient(circle at 50% 50%, #001422 0.000%, #35120a 20.000%, #6e2012 40.000%, #a1381e 60.000%, #ca572c 80.000%, #e57c3d 100.000%)" }}>
       <div className="w-full max-w-lg rounded-xl border-2 border-border bg-card p-12 shadow-md">
         <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-primary">Solext</h1>
+          <h1 className="text-5xl font-bold tracking-tight text-primary">Solext</h1>
           <p className="mt-2 text-body-muted">
             Inventory management for Solex &amp; Lunex Operations
           </p>

@@ -75,7 +75,6 @@ export interface SaleOrder {
   fulfillment_type: string;
   business_channel: string;
   source: string | null;
-  linked_po_id: string | null;
   owner_id: string | null;
   order_date: string;
   shipped_date: string | null;
@@ -88,8 +87,10 @@ export interface SaleOrder {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  allocation_status: string | null;
+  owner_name: string | null;
   customer?: Pick<Customer, "id" | "name" | "handle">;
-  owner?: Pick<Profile, "id" | "name">;
+  po_links?: SaleOrderPoLink[];
   items?: SaleOrderItem[];
 }
 
@@ -100,6 +101,11 @@ export interface SaleOrderItem {
   quantity: number;
   unit_price: number;
   product?: Pick<Product, "id" | "name" | "category">;
+}
+
+export interface SaleOrderPoLink {
+  purchase_order_id: string;
+  purchase_order?: Pick<PurchaseOrder, "id" | "po_number" | "status" | "supplier">;
 }
 
 export interface InventorySummary {
@@ -116,6 +122,7 @@ export interface StockStatus {
   product_id: string;
   name: string;
   category: string;
+  sku: string | null;
   qty_on_hand: number;
   qty_reserved: number;
   qty_available: number;
