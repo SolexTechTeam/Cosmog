@@ -34,7 +34,7 @@ export default function LoginScreen() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_50%_50%,#001422_0%,#35120a_20%,#6e2012_40%,#a1381e_60%,#ca572c_80%,#e57c3d_100%)]">
+    <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_50%_50%,#2d0e04_0%,#6e1e08_10%,#a43210_25%,#c44a18_40%,#e06020_60%,#ee7428_80%,#f48030_100%)]">
       <div className="w-full max-w-md">
         
         <div className="flex justify-center mb-8">
