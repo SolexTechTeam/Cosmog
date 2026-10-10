@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel } from "@/lib/utils";
 import StatusBadge from "@/components/common/StatusBadge";
+import SidebarCard from "./SidebarCard";
 import type { SaleOrder } from "@/types";
 
 interface LinkedSaleOrdersEditorProps {
@@ -48,47 +49,45 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
   }
 
   return (
-    <section className="rounded-lg border border-border bg-card p-5">
-      <h2 className="text-header border-b border-primary/20 pb-2 mb-3">Linked Sales Orders</h2>
-
+    <SidebarCard title="Linked Sales Orders">
       {linkedOrders.length > 0 ? (
-        <ul className="space-y-2 mb-3">
+        <ul className="space-y-1.5 mb-2">
           {linkedOrders.map((order) => (
-            <li key={order.id} className="flex flex-wrap items-center gap-2">
-              <Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link>
-              <span className="text-xs text-muted-foreground">{order.customer?.name ?? "Unknown"}</span>
+            <li key={order.id} className="flex flex-wrap items-center gap-1.5">
+              <Link href={`/orders/sales/${order.id}`} className="text-sm font-medium text-primary hover:underline">{order.so_number}</Link>
+              <span className="text-[11px] text-foreground/40">{order.customer?.name ?? "Unknown"}</span>
               {order.allocation_status && <StatusBadge status={allocationLabel(order.allocation_status)} />}
-              <button type="button" onClick={() => unlinkSo(order.id)} className="text-xs text-muted-foreground hover:text-destructive">unlink</button>
+              <button type="button" onClick={() => unlinkSo(order.id)} className="text-[10px] text-foreground/40 hover:text-destructive ml-auto">unlink</button>
             </li>
           ))}
         </ul>
-      ) : <p className="text-sm text-muted-foreground mb-3">No sales orders linked.</p>}
+      ) : <p className="text-xs text-foreground/40 mb-2">None linked</p>}
 
       <div className="relative">
-        <input placeholder="Search SOs to link..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-ring" />
+        <input placeholder="Search SOs..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-ring" />
         {soSearch && (
-          <div className="absolute z-10 mt-1 max-h-32 w-full space-y-0.5 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">
+          <div className="absolute z-10 mt-1 max-h-32 w-full space-y-0.5 overflow-y-auto rounded-md border border-zinc-300 bg-card p-1 shadow-lg">
             {searchableOrders
               .filter((so) => so.so_number.toLowerCase().includes(soSearch.toLowerCase()) || (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase()))
               .slice(0, 8)
               .map((so) => (
                 <button key={so.id} type="button" onClick={() => { linkSo(so.id); setSoSearch(""); }} className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-muted">
                   <span className="font-medium">{so.so_number}</span>
-                  <span className="text-muted-foreground">{so.customer?.name ?? "—"} · {so.status}</span>
+                  <span className="text-foreground/40">{so.customer?.name ?? "—"}</span>
                 </button>
               ))}
             {searchableOrders.filter((so) => so.so_number.toLowerCase().includes(soSearch.toLowerCase()) || (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase())).length === 0 && (
-              <p className="px-2 py-1 text-xs text-muted-foreground">No matching SOs</p>
+              <p className="px-2 py-1 text-xs text-foreground/40">No matching SOs</p>
             )}
           </div>
         )}
       </div>
 
       {onCreateSo && (
-        <button type="button" onClick={onCreateSo} className="mt-2 w-full rounded-md border border-dashed border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5">+ Create new SO</button>
+        <button type="button" onClick={onCreateSo} className="mt-2 w-full rounded-md border border-dashed border-primary/30 py-1 text-xs font-medium text-primary hover:bg-primary/5">+ Create new SO</button>
       )}
 
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
-    </section>
+    </SidebarCard>
   );
 }

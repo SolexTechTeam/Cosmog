@@ -198,6 +198,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <div className="mt-auto border-t border-zinc-300 bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-xs text-foreground/60">Subtotal</dt><dd className="tabular-nums font-medium">${itemTotal.toFixed(2)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-foreground/60">GST</dt><dd className="tabular-nums">$0.00</dd></div>
                 <div className="flex justify-between"><dt className="text-xs text-foreground/60">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
                 <div className="flex justify-between"><dt className="text-xs text-foreground/60">Shipping</dt><dd className="tabular-nums">${saleOrder.shipping_cost.toFixed(2)}</dd></div>
                 <div className="flex justify-between border-t border-zinc-300 pt-1.5 mt-1.5">
