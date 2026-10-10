@@ -65,13 +65,14 @@ src/
 - Widgets: descriptive + suffix hinting at type — `MetricCard`, `StatusBadge`, `SearchFilterBar`
 
 ### API architecture — AetherClient
-All API communication goes through a single class: **`AetherClient`** (`src/lib/aether-client.ts`).
+**All** API communication goes through a single class: **`AetherClient`** (`src/lib/aether-client.ts`). This is a hard rule, not a suggestion.
 
-- Pages and components **never** call `fetch`, `api.get`, or raw HTTP methods directly
-- Instead they call typed methods on AetherClient: `AetherClient.getOrders()`, `AetherClient.createSaleOrder(data)`, etc.
+- **No `fetch`, `api.get`, `api.post`, or raw HTTP calls in any page, screen, component, or hook.** If you need data from the backend, add or call a method on AetherClient.
+- UI components call AetherClient methods: `AetherClient.getOrders()`, `AetherClient.createSaleOrder(data)`, etc.
 - AetherClient handles auth headers, base URL, error normalization internally
-- Every backend endpoint gets a corresponding method on AetherClient — this is the single source of truth for "what endpoints exist and how to call them"
-- Hooks like `useApi` should wrap AetherClient methods, not raw fetch calls
+- Every backend endpoint gets a corresponding typed method on AetherClient — this is the single source of truth for "what endpoints exist and how to call them"
+- Hooks wrap AetherClient methods, not raw fetch calls
+- When adding a new API connection: add the method to AetherClient first, then call it from the component
 
 ### Next.js practices
 - Follow Next.js best practices for the installed version. Before writing Next.js code, check `node_modules/next/dist/docs/` for current API guidance.
