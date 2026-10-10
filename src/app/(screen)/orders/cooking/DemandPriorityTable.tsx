@@ -9,6 +9,7 @@ import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
+import SaleOrderExpandedDetails from "@/components/common/orders/SaleOrderExpandedDetails";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
@@ -36,6 +37,7 @@ interface DemandPriorityLine {
   allocation_status: string | null;
   items: SaleOrder["items"];
   po_links: SaleOrder["po_links"];
+  _sourceOrder: SaleOrder;
 }
 
 function agePoints(daysPast: number) {
@@ -133,26 +135,15 @@ function AssociatedPurchaseOrders({ line }: { line: DemandPriorityLine }) {
 
 function DemandPriorityExpandedDetails({ line }: { line: DemandPriorityLine }) {
   return (
-    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(13rem,0.8fr)_minmax(0,1.2fr)]">
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <p className="text-muted-foreground">Customer</p>
-          <p className="font-medium text-foreground">{line.customer_name}</p>
-        </div>
+    <SaleOrderExpandedDetails
+      saleOrder={line._sourceOrder}
+      extraInfo={
         <div>
           <p className="mb-1 text-muted-foreground">Point breakdown</p>
           <p className="text-foreground">{line.base_points.toFixed(1)} base + {line.age_points} age = <span className="font-semibold">{line.total_points.toFixed(1)}</span></p>
         </div>
-        <div>
-          <p className="mb-1 text-muted-foreground">Associated PO</p>
-          <AssociatedPurchaseOrders line={line} />
-        </div>
-      </div>
-      <div>
-        <p className="mb-2 text-muted-foreground">Items</p>
-        <OrderItems items={line.items} />
-      </div>
-    </div>
+      }
+    />
   );
 }
 
@@ -253,6 +244,7 @@ export default function DemandPriorityTable() {
           items,
           allocation_status: order.allocation_status,
           po_links: order.po_links,
+          _sourceOrder: order,
         };
       })
       .sort((first, second) =>

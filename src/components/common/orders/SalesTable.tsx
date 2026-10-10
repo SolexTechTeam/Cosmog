@@ -11,61 +11,10 @@ import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import SalesOverviewCards from "./SalesOverviewCards";
+import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
 import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
-
-function SaleOrderExpandedDetails({ saleOrder }: { saleOrder: SaleOrder }) {
-  return (
-    <div className="grid gap-4 p-3 text-sm md:grid-cols-[minmax(12rem,0.75fr)_minmax(0,1.25fr)]">
-      <div className="space-y-2 self-center">
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Customer</span>
-          <Link href={`/customers/${saleOrder.customer_id}`} className="text-primary hover:underline">{saleOrder.customer?.name ?? "—"}</Link>
-        </p>
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Owner</span>
-          {saleOrder.owner_name ?? "Unassigned"}
-        </p>
-        <p className="min-w-0 truncate text-foreground">
-          <span className="mr-2 text-muted-foreground">Linked POs</span>
-          {(saleOrder.po_links ?? []).length
-            ? (saleOrder.po_links ?? []).map((link) => link.purchase_order?.po_number ?? link.purchase_order_id).join(", ")
-            : "—"}
-        </p>
-      </div>
-
-      <div className="overflow-x-auto rounded-md border border-border bg-card">
-        <table className="w-full min-w-[420px] text-left text-sm">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 font-medium">Name</th>
-              <th className="px-3 py-2 text-right font-medium">Qty</th>
-              <th className="px-3 py-2 text-right font-medium">Total</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {(saleOrder.items ?? []).map((item) => (
-              <tr key={item.id}>
-                <td className="px-3 py-2 text-foreground">
-                  <span>{item.product?.name ?? "—"}</span>
-                  {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
-                </td>
-                <td className="px-3 py-2 text-right text-foreground">{item.quantity}</td>
-                <td className="px-3 py-2 text-right text-foreground">${(item.quantity * item.unit_price).toFixed(2)}</td>
-              </tr>
-            ))}
-            {(saleOrder.items ?? []).length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-3 py-4 text-center text-muted-foreground">No items</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
 interface SalesTableProps {
   orders?: SaleOrder[] | null;
