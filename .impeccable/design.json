@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-10T00:00:00Z",
+  "title": "Design System: Solext",
+  "extensions": {
+    "colorMeta": {
+      "primary-orange": {
+        "role": "primary",
+        "displayName": "Signal Orange",
+        "canonical": "oklch(70.5% 0.213 41.09)",
+        "tonalRamp": ["#7C2D12", "#9A3412", "#C2410C", "#EA580C", "#F97316", "#FB923C", "#FDBA74", "#FED7AA"]
+      },
+      "primary-foreground": {
+        "role": "primary",
+        "displayName": "Primary Foreground",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#FFFFFF"]
+      },
+      "secondary-warm": {
+        "role": "secondary",
+        "displayName": "Warm Cream",
+        "canonical": "#FFF7ED",
+        "tonalRamp": ["#9A3412", "#C2410C", "#EA580C", "#F97316", "#FFEDD5", "#FFF7ED", "#FFFBF5", "#FFFFFF"]
+      },
+      "destructive-red": {
+        "role": "primary",
+        "displayName": "Destructive Red",
+        "canonical": "#DC2626",
+        "tonalRamp": ["#7F1D1D", "#991B1B", "#B91C1C", "#DC2626", "#EF4444", "#F87171", "#FCA5A5", "#FEE2E2"]
+      },
+      "background-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#FFFFFF"]
+      },
+      "foreground-ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#111827",
+        "tonalRamp": ["#030712", "#111827", "#1F2937", "#374151", "#4B5563", "#6B7280", "#9CA3AF", "#D1D5DB"]
+      },
+      "muted-surface": {
+        "role": "neutral",
+        "displayName": "Quiet Gray",
+        "canonical": "#F9FAFB",
+        "tonalRamp": ["#374151", "#4B5563", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#F9FAFB"]
+      },
+      "muted-text": {
+        "role": "neutral",
+        "displayName": "Mid Gray",
+        "canonical": "#6B7280",
+        "tonalRamp": ["#111827", "#1F2937", "#374151", "#4B5563", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB"]
+      },
+      "border-gray": {
+        "role": "neutral",
+        "displayName": "Edge Gray",
+        "canonical": "#E5E7EB",
+        "tonalRamp": ["#4B5563", "#6B7280", "#9CA3AF", "#D1D5DB", "#E5E7EB", "#F3F4F6", "#F9FAFB", "#FFFFFF"]
+      },
+      "sidebar-dark": {
+        "role": "neutral",
+        "displayName": "Sidebar Charcoal",
+        "canonical": "#18181B",
+        "tonalRamp": ["#09090B", "#18181B", "#27272A", "#3F3F46", "#52525B", "#71717A", "#A1A1AA", "#D4D4D8"]
+      },
+      "status-blue": {
+        "role": "tertiary",
+        "displayName": "Status Blue",
+        "canonical": "#3B82F6",
+        "tonalRamp": ["#1E3A5F", "#1E40AF", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE", "#DBEAFE"]
+      },
+      "status-green": {
+        "role": "tertiary",
+        "displayName": "Status Green",
+        "canonical": "#22C55E",
+        "tonalRamp": ["#14532D", "#166534", "#15803D", "#16A34A", "#22C55E", "#4ADE80", "#86EFAC", "#DCFCE7"]
+      },
+      "status-amber": {
+        "role": "tertiary",
+        "displayName": "Status Amber",
+        "canonical": "#EAB308",
+        "tonalRamp": ["#713F12", "#854D0E", "#A16207", "#CA8A04", "#EAB308", "#FACC15", "#FDE047", "#FEF9C3"]
+      },
+      "status-violet": {
+        "role": "tertiary",
+        "displayName": "Status Violet",
+        "canonical": "#8B5CF6",
+        "tonalRamp": ["#2E1065", "#3B0764", "#5B21B6", "#7C3AED", "#8B5CF6", "#A78BFA", "#C4B5FD", "#EDE9FE"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles only. One per screen." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings within a screen." },
+      "title": { "displayName": "Title/Subheader", "purpose": "Category labels, metric card labels, form labels. Uppercase + tracked." },
+      "body": { "displayName": "Body", "purpose": "Table cells, detail values, running text." },
+      "label": { "displayName": "Label", "purpose": "Nav items, button text, badge text, timestamps." }
+    },
+    "shadows": [
+      { "name": "dialog", "value": "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)", "purpose": "Dialog and detail panel overlay. The only shadow in the system." },
+      { "name": "dropdown", "value": "0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)", "purpose": "Dropdown menus and popovers." }
+    ],
+    "motion": [
+      { "name": "transition-all", "value": "all 200ms ease", "purpose": "Default transition for sidebar collapse, button hovers, nav state changes." },
+      { "name": "transition-colors", "value": "color 200ms ease, background-color 200ms ease, border-color 200ms ease", "purpose": "Color-only transitions on buttons and interactive elements." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main action button. Orange fill, white text, 32px height.",
+      "html": "<button class=\"ds-btn-primary\">Create Order</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; background: #F97316; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 8px; white-space: nowrap; cursor: pointer; transition: background 0.2s ease; } .ds-btn-primary:hover { background: #EA580C; } .ds-btn-primary:focus-visible { outline: none; border-color: #F97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.5); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Secondary/cancel action. Transparent at rest, muted fill on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; background: transparent; color: #111827; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 8px; white-space: nowrap; cursor: pointer; transition: background 0.2s ease, color 0.2s ease; } .ds-btn-ghost:hover { background: #F9FAFB; } .ds-btn-ghost:focus-visible { outline: none; border-color: #F97316; box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.5); }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Dangerous actions. Tinted red background, never solid fill.",
+      "html": "<button class=\"ds-btn-destructive\">Cancel Order</button>",
+      "css": ".ds-btn-destructive { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; background: rgba(220, 38, 38, 0.1); color: #DC2626; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 8px; white-space: nowrap; cursor: pointer; transition: background 0.2s ease; } .ds-btn-destructive:hover { background: rgba(220, 38, 38, 0.2); } .ds-btn-destructive:focus-visible { outline: none; border-color: rgba(220, 38, 38, 0.4); box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Semantic status pill used across orders, inventory, and payments.",
+      "html": "<span class=\"ds-badge-open\">Open</span><span class=\"ds-badge-completed\">Completed</span><span class=\"ds-badge-cancelled\">Cancelled</span><span class=\"ds-badge-shipped\">Shipped</span>",
+      "css": ".ds-badge-open, .ds-badge-completed, .ds-badge-cancelled, .ds-badge-shipped { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 500; text-transform: capitalize; border-radius: 9999px; border: 1px solid; } .ds-badge-open { background: #EFF6FF; color: #1D4ED8; border-color: #BFDBFE; } .ds-badge-completed { background: #F0FDF4; color: #15803D; border-color: #BBF7D0; } .ds-badge-cancelled { background: #FEF2F2; color: #DC2626; border-color: #FECACA; } .ds-badge-shipped { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }"
+    },
+    {
+      "name": "Metric Card",
+      "kind": "card",
+      "refersTo": "metric-card",
+      "description": "Compact card with uppercase label and large number. The primary summary widget.",
+      "html": "<div class=\"ds-metric-card\"><p class=\"ds-metric-label\">Open Sales</p><p class=\"ds-metric-value\">24</p></div>",
+      "css": ".ds-metric-card { overflow: hidden; border-radius: 8px; border: 1px solid #E5E7EB; background: #fff; padding: 12px 16px; } .ds-metric-label { font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #6B7280; margin: 0; } .ds-metric-value { font-family: 'DM Sans', sans-serif; font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; color: #111827; margin: 4px 0 0 0; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard form input. White bg, gray border, orange focus ring.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Search...\" />",
+      "css": ".ds-input { height: 40px; width: 100%; border-radius: 6px; border: 1px solid #E5E7EB; background: #fff; padding: 0 12px; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #111827; outline: none; transition: border-color 0.2s ease, box-shadow 0.2s ease; } .ds-input::placeholder { color: #6B7280; } .ds-input:focus { border-color: #F97316; box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.3); }"
+    },
+    {
+      "name": "Sidebar Nav Item",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Dark sidebar navigation link. Zinc text at rest, white on hover/active.",
+      "html": "<nav class=\"ds-sidenav\"><a class=\"ds-nav-item\" href=\"#\">Stock</a><a class=\"ds-nav-item ds-nav-active\" href=\"#\">Sales</a><a class=\"ds-nav-item\" href=\"#\">Procurement</a></nav>",
+      "css": ".ds-sidenav { display: flex; flex-direction: column; gap: 2px; padding: 0 12px; background: #18181B; } .ds-nav-item { display: block; padding: 8px 12px; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; color: #A1A1AA; border-radius: 6px; text-decoration: none; transition: color 0.2s ease, background 0.2s ease; } .ds-nav-item:hover { color: #fff; background: rgba(255, 255, 255, 0.05); } .ds-nav-active { color: #fff; background: rgba(249, 115, 22, 0.1); font-weight: 500; }"
+    },
+    {
+      "name": "Page Header",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Screen title bar with optional trailing actions.",
+      "html": "<div class=\"ds-page-header\"><h1 class=\"ds-page-title\">Sales Orders</h1><div class=\"ds-page-actions\"><button class=\"ds-btn-primary\">New Order</button></div></div>",
+      "css": ".ds-page-header { display: flex; align-items: center; justify-content: space-between; } .ds-page-title { font-family: 'DM Sans', sans-serif; font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em; color: #111827; margin: 0; } .ds-page-actions { display: flex; align-items: center; gap: 8px; } .ds-page-header .ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 32px; padding: 0 10px; background: #F97316; color: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; } .ds-page-header .ds-btn-primary:hover { background: #EA580C; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Control Room",
+    "overview": "Solext's visual system is built around the metaphor of a clean, focused control room: a dark navigation spine anchoring a bright, spacious operational workspace. Orange is the signal color — it draws the eye precisely where action is needed, from the brand mark in the sidebar to primary buttons and active states. The system pairs this operational precision with soft, approachable component shapes that keep the interface from feeling clinical, even when displaying dense data tables and inventory metrics.\n\nThe overall density is moderate. Screens breathe — metric cards sit in generous grid layouts, tables have comfortable row heights, and sections are clearly separated by muted surface bands. The interface is designed for extended use by warehouse and sales staff who live in it all day; nothing shouts, but the hierarchy is always clear.",
+    "keyCharacteristics": [
+      "Dark sidebar, bright content area — high-contrast structural split",
+      "Orange as the singular accent and action color",
+      "Soft radii on all interactive elements (gently curved edges, 8px)",
+      "DM Sans throughout — humanist sans-serif with weight variation",
+      "Status communicated through tinted pill badges",
+      "AG Grid tables as the primary data surface"
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Orange is the only chromatic accent in the primary UI. If you're reaching for a second accent color outside of status badges, stop — orange should be doing that job. Its scarcity is what makes it effective.", "section": "colors" },
+      { "name": "The Weight-Not-Face Rule", "body": "Never introduce a second typeface. DM Sans at weights 400-800 covers every hierarchical need. If you need more contrast, adjust weight and case, not font family.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Surfaces are flat at rest. The only shadow in the entire system is on dialogs and dropdown menus. If a new component wants a shadow, it's probably trying to be a dialog.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use orange exclusively as the action/accent color. Every interactive highlight, focus ring, and brand element is orange or transparent-orange.",
+      "Do use the tinted-surface formula for status badges: bg-{hue}-50 text-{hue}-700 border-{hue}-200.",
+      "Do use the text-title, text-header, text-subheader, text-body, text-body-muted, and text-large-number utility classes for typography.",
+      "Do wrap every AG Grid instance in a bordered card container (rounded-lg border border-border bg-card overflow-hidden).",
+      "Do use MetricCard + MetricCardRow for any numeric summary."
+    ],
+    "donts": [
+      "Don't introduce shadows on cards or containers. The system is flat; depth comes from borders and tonal surfaces.",
+      "Don't use a second typeface. DM Sans at varying weights covers every need.",
+      "Don't use solid-fill destructive buttons. Destructive actions use tinted backgrounds (10-20% opacity) with colored text.",
+      "Don't use colored left borders as active-state indicators (the border-l-3 pattern is a detected anti-pattern).",
+      "Don't add icons to navigation items. The current system uses text-only nav."
+    ]
+  }
+}
