@@ -180,7 +180,29 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
                   ))
                   .slice(0, 10)
                   .map((so) => (
-                    <button key={so.id} type="button" onClick={() => { setLinkedSaleOrderIds((cur) => [...cur, so.id]); setSoSearch(""); }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted">
+                    <button key={so.id} type="button" onClick={() => {
+                      setLinkedSaleOrderIds((cur) => [...cur, so.id]);
+                      setSoSearch("");
+                      if (so.items?.length) {
+                        setLines((cur) => {
+                          let updated = [...cur];
+                          for (const soItem of so.items!) {
+                            const existing = updated.findIndex((l) => l.product_id === soItem.product_id);
+                            if (existing !== -1) {
+                              updated[existing] = { ...updated[existing], quantity_ordered: String(Number(updated[existing].quantity_ordered) + soItem.quantity) };
+                            } else {
+                              const blank = updated.findIndex((l) => !l.product_id);
+                              if (blank !== -1) {
+                                updated[blank] = { product_id: soItem.product_id, quantity_ordered: String(soItem.quantity), unit_cost: "" };
+                              } else {
+                                updated = [...updated, { product_id: soItem.product_id, quantity_ordered: String(soItem.quantity), unit_cost: "" }];
+                              }
+                            }
+                          }
+                          return updated;
+                        });
+                      }
+                    }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted">
                       <span className="font-medium">{so.so_number}</span>
                       <span className="text-muted-foreground">{so.customer?.name ?? "Unknown"} · {so.status}</span>
                     </button>

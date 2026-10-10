@@ -352,7 +352,29 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (saleOrder, changes) => {
-            await api.patch(`/api/sale-orders/${saleOrder.id}`, changes);
+            const { status, ...otherChanges } = changes;
+
+            if (status === "completed") {
+              const missingPrice = (saleOrder.items ?? []).some((item) => !item.unit_price || item.unit_price <= 0);
+              if (missingPrice) {
+                throw new Error("All items must have a sale price before completing this order.");
+              }
+            }
+
+            if (Object.keys(otherChanges).length > 0) {
+              await api.patch(`/api/sale-orders/${saleOrder.id}`, otherChanges);
+            }
+
+            if (status === "shipped") {
+              await api.post("/api/inventory/fulfill", { sale_order_id: saleOrder.id });
+            } else if (status === "cancelled") {
+              await api.post("/api/inventory/release", { sale_order_id: saleOrder.id });
+            } else if (status === "returned") {
+              await api.post("/api/inventory/return", { sale_order_id: saleOrder.id });
+            } else if (status !== undefined) {
+              await api.patch(`/api/sale-orders/${saleOrder.id}`, { status });
+            }
+
             refetch();
           },
         }}

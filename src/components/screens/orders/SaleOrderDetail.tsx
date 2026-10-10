@@ -154,6 +154,12 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             { label: "Returned", value: "returned" },
           ]}
           onUpdate={async (status) => {
+            if (status === "completed") {
+              const missingPrice = (saleOrder.items ?? []).some((item) => !item.unit_price || item.unit_price <= 0);
+              if (missingPrice) {
+                throw new Error("All items must have a sale price before completing this order.");
+              }
+            }
             if (status === "shipped") {
               await api.post("/api/inventory/fulfill", { sale_order_id: saleOrder.id });
             } else if (status === "cancelled") {

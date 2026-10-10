@@ -224,7 +224,7 @@ export default function HistoryTable() {
               { label: "Received", value: "received" },
               { label: "Reserved", value: "reserved" },
               { label: "Released", value: "released" },
-              { label: "Fulfilled", value: "fulfilled" },
+              { label: "Shipped", value: "shipped" },
               { label: "Returned", value: "returned" },
               { label: "Adjustment", value: "adjustment" },
             ],
