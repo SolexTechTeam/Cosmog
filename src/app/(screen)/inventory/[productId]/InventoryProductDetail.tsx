@@ -149,7 +149,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
           <MetricCard label="On-Hand" value={stock.qty_on_hand} accent="default" />
           <MetricCard label="Reserved" value={stock.qty_reserved} accent="warning" />
           <MetricCard label="Available" value={stock.qty_available} accent="success" />
-          <MetricCard label="In-Transit" value={stock.qty_in_transit} accent="primary" />
+          <MetricCard label="Incoming" value={stock.qty_in_transit} accent="primary" />
         </MetricCardRow>
       </div>
 
@@ -210,7 +210,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
                 <SidebarRow label="On-Hand" value={String(stock.qty_on_hand)} />
                 <SidebarRow label="Reserved" value={String(stock.qty_reserved)} />
                 <SidebarRow label="Available" value={String(stock.qty_available)} />
-                <SidebarRow label="In-Transit" value={String(stock.qty_in_transit)} />
+                <SidebarRow label="Incoming" value={String(stock.qty_in_transit)} />
               </dl>
             </SidebarCard>
 

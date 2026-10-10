@@ -159,7 +159,7 @@ export default function InventoryTable() {
       { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_in_transit", headerName: "In-Transit", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_in_transit", headerName: "Incoming", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
         headerName: "Avg Cost",
