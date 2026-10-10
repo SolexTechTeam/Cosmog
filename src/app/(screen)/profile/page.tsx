@@ -110,55 +110,55 @@ export default function ProfileScreen() {
         </div>
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">{profile.name}</h1>
-          <p className="text-sm text-foreground/60">{profile.email}</p>
+          <p className="text-sm text-muted-foreground">{profile.email}</p>
         </div>
       </div>
 
       <div className="h-0.5 bg-sidebar mb-5" />
 
       <div className="space-y-4">
-        <section className="rounded-lg border border-zinc-300 bg-muted px-5 py-4">
+        <section className="rounded-lg border border-border bg-muted px-5 py-4">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">Account</h2>
           <dl className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
-              <dt className="text-xs text-foreground/60">Name</dt>
+              <dt className="text-xs text-muted-foreground">Name</dt>
               {editingName ? (
                 <div className="flex items-center gap-2">
                   <input value={nameValue} onChange={(e) => setNameValue(e.target.value)} className="h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" autoFocus />
                   <button type="button" onClick={saveName} disabled={savingName} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{savingName ? "..." : "Save"}</button>
-                  <button type="button" onClick={() => setEditingName(false)} className="text-xs text-foreground/40 hover:text-foreground">Cancel</button>
+                  <button type="button" onClick={() => setEditingName(false)} className="text-xs text-muted-foreground/60 hover:text-foreground">Cancel</button>
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   <dd className="font-medium">{profile.name}</dd>
-                  <button type="button" onClick={startEditingName} className="text-foreground/30 hover:text-primary transition-colors"><Pencil size={13} /></button>
+                  <button type="button" onClick={startEditingName} className="text-muted-foreground/40 hover:text-primary transition-colors"><Pencil size={13} /></button>
                 </div>
               )}
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-xs text-foreground/60">Email</dt>
+              <dt className="text-xs text-muted-foreground">Email</dt>
               <dd className="font-medium">{profile.email}</dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-xs text-foreground/60">Role</dt>
+              <dt className="text-xs text-muted-foreground">Role</dt>
               <dd><StatusBadge status={profile.role} /></dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-xs text-foreground/60">Status</dt>
+              <dt className="text-xs text-muted-foreground">Status</dt>
               <dd><StatusBadge status={profile.is_active ? "active" : "released"} /></dd>
             </div>
           </dl>
         </section>
 
-        <section className="rounded-lg border border-zinc-300 bg-muted px-5 py-4">
+        <section className="rounded-lg border border-border bg-muted px-5 py-4">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">Security</h2>
           {changingPassword ? (
             <div className="space-y-3">
-              <label className="grid gap-1 text-xs font-medium text-foreground/60">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 New password
                 <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} minLength={6} placeholder="At least 6 characters" className={inputClass} autoFocus />
               </label>
-              <label className="grid gap-1 text-xs font-medium text-foreground/60">
+              <label className="grid gap-1 text-xs font-medium text-muted-foreground">
                 Confirm password
                 <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat password" className={inputClass} />
               </label>
@@ -167,7 +167,7 @@ export default function ProfileScreen() {
                 <button type="button" onClick={savePassword} disabled={savingPassword} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                   {savingPassword ? "Saving..." : "Update password"}
                 </button>
-                <button type="button" onClick={() => { setChangingPassword(false); setPasswordError(null); setNewPassword(""); setConfirmPassword(""); }} className="text-xs text-foreground/40 hover:text-foreground">Cancel</button>
+                <button type="button" onClick={() => { setChangingPassword(false); setPasswordError(null); setNewPassword(""); setConfirmPassword(""); }} className="text-xs text-muted-foreground/60 hover:text-foreground">Cancel</button>
               </div>
             </div>
           ) : (
@@ -177,7 +177,7 @@ export default function ProfileScreen() {
           )}
         </section>
 
-        <section className="rounded-lg border border-zinc-300 bg-muted px-5 py-4">
+        <section className="rounded-lg border border-border bg-muted px-5 py-4">
           <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">Session</h2>
           <button type="button" onClick={handleSignOut} className="flex items-center gap-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors">
             <LogOut size={15} /> Sign out

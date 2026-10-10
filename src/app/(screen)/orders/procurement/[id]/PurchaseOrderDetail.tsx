@@ -61,8 +61,8 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       orderNumber={purchaseOrder.po_number}
       subtitle={<>
         <Link href={`/suppliers/${purchaseOrder.supplier_id}`} className="text-primary hover:underline">{purchaseOrder.supplier?.name ?? "Unknown"}</Link>
-        <span className="text-foreground/30"> · </span>{purchaseOrder.order_date}
-        <span className="text-foreground/30"> · </span>{purchaseOrder.fulfillment_type.replace(/_/g, " ")}
+        <span className="text-muted-foreground/40"> · </span>{purchaseOrder.order_date}
+        <span className="text-muted-foreground/40"> · </span>{purchaseOrder.fulfillment_type.replace(/_/g, " ")}
       </>}
       statusWidget={
         <OrderStatusWidget
@@ -99,7 +99,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
                 activeTab === tab.key
                   ? "border-primary text-foreground"
-                  : "border-transparent text-foreground/40 hover:text-foreground"
+                  : "border-transparent text-muted-foreground/60 hover:text-foreground"
               }`}
             >
               {tab.label}
@@ -108,10 +108,10 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         </div>
 
         {activeTab === "items" && (
-          <section className="flex flex-col rounded-lg border border-zinc-300 bg-card overflow-hidden min-h-[300px]">
+          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
             <div className="flex-1 overflow-x-auto">
               <table className="w-full min-w-[520px] text-left text-sm">
-                <thead className="border-b border-zinc-300 bg-muted text-xs text-foreground/60">
+                <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 font-medium">Product</th>
                     <th className="px-4 py-2 text-right font-medium">Ordered</th>
@@ -125,7 +125,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                     <tr key={item.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-2.5">
                         <Link href={`/inventory/${item.product_id}`} className="font-medium text-primary hover:underline">{item.product?.name ?? item.product_id}</Link>
-                        {item.product?.category && <span className="ml-2 text-xs text-foreground/40">{item.product.category}</span>}
+                        {item.product?.category && <span className="ml-2 text-xs text-muted-foreground/60">{item.product.category}</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity_ordered}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity_received}</td>
@@ -133,16 +133,16 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                       <td className="px-4 py-2.5 text-right tabular-nums font-medium">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
                     </tr>
                   ))}
-                  {items.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-foreground/40">No items</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
                 </tbody>
               </table>
             </div>
-            <div className="mt-auto border-t border-zinc-300 bg-muted/30 px-4 py-2">
+            <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">Subtotal</dt><dd className="tabular-nums font-medium">${totalCost.toFixed(2)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">GST</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between border-t border-zinc-300 pt-1.5 mt-1.5">
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Subtotal</dt><dd className="tabular-nums font-medium">${totalCost.toFixed(2)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">GST</dt><dd className="tabular-nums">$0.00</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
+                <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
                   <dd className="tabular-nums text-base font-bold text-primary">${totalCost.toFixed(2)}</dd>
                 </div>
@@ -153,29 +153,29 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         )}
 
         {activeTab === "details" && (
-          <section className="rounded-lg border border-zinc-300 bg-card p-4">
+          <section className="rounded-lg border border-border bg-card p-4">
             <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div><p className="text-xs text-foreground/60">Supplier</p><p className="text-sm font-medium">{purchaseOrder.supplier?.name ?? "—"}</p></div>
-              <div><p className="text-xs text-foreground/60">Fulfillment</p><p className="text-sm font-medium capitalize">{purchaseOrder.fulfillment_type.replace(/_/g, " ")}</p></div>
-              <div><p className="text-xs text-foreground/60">Order Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.order_date}</p></div>
-              <div><p className="text-xs text-foreground/60">Expected Arrival</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.expected_arrival || "—"}</p></div>
-              <div><p className="text-xs text-foreground/60">Shipped Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.shipped_date || "—"}</p></div>
-              <div><p className="text-xs text-foreground/60">Received Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.received_date || "—"}</p></div>
-              <div><p className="text-xs text-foreground/60">Total Cost</p><p className="text-sm font-bold tabular-nums text-primary">{fmt(totalCost)}</p></div>
-              <div><p className="text-xs text-foreground/60">Items Ordered</p><p className="text-sm font-medium tabular-nums">{totalOrdered}</p></div>
-              <div><p className="text-xs text-foreground/60">Items Received</p><p className="text-sm font-medium tabular-nums">{totalReceived} / {totalOrdered}</p></div>
-              <div><p className="text-xs text-foreground/60">Created</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.created_at?.slice(0, 10)}</p></div>
-              <div><p className="text-xs text-foreground/60">Updated</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.updated_at?.slice(0, 10)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Supplier</p><p className="text-sm font-medium">{purchaseOrder.supplier?.name ?? "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Fulfillment</p><p className="text-sm font-medium capitalize">{purchaseOrder.fulfillment_type.replace(/_/g, " ")}</p></div>
+              <div><p className="text-xs text-muted-foreground">Order Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.order_date}</p></div>
+              <div><p className="text-xs text-muted-foreground">Expected Arrival</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.expected_arrival || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Shipped Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.shipped_date || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Received Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.received_date || "—"}</p></div>
+              <div><p className="text-xs text-muted-foreground">Total Cost</p><p className="text-sm font-bold tabular-nums text-primary">{fmt(totalCost)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Items Ordered</p><p className="text-sm font-medium tabular-nums">{totalOrdered}</p></div>
+              <div><p className="text-xs text-muted-foreground">Items Received</p><p className="text-sm font-medium tabular-nums">{totalReceived} / {totalOrdered}</p></div>
+              <div><p className="text-xs text-muted-foreground">Created</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.created_at?.slice(0, 10)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Updated</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.updated_at?.slice(0, 10)}</p></div>
             </div>
           </section>
         )}
 
         {activeTab === "notes" && (
-          <section className="rounded-lg border border-zinc-300 bg-card p-4">
+          <section className="rounded-lg border border-border bg-card p-4">
             {purchaseOrder.notes ? (
               <p className="text-sm whitespace-pre-wrap">{purchaseOrder.notes}</p>
             ) : (
-              <p className="text-sm text-foreground/40">No notes on this order.</p>
+              <p className="text-sm text-muted-foreground/60">No notes on this order.</p>
             )}
           </section>
         )}
@@ -184,9 +184,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       sidebar={<>
         <SidebarCard title="Cost">
           <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Total</dt><dd className="font-bold tabular-nums text-primary">{fmt(totalCost)}</dd></div>
-            <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Items</dt><dd className="font-semibold tabular-nums">{items.length}</dd></div>
-            <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Received</dt><dd className="font-semibold tabular-nums">{totalReceived} / {totalOrdered}</dd></div>
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Total</dt><dd className="font-bold tabular-nums text-primary">{fmt(totalCost)}</dd></div>
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Items</dt><dd className="font-semibold tabular-nums">{items.length}</dd></div>
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Received</dt><dd className="font-semibold tabular-nums">{totalReceived} / {totalOrdered}</dd></div>
           </dl>
         </SidebarCard>
 
@@ -198,11 +198,11 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
         <SidebarCard title="Details">
           <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Fulfillment</dt><dd className="capitalize font-medium">{purchaseOrder.fulfillment_type.replace(/_/g, " ")}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">ETA</dt><dd className="tabular-nums">{purchaseOrder.expected_arrival || "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Shipped</dt><dd className="tabular-nums">{purchaseOrder.shipped_date || "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Received</dt><dd className="tabular-nums">{purchaseOrder.received_date || "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Created</dt><dd className="tabular-nums">{purchaseOrder.created_at?.slice(0, 10)}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Fulfillment</dt><dd className="capitalize font-medium">{purchaseOrder.fulfillment_type.replace(/_/g, " ")}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">ETA</dt><dd className="tabular-nums">{purchaseOrder.expected_arrival || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipped</dt><dd className="tabular-nums">{purchaseOrder.shipped_date || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Received</dt><dd className="tabular-nums">{purchaseOrder.received_date || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Created</dt><dd className="tabular-nums">{purchaseOrder.created_at?.slice(0, 10)}</dd></div>
           </dl>
         </SidebarCard>
 

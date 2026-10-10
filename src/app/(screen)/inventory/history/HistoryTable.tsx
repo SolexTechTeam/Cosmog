@@ -200,7 +200,7 @@ export default function HistoryTable() {
           const href = hrefMap[entry.reference_type];
           return (
             <span className="flex items-center gap-1.5">
-              <span className="text-foreground/60 text-xs">{label}</span>
+              <span className="text-muted-foreground text-xs">{label}</span>
               {href ? (
                 <Link href={href} className="text-primary hover:underline text-xs" onClick={(e) => e.stopPropagation()}>
                   {shortId}

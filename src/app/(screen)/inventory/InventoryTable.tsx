@@ -191,7 +191,7 @@ export default function InventoryTable() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="shrink-0">
           <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
-          <p className="mt-0.5 text-xs text-foreground/60">Stock levels and product tracking</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Stock levels and product tracking</p>
         </div>
         <div className="min-w-0 flex-1 lg:max-w-3xl">
           <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
