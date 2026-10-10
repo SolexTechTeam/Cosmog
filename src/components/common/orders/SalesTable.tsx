@@ -127,11 +127,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
       {
         headerName: "Total",
         minWidth: 110,
-        valueGetter: (p) => {
-          const items = p.data?.items ?? [];
-          const itemTotal = items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
-          return `$${(itemTotal + (p.data?.shipping_cost ?? 0)).toFixed(2)}`;
-        },
+        valueGetter: (p) => `$${(p.data?.order_total ?? 0).toFixed(2)}`,
       },
     ],
     []
@@ -207,6 +203,8 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
               { label: "Need", value: "need" },
               { label: "Awaiting", value: "awaiting" },
               { label: "Ready to Ship", value: "ready_to_ship" },
+              { label: "Done", value: "done" },
+              { label: "Unallocated", value: "unallocated" },
             ],
             value: procurementFilter,
             onChange: setProcurementFilter,
@@ -333,11 +331,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
           },
         }}
         renderRowDetails={(saleOrder) => {
-          const itemTotal = (saleOrder.items ?? []).reduce(
-            (total, item) => total + item.quantity * item.unit_price,
-            0
-          );
-          const total = itemTotal + saleOrder.shipping_cost;
+          const total = saleOrder.order_total;
 
           return (
             <div className="space-y-6 p-5">

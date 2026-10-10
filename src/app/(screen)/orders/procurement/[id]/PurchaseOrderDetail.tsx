@@ -42,7 +42,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   if (!purchaseOrder) return <p className="text-sm text-muted-foreground">Purchase order not found.</p>;
 
   const items = purchaseOrder.items ?? [];
-  const totalCost = items.reduce((total, item) => total + item.quantity_ordered * item.unit_cost, 0);
+  const totalCost = purchaseOrder.order_total;
   const totalReceived = items.reduce((total, item) => total + item.quantity_received, 0);
   const totalOrdered = items.reduce((total, item) => total + item.quantity_ordered, 0);
 
@@ -76,11 +76,13 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           ]}
           onUpdate={async (status) => {
             const current = purchaseOrder.status;
-            if (status === "in transit") {
-              if (current === "draft") await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
+            if (status === "confirmed") {
+              await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+            } else if (status === "in transit") {
+              if (current === "draft") await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
               await AetherClient.shipPurchaseOrder(purchaseOrder.id);
             } else if (status === "received") {
-              if (current === "draft") { await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" }); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
+              if (current === "draft") { await AetherClient.confirmPurchaseOrder(purchaseOrder.id); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
               else if (current === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               await AetherClient.receivePurchaseOrder(purchaseOrder.id);
             } else { await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status }); }
@@ -202,6 +204,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             <div className="flex justify-between"><dt className="text-xs text-muted-foreground">ETA</dt><dd className="tabular-nums">{purchaseOrder.expected_arrival || "—"}</dd></div>
             <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipped</dt><dd className="tabular-nums">{purchaseOrder.shipped_date || "—"}</dd></div>
             <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Received</dt><dd className="tabular-nums">{purchaseOrder.received_date || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Created By</dt><dd>{purchaseOrder.created_by_profile?.name ?? "—"}</dd></div>
             <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Created</dt><dd className="tabular-nums">{purchaseOrder.created_at?.slice(0, 10)}</dd></div>
           </dl>
         </SidebarCard>

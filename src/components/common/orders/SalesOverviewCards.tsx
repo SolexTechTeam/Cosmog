@@ -16,15 +16,9 @@ export default function SalesOverviewCards({ orders, loading, error }: SalesOver
 
   const openValue = orders
     .filter((o) => o.status === "open")
-    .reduce((sum, o) => {
-      const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-      return sum + itemTotal + o.shipping_cost;
-    }, 0);
+    .reduce((sum, o) => sum + o.order_total, 0);
 
-  const totalValue = orders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    return sum + itemTotal + o.shipping_cost;
-  }, 0);
+  const totalValue = orders.reduce((sum, o) => sum + o.order_total, 0);
 
   if (error) {
     return <p className="text-sm text-destructive">Failed to load sales data: {error}</p>;

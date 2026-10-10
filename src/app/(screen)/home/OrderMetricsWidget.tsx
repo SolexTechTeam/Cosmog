@@ -19,7 +19,7 @@ export default function OrderMetricsWidget({ orders, loading, error }: OrderMetr
   const activeOrders = orders.filter((o) => isActiveSaleOrderStatus(o.status));
 
   const procurementCounts = useMemo(() => {
-    const counts = { need: 0, awaiting: 0, ready_to_ship: 0 };
+    const counts = { need: 0, awaiting: 0, ready_to_ship: 0, done: 0, unallocated: 0 };
     for (const o of activeOrders) {
       const label = allocationLabel(o.allocation_status);
       if (label in counts) counts[label as keyof typeof counts]++;
@@ -27,15 +27,9 @@ export default function OrderMetricsWidget({ orders, loading, error }: OrderMetr
     return counts;
   }, [activeOrders]);
 
-  const totalOpenValue = openOrders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    return sum + itemTotal + o.shipping_cost;
-  }, 0);
+  const totalOpenValue = openOrders.reduce((sum, o) => sum + o.order_total, 0);
 
-  const outstanding = openOrders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    return sum + itemTotal + o.shipping_cost - o.amount_paid;
-  }, 0);
+  const outstanding = openOrders.reduce((sum, o) => sum + o.order_total - o.amount_paid, 0);
 
   const awaitingPayment = orders.filter((o) => o.payment_status === "awaiting_payment").length;
 
@@ -54,6 +48,7 @@ export default function OrderMetricsWidget({ orders, loading, error }: OrderMetr
             <span className="flex items-center gap-1.5"><StatusBadge status="need" /><span className="text-sm font-bold tabular-nums">{procurementCounts.need}</span></span>
             <span className="flex items-center gap-1.5"><StatusBadge status="awaiting" /><span className="text-sm font-bold tabular-nums">{procurementCounts.awaiting}</span></span>
             <span className="flex items-center gap-1.5"><StatusBadge status="ready_to_ship" /><span className="text-sm font-bold tabular-nums">{procurementCounts.ready_to_ship}</span></span>
+            <span className="flex items-center gap-1.5"><StatusBadge status="done" /><span className="text-sm font-bold tabular-nums">{procurementCounts.done}</span></span>
           </div>
         )}
       </MetricCard>

@@ -58,18 +58,14 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
     try {
       const current = purchaseOrder.status;
 
-      if (status === "in transit") {
-        if (current === "draft") {
-          await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
-        }
+      if (status === "confirmed") {
+        await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+      } else if (status === "in transit") {
+        if (current === "draft") await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
         await AetherClient.shipPurchaseOrder(purchaseOrder.id);
       } else if (status === "received") {
-        if (current === "draft") {
-          await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
-          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        } else if (current === "confirmed") {
-          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        }
+        if (current === "draft") { await AetherClient.confirmPurchaseOrder(purchaseOrder.id); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
+        else if (current === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
         await AetherClient.receivePurchaseOrder(purchaseOrder.id);
       } else {
         await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
@@ -476,17 +472,19 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
       {
         headerName: "Total Cost",
         minWidth: 120,
-        valueGetter: (p) => {
-          const total = (p.data?.items ?? []).reduce((s, i) => s + i.quantity_ordered * i.unit_cost, 0);
-          return `$${total.toFixed(2)}`;
-        },
+        valueGetter: (p) => `$${(p.data?.order_total ?? 0).toFixed(2)}`,
+      },
+      {
+        headerName: "Created By",
+        valueGetter: (p) => p.data?.created_by_profile?.name ?? "—",
+        minWidth: 120,
       },
     ],
     []
   );
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns,
-    new Set(["Supplier", "received_date", "shipped_date", "expected_arrival"])
+    new Set(["Supplier", "received_date", "shipped_date", "expected_arrival", "Created By"])
   );
 
   if (error) {
@@ -575,11 +573,14 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             if (Object.keys(headerChanges).length) {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
             }
-            if (status === "in transit") {
-              if (purchaseOrder.status !== "confirmed") throw new Error("A PO can only enter transit after it is confirmed.");
+            if (status === "confirmed") {
+              await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+            } else if (status === "in transit") {
+              if (purchaseOrder.status === "draft") await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
               await AetherClient.shipPurchaseOrder(purchaseOrder.id);
             } else if (status === "received") {
-              if (purchaseOrder.status !== "in transit") throw new Error("A PO must be in transit before it can be received.");
+              if (purchaseOrder.status === "draft") { await AetherClient.confirmPurchaseOrder(purchaseOrder.id); await AetherClient.shipPurchaseOrder(purchaseOrder.id); }
+              else if (purchaseOrder.status === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               await AetherClient.receivePurchaseOrder(purchaseOrder.id);
             } else if (status !== undefined) {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });

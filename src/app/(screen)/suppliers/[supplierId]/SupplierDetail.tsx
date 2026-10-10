@@ -84,9 +84,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
   const contactEmail = String(contactInfo.email ?? "");
   const contactPhone = String(contactInfo.phone ?? "");
 
-  const totalCost = orders.reduce((sum, o) => {
-    return sum + (o.items ?? []).reduce((si, i) => si + i.quantity_ordered * i.unit_cost, 0);
-  }, 0);
+  const totalCost = orders.reduce((sum, o) => sum + o.order_total, 0);
   const activeOrders = orders.filter((o) => o.status !== "received" && o.status !== "cancelled");
   const receivedOrders = orders.filter((o) => o.status === "received");
 
@@ -433,9 +431,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {orders.map((order) => {
-                    const cost = (order.items ?? []).reduce((si, i) => si + i.quantity_ordered * i.unit_cost, 0);
-                    return (
+                  {orders.map((order) => (
                       <tr key={order.id} className="hover:bg-muted/50">
                         <td className="px-3 py-2">
                           <Link href={`/orders/procurement/${order.id}`} className="font-medium text-primary hover:underline">{order.po_number}</Link>
@@ -444,10 +440,9 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                         <td className="px-3 py-2"><StatusBadge status={order.status} /></td>
                         <td className="px-3 py-2 capitalize">{order.fulfillment_type.replace(/_/g, " ")}</td>
                         <td className="px-3 py-2 text-right">{(order.items ?? []).length}</td>
-                        <td className="px-3 py-2 text-right">{fmt(cost)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(order.order_total)}</td>
                       </tr>
-                    );
-                  })}
+                    ))}
                   {orders.length === 0 && (
                     <tr><td colSpan={6} className="px-3 py-5 text-center text-muted-foreground">No purchase orders</td></tr>
                   )}

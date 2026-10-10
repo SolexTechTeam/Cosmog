@@ -50,7 +50,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const poLinks = saleOrder.po_links ?? [];
   const items = saleOrder.items ?? [];
   const itemTotal = items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
-  const orderTotal = itemTotal + saleOrder.shipping_cost;
+  const orderTotal = saleOrder.order_total;
   const balance = orderTotal - saleOrder.amount_paid;
   const activeProfiles = (profiles ?? []).filter((p) => p.is_active);
   const canEdit = saleOrder.status === "open";

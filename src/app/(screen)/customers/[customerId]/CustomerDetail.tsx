@@ -78,10 +78,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
 
   const c = customer;
 
-  const totalRevenue = orders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    return sum + itemTotal + o.shipping_cost;
-  }, 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + o.order_total, 0);
   const openOrders = orders.filter((o) => o.status === "open" || o.status === "shipped");
   const outstanding = totalRevenue - orders.reduce((sum, o) => sum + o.amount_paid, 0);
   const contactInfo = (c.contact_info ?? {}) as Record<string, unknown>;
@@ -369,9 +366,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
-                  {orders.map((order) => {
-                    const itemTotal = (order.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-                    return (
+                  {orders.map((order) => (
                       <tr key={order.id} className="hover:bg-muted/50">
                         <td className="px-3 py-2">
                           <Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link>
@@ -379,10 +374,9 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                         <td className="px-3 py-2">{order.order_date}</td>
                         <td className="px-3 py-2"><StatusBadge status={order.status} /></td>
                         <td className="px-3 py-2"><StatusBadge status={order.payment_status} /></td>
-                        <td className="px-3 py-2 text-right">{fmt(itemTotal + order.shipping_cost)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(order.order_total)}</td>
                       </tr>
-                    );
-                  })}
+                    ))}
                   {orders.length === 0 && (
                     <tr><td colSpan={5} className="px-3 py-5 text-center text-muted-foreground">No sales orders</td></tr>
                   )}

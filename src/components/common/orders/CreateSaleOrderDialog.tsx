@@ -17,7 +17,7 @@ interface StockWarning {
   product_id: string;
   requested: number;
   available: number;
-  in_transit: number;
+  incoming: number;
   shortfall: number;
   message: string;
 }
