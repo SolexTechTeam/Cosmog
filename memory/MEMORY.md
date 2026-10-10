@@ -1,0 +1,3 @@
+- [User coding style](user_coding_style.md) — SLAP hierarchy, colocated screen-sections, AetherClient API class
+- [Workflow rules](feedback_workflow.md) — plan + /improve before impl, /simplify + /code-review before PRs
+- [Aether API reference](reference_aether_api.md) — backend docs/schemas at ../Aether/, check before any API work
