@@ -20,7 +20,7 @@ interface PurchaseOrderDetailProps {
 type Tab = "items" | "details" | "notes";
 
 type DialogData =
-  | { type: "confirm"; result: ConfirmPoResponse }
+  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Set<string> }
   | { type: "receive"; result: ReceivePoResponse };
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
@@ -35,6 +35,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const [patchError, setPatchError] = useState<string | null>(null);
   const [showCreateSo, setShowCreateSo] = useState(false);
   const [dialogData, setDialogData] = useState<DialogData | null>(null);
+  const [pendingAction, setPendingAction] = useState<"ship" | "receive" | null>(null);
 
   async function patch(changes: Record<string, unknown>) {
     if (!purchaseOrder) return;
@@ -42,6 +43,72 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     try { await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes); toast(`${purchaseOrder.po_number} updated`); refetch(); }
     catch (e) { setPatchError(e instanceof Error ? e.message : "Failed to save."); }
     finally { setSaving(false); }
+  }
+
+  function getOpenSoIds(): string[] {
+    return (saleOrders ?? [])
+      .filter((so) => so.status === "open")
+      .map((so) => so.id);
+  }
+
+  async function fetchPreviews() {
+    const openSOs = (saleOrders ?? []).filter((so) => so.status === "open");
+    const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];
+    for (const so of openSOs) {
+      try {
+        const preview = await AetherClient.previewAllocation(so.id);
+        if (preview.suggested_allocations?.length) {
+          previews.push({ sale_order_id: so.id, so_number: so.so_number, suggested_allocations: preview.suggested_allocations });
+        }
+      } catch { /* skip */ }
+    }
+    return previews;
+  }
+
+  async function fetchOwnLotIds(): Promise<Set<string>> {
+    if (!purchaseOrder) return new Set();
+    const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
+    try {
+      const lots = await AetherClient.getInventoryLots();
+      return new Set(lots.filter((l) => l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)).map((l) => l.id));
+    } catch { return new Set(); }
+  }
+
+  async function doAllocateAndContinue(allocateFn?: (soId: string) => Promise<void>) {
+    if (!purchaseOrder) return;
+
+    if (allocateFn) {
+      for (const soId of getOpenSoIds()) {
+        try { await allocateFn(soId); } catch { /* non-blocking */ }
+      }
+    }
+
+    if (pendingAction === "ship" || pendingAction === "receive") {
+      await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+      toast(`${purchaseOrder.po_number} shipped`);
+    }
+
+    if (pendingAction === "receive") {
+      await doReceive();
+      return;
+    }
+
+    invalidate([...queryKeys.saleOrders]);
+    invalidate([...queryKeys.purchaseOrders]);
+  }
+
+  async function doReceive() {
+    if (!purchaseOrder) return;
+    const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+    const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
+    toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}`);
+    invalidate([...queryKeys.saleOrders]);
+    invalidate([...queryKeys.purchaseOrders]);
+    if (result.reallocations?.length) {
+      setDialogData({ type: "receive", result });
+    } else {
+      refetch();
+    }
   }
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading purchase order...</p>;
@@ -77,6 +144,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           status={purchaseOrder.status}
           isComplete={purchaseOrder.status === "received"}
           completionLabel="received and complete"
+          skipConfirm
           options={[
             { label: "Draft", value: "draft" }, { label: "Confirmed", value: "confirmed" },
             { label: "In transit", value: "in transit" }, { label: "Received", value: "received" },
@@ -84,53 +152,20 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           ]}
           onUpdate={async (status) => {
             const current = purchaseOrder.status;
-            if (status === "confirmed") {
-              const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-              toast(`PO confirmed — ${result.lots_created} lots created`);
-              invalidate([...queryKeys.saleOrders]);
-              invalidate([...queryKeys.purchaseOrders]);
-              if (result.suggested_allocations?.length) {
-                setDialogData({ type: "confirm", result });
-              } else {
-                refetch();
-              }
-            } else if (status === "in transit") {
+
+            if (status === "confirmed" || status === "in transit" || status === "received") {
+              // Step 1: Confirm PO first if it's draft (creates lots)
               if (current === "draft") {
-                // Chained transition: auto-allocate silently
-                const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                if (confirmResult.suggested_allocations?.length) {
-                  for (const sa of confirmResult.suggested_allocations) {
-                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
-                  }
-                }
+                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                toast(`PO confirmed — ${result.lots_created} lots created`);
               }
-              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              toast(`${purchaseOrder.po_number} shipped`);
-              invalidate([...queryKeys.saleOrders]);
-              refetch();
-            } else if (status === "received") {
-              if (current === "draft") {
-                // Chained: auto-allocate silently
-                const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                if (confirmResult.suggested_allocations?.length) {
-                  for (const sa of confirmResult.suggested_allocations) {
-                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
-                  }
-                }
-                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              } else if (current === "confirmed") {
-                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              }
-              const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
-              const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
-              toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}`);
-              invalidate([...queryKeys.saleOrders]);
-              invalidate([...queryKeys.purchaseOrders]);
-              if (result.reallocations?.length) {
-                setDialogData({ type: "receive", result });
-              } else {
-                refetch();
-              }
+              // Step 2: Fetch our lot IDs + allocation previews
+              const [previews, ownLotIds] = await Promise.all([fetchPreviews(), fetchOwnLotIds()]);
+              if (status === "confirmed") setPendingAction(null);
+              else if (status === "in transit") setPendingAction("ship");
+              else if (status === "received") setPendingAction("receive");
+              // Step 3: Show dialog — user decides allocation
+              setDialogData({ type: "preview", previews, ownLotIds });
             } else {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
               toast(`${purchaseOrder.po_number} → ${status}`);
@@ -277,23 +312,38 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       ) : undefined}
     />
 
-    {dialogData?.type === "confirm" && (
+    {dialogData?.type === "preview" && (
       <AllocationConfirmDialog
         title="Allocation Preview"
-        description="Review suggested allocations for linked sale orders."
-        suggestions={dialogData.result.suggested_allocations}
+        description="Review allocations before confirming. Edit quantities if needed."
+        suggestions={dialogData.previews}
         mode="confirm"
-        onConfirm={async () => {
-          let allocated = 0;
-          for (const sa of dialogData.result.suggested_allocations) {
-            try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); allocated++; } catch { /* non-blocking */ }
-          }
-          invalidate([...queryKeys.saleOrders]);
-          toast(`${allocated} order(s) allocated`);
+        ownLotIds={dialogData.ownLotIds}
+        onAutoAllocate={async () => {
           setDialogData(null);
+          await doAllocateAndContinue(async (soId) => {
+            await AetherClient.allocateInventory({ sale_order_id: soId, mode: "auto" });
+          });
+          toast("Allocation complete");
+          setPendingAction(null);
           refetch();
         }}
-        onClose={() => { setDialogData(null); refetch(); }}
+        onManualAllocate={async (soId, allocations) => {
+          setDialogData(null);
+          await doAllocateAndContinue(async (sid) => {
+            if (sid === soId) await AetherClient.allocateInventory({ sale_order_id: sid, mode: "manual", allocations });
+            else await AetherClient.allocateInventory({ sale_order_id: sid, mode: "auto" });
+          });
+          toast("Manual allocation saved");
+          setPendingAction(null);
+          refetch();
+        }}
+        onClose={async () => {
+          setDialogData(null);
+          await doAllocateAndContinue();
+          setPendingAction(null);
+          refetch();
+        }}
       />
     )}
     {dialogData?.type === "receive" && (

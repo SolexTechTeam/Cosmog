@@ -23,6 +23,7 @@ interface OrderStatusWidgetProps {
   onUpdate: (status: string) => Promise<void>;
   isComplete?: boolean;
   completionLabel?: string;
+  skipConfirm?: boolean;
 }
 
 const statusColors: Record<string, string> = {
@@ -70,6 +71,7 @@ export default function OrderStatusWidget({
   onUpdate,
   isComplete = false,
   completionLabel = "completed",
+  skipConfirm = false,
 }: OrderStatusWidgetProps) {
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -92,7 +94,9 @@ export default function OrderStatusWidget({
     try {
       await onUpdate(nextStatus);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Unable to update status.");
+      const msg = caughtError instanceof Error ? caughtError.message : "Unable to update status.";
+      setError(msg);
+      console.error("Status transition failed:", msg);
     } finally {
       setUpdating(false);
     }
@@ -102,7 +106,7 @@ export default function OrderStatusWidget({
     if (nextStatus === status || isComplete) return;
     setOpen(false);
 
-    if (nextStatus in confirmConfig) {
+    if (!skipConfirm && nextStatus in confirmConfig) {
       setPendingStatus(nextStatus);
     } else {
       executeTransition(nextStatus);
