@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -210,7 +210,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 }
 
 export default function DemandPriorityTable() {
-  const { data, loading, error, refetch } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data, loading, error, refetch } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -31,12 +31,13 @@ interface SalesTableProps {
 
 export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
   const { toast } = useToast();
-  const own = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
-  const data = externalOrders !== undefined ? externalOrders : own.data;
-  const loading = externalLoading !== undefined ? externalLoading : own.loading;
-  const error = externalError !== undefined ? externalError : own.error;
+  const hasExternal = externalOrders !== undefined;
+  const own = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders(), { enabled: !hasExternal });
+  const data = hasExternal ? externalOrders : own.data;
+  const loading = hasExternal ? (externalLoading ?? false) : own.loading;
+  const error = hasExternal ? (externalError ?? null) : own.error;
   const refetch = own.refetch;
-  const { data: profiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data: profiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles(), { enabled: !compact });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
 import { useToast } from "@/components/ui/toast";
@@ -16,7 +16,7 @@ const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2
 
 export default function UserDetail({ userId }: UserDetailProps) {
   const { toast } = useToast();
-  const { data: profiles, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data: profiles, loading, error, refetch } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
   const profile = profiles?.find((p) => p.id === userId);
 
   const [editing, setEditing] = useState(false);

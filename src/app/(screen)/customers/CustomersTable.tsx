@@ -4,7 +4,7 @@ import { useState, useMemo, type FormEvent } from "react";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -16,7 +16,7 @@ import type { Customer } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function CustomersTable() {
-  const { data, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
+  const { data, loading, error, refetch } = useApi<Customer[]>([...queryKeys.customers], () => AetherClient.getCustomers());
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");

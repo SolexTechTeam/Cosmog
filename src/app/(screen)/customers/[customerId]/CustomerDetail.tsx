@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
@@ -19,8 +19,8 @@ const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2
 
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   const { toast } = useToast();
-  const { data: customers, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
-  const { data: saleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data: customers, loading, error, refetch } = useApi<Customer[]>([...queryKeys.customers], () => AetherClient.getCustomers());
+  const { data: saleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { options: customerTypeOptions } = useLookup("customer_type");
 
   const customer = customers?.find((c) => c.id === customerId);

@@ -3,7 +3,7 @@
 import { useState, useMemo, type FormEvent } from "react";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -15,7 +15,7 @@ import type { ColDef } from "ag-grid-community";
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { data: products } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data: products } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const [productId, setProductId] = useState("");
   const [quantityChange, setQuantityChange] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -95,7 +95,7 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 export default function HistoryTable() {
-  const { data, loading, error, refetch } = useApi<LedgerEntry[]>(() => AetherClient.getLedger());
+  const { data, loading, error, refetch } = useApi<LedgerEntry[]>([...queryKeys.ledger], () => AetherClient.getLedger());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [showAdjustment, setShowAdjustment] = useState(false);

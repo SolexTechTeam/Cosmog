@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/types";
@@ -10,10 +10,10 @@ import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/ty
 interface InventoryProductDetailProps { productId: string; }
 
 export default function InventoryProductDetail({ productId }: InventoryProductDetailProps) {
-  const { data: stockItems, loading, error } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
-  const { data: lots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
-  const { data: ledger } = useApi<LedgerEntry[]>(() => AetherClient.getLedger());
+  const { data: stockItems, loading, error } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
+  const { data: lots, error: lotsError } = useApi<InventoryLot[]>([...queryKeys.inventoryLots], () => AetherClient.getInventoryLots());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const { data: ledger } = useApi<LedgerEntry[]>([...queryKeys.ledger], () => AetherClient.getLedger());
   const stock = stockItems?.find((item) => item.product_id === productId);
   const productLots = (lots ?? []).filter((lot) => lot.product_id === productId);
   const poMap = new Map<string, PurchaseOrder>();

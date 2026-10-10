@@ -1,12 +1,12 @@
 "use client";
 
 import PageHeader from "@/components/common/PageHeader";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import type { Profile } from "@/types";
 
 export default function ProfileScreen() {
-  const { data: profile, loading, error } = useApi<Profile>(() => AetherClient.getMyProfile());
+  const { data: profile, loading, error } = useApi<Profile>([...queryKeys.myProfile], () => AetherClient.getMyProfile());
 
   return (
     <>

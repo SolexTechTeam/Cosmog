@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -418,9 +418,9 @@ interface ProcurementTableProps {
 }
 
 export default function ProcurementTable({ detailsRowId }: ProcurementTableProps) {
-  const { data, loading, error, refetch } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
-  const { data: products } = useApi<Product[]>(() => AetherClient.getProducts());
-  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data, loading, error, refetch } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const { data: products } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

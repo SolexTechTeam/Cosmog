@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
@@ -18,8 +18,8 @@ const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2
 
 export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
   const { toast } = useToast();
-  const { data: suppliers, loading, error, refetch } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: suppliers, loading, error, refetch } = useApi<Supplier[]>([...queryKeys.suppliers], () => AetherClient.getSuppliers());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
 
   const supplier = suppliers?.find((s) => s.id === supplierId);
   const orders = useMemo(

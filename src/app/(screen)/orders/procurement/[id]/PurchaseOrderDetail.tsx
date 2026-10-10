@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useToast } from "@/components/ui/toast";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
@@ -20,8 +20,8 @@ type Tab = "items" | "details" | "notes";
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
   const { toast } = useToast();
-  const { data: purchaseOrders, loading, error, refetch } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
-  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data: purchaseOrders, loading, error, refetch } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const purchaseOrder = purchaseOrders?.find((order) => order.id === purchaseOrderId);
 
   const [activeTab, setActiveTab] = useState<Tab>("items");

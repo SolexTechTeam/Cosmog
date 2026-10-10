@@ -1,6 +1,6 @@
 "use client";
 
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
@@ -8,7 +8,7 @@ import ErrorBlock from "@/components/ui/error-block";
 import type { InventorySummary } from "@/types";
 
 export default function InventorySummaryWidget() {
-  const { data, loading, error, refetch } = useApi<InventorySummary[]>(() => AetherClient.getInventorySummary());
+  const { data, loading, error, refetch } = useApi<InventorySummary[]>([...queryKeys.inventorySummary], () => AetherClient.getInventorySummary());
 
   const totals = (data ?? []).reduce(
     (acc, item) => ({

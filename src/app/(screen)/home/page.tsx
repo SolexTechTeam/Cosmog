@@ -1,6 +1,6 @@
 "use client";
 
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import InventorySummaryWidget from "./InventorySummaryWidget";
 import OrderMetricsWidget from "./OrderMetricsWidget";
@@ -8,7 +8,7 @@ import SalesTable from "@/components/common/orders/SalesTable";
 import type { SaleOrder } from "@/types";
 
 export default function HomeScreen() {
-  const { data: saleOrders, loading, error } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data: saleOrders, loading, error } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
 
   return (
     <>

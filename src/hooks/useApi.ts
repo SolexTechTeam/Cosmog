@@ -1,38 +1,46 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
 
-interface UseApiResult<T> {
-  data: T | null;
-  loading: boolean;
-  error: string | null;
-  refetch: () => void;
+export function useApi<T>(
+  queryKey: string[],
+  fetcher: () => Promise<T>,
+  options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">
+) {
+  const query = useQuery<T, Error>({
+    queryKey,
+    queryFn: fetcher,
+    ...options,
+  });
+
+  return {
+    data: query.data ?? null,
+    loading: query.isLoading,
+    error: query.error?.message ?? null,
+    refetch: query.refetch,
+  };
 }
 
-export function useApi<T>(fetcher: () => Promise<T>): UseApiResult<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await fetcherRef.current();
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { data, loading, error, refetch: fetchData };
+export function useInvalidate() {
+  const queryClient = useQueryClient();
+  return (key?: string[]) => {
+    if (key) queryClient.invalidateQueries({ queryKey: key });
+    else queryClient.invalidateQueries();
+  };
 }
+
+export const queryKeys = {
+  saleOrders: ["sale-orders"] as const,
+  purchaseOrders: ["purchase-orders"] as const,
+  customers: ["customers"] as const,
+  suppliers: ["suppliers"] as const,
+  products: ["products"] as const,
+  profiles: ["profiles"] as const,
+  myProfile: ["my-profile"] as const,
+  stockStatus: ["stock-status"] as const,
+  inventorySummary: ["inventory-summary"] as const,
+  demandPriority: ["demand-priority"] as const,
+  ledger: ["ledger"] as const,
+  inventoryLots: ["inventory-lots"] as const,
+  lookups: (category: string) => ["lookups", category] as const,
+};

@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import type { Product, PurchaseOrder, SaleOrder, Supplier } from "@/types";
@@ -29,9 +29,9 @@ interface CreatePurchaseOrderDialogProps {
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId }: CreatePurchaseOrderDialogProps) {
-  const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
-  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>(() => AetherClient.getProducts());
-  const { data: fetchedSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>([...queryKeys.suppliers], () => AetherClient.getSuppliers());
+  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
+  const { data: fetchedSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { options: fulfillmentOptions } = useLookup("po_fulfillment_type");
   const [supplierId, setSupplierId] = useState("");
   const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);

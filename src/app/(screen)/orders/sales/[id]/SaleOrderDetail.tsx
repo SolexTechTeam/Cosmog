@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
@@ -24,9 +24,9 @@ type Tab = "items" | "details" | "notes";
 
 export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const { toast } = useToast();
-  const { data: orders, loading, error, refetch } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
-  const { data: profiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: orders, loading, error, refetch } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
+  const { data: profiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
   const { options: priorityOptions } = useLookup("so_priority");
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
 

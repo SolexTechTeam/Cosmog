@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -93,9 +93,9 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
 
 export default function InventoryTable() {
   // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
-  const { data, loading, error, refetch } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
-  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data, loading, error, refetch } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
+  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>([...queryKeys.inventoryLots], () => AetherClient.getInventoryLots());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

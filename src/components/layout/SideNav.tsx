@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import {
   Home,
@@ -65,7 +65,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const { data: profile } = useApi<Profile>(() => AetherClient.getMyProfile());
+  const { data: profile } = useApi<Profile>([...queryKeys.myProfile], () => AetherClient.getMyProfile());
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();

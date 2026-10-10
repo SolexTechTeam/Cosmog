@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -16,7 +16,7 @@ import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ProductsTable() {
-  const { data, loading, error, refetch } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data, loading, error, refetch } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
