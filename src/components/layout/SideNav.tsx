@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
 import type { Profile } from "@/types";
 
 type NavLink = { label: string; href: string };
@@ -47,7 +48,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const { data: profile } = useApi<Profile>("/api/profiles/me");
+  const { data: profile } = useApi<Profile>(() => AetherClient.getMyProfile());
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();

@@ -3,13 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
-import OrderStatusWidget from "@/components/screens/orders/OrderStatusWidget";
-import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
-import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
+import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
+import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
+import CreateSaleOrderDialog from "@/components/common/orders/CreateSaleOrderDialog";
 import type { PurchaseOrder, SaleOrder } from "@/types";
 
 interface PurchaseOrderDetailProps {
@@ -19,8 +19,8 @@ interface PurchaseOrderDetailProps {
 const fieldClass = "h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-1 focus:ring-ring";
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
-  const { data: purchaseOrders, loading, error, refetch } = useApi<PurchaseOrder[]>("/api/purchase-orders");
-  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: purchaseOrders, loading, error, refetch } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const purchaseOrder = purchaseOrders?.find((order) => order.id === purchaseOrderId);
 
   const [saving, setSaving] = useState(false);
@@ -33,7 +33,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     setSaving(true);
     setPatchError(null);
     try {
-      await api.patch(`/api/purchase-orders/${poId}`, changes);
+      await AetherClient.updatePurchaseOrder(poId, changes);
       refetch();
     } catch (e) {
       setPatchError(e instanceof Error ? e.message : "Failed to save.");
@@ -80,19 +80,19 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
             if (status === "in transit") {
               if (current === "draft") {
-                await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
+                await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
               }
-              await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
             } else if (status === "received") {
               if (current === "draft") {
-                await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
-                await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+                await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
+                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               } else if (current === "confirmed") {
-                await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               }
-              await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+              await AetherClient.receivePurchaseOrder(purchaseOrder.id);
             } else {
-              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+              await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
             }
             refetch();
           }}

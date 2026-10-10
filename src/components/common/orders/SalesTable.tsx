@@ -3,14 +3,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
-import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
-import SalesOverviewCards from "@/components/screens/orders/SalesOverviewCards";
+import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
+import SalesOverviewCards from "./SalesOverviewCards";
 import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -78,12 +78,12 @@ interface SalesTableProps {
 }
 
 export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
-  const own = useApi<SaleOrder[]>("/api/sale-orders");
+  const own = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const data = externalOrders !== undefined ? externalOrders : own.data;
   const loading = externalLoading !== undefined ? externalLoading : own.loading;
   const error = externalError !== undefined ? externalError : own.error;
   const refetch = own.refetch;
-  const { data: profiles } = useApi<Profile[]>("/api/profiles");
+  const { data: profiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -362,17 +362,17 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             }
 
             if (Object.keys(otherChanges).length > 0) {
-              await api.patch(`/api/sale-orders/${saleOrder.id}`, otherChanges);
+              await AetherClient.updateSaleOrder(saleOrder.id, otherChanges);
             }
 
             if (status === "shipped") {
-              await api.post("/api/inventory/fulfill", { sale_order_id: saleOrder.id });
+              await AetherClient.fulfillSaleOrder(saleOrder.id);
             } else if (status === "cancelled") {
-              await api.post("/api/inventory/release", { sale_order_id: saleOrder.id });
+              await AetherClient.releaseSaleOrder(saleOrder.id);
             } else if (status === "returned") {
-              await api.post("/api/inventory/return", { sale_order_id: saleOrder.id });
+              await AetherClient.returnSaleOrder(saleOrder.id);
             } else if (status !== undefined) {
-              await api.patch(`/api/sale-orders/${saleOrder.id}`, { status });
+              await AetherClient.updateSaleOrder(saleOrder.id, { status });
             }
 
             refetch();

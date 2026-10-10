@@ -3,29 +3,15 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
-import InventoryOverviewCards from "@/components/screens/inventory/InventoryOverviewCards";
-import type { StockStatus, PurchaseOrder } from "@/types";
+import InventoryOverviewCards from "./InventoryOverviewCards";
+import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
-
-interface InventoryLot {
-  id: string;
-  product_id: string;
-  purchase_order_item_id: string;
-  quantity_total: number;
-  quantity_on_hand: number;
-  quantity_reserved: number;
-  lot_status: string;
-  unit_cost: number;
-  received_at: string | null;
-  created_at: string;
-  updated_at: string;
-  purchase_order_item?: { id: string; purchase_order_id: string; unit_cost: number } | null;
-}
 
 function InventoryLots({ lots, error, poMap }: { lots: InventoryLot[]; error: string | null; poMap: Map<string, PurchaseOrder> }) {
   if (error) {
@@ -106,9 +92,9 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
 
 export default function InventoryTable() {
   // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
-  const { data, loading, error } = useApi<StockStatus[]>("/api/inventory/stock-status");
-  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>("/api/inventory/lots");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
+  const { data, loading, error } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
+  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");

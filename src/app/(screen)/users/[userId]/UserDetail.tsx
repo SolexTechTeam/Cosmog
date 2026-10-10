@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { Profile } from "@/types";
 
@@ -14,7 +14,7 @@ interface UserDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function UserDetail({ userId }: UserDetailProps) {
-  const { data: profiles, loading, error, refetch } = useApi<Profile[]>("/api/profiles");
+  const { data: profiles, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
   const profile = profiles?.find((p) => p.id === userId);
 
   const [editing, setEditing] = useState(false);
@@ -47,7 +47,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
       if (editValues.role !== u.role) changes.role = editValues.role;
       if (editValues.is_active !== u.is_active) changes.is_active = editValues.is_active;
       if (Object.keys(changes).length) {
-        await api.patch(`/api/profiles/${u.id}`, changes);
+        await AetherClient.updateProfile(u.id, changes);
       }
       setEditing(false);
       refetch();

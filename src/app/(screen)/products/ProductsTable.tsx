@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -14,7 +14,7 @@ import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ProductsTable() {
-  const { data, loading, error, refetch } = useApi<Product[]>("/api/products");
+  const { data, loading, error, refetch } = useApi<Product[]>(() => AetherClient.getProducts());
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [activeFilter, setActiveFilter] = useState("");
@@ -85,7 +85,7 @@ export default function ProductsTable() {
     try {
       setAdding(true);
       setAddError(null);
-      await api.post("/api/products", {
+      await AetherClient.createProduct({
         name,
         category,
         sku: newProduct.sku.trim() || undefined,
@@ -169,7 +169,7 @@ export default function ProductsTable() {
               { key: "is_active", label: "Active", type: "checkbox" },
             ],
             onSave: async (product, changes) => {
-              await api.patch(`/api/products/${product.id}`, changes);
+              await AetherClient.updateProduct(product.id, changes);
               refetch();
             },
           }}
@@ -177,7 +177,7 @@ export default function ProductsTable() {
             label: "Archive Product",
             isAvailable: (product) => product.is_active,
             onArchive: async (product) => {
-              await api.patch(`/api/products/${product.id}`, { is_active: false });
+              await AetherClient.updateProduct(product.id, { is_active: false });
               refetch();
             },
           }}

@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import CustomersTable from "@/components/screens/customers/CustomersTable";
+import CustomersTable from "./CustomersTable";
 
 export default function CustomersScreen() {
   return (

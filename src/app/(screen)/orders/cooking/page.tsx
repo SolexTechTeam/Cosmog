@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import DemandPriorityTable from "@/components/screens/orders/DemandPriorityTable";
+import DemandPriorityTable from "./DemandPriorityTable";
 
 export default function DemandPriorityScreen() {
   return (

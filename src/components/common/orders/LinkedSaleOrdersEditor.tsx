@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel } from "@/lib/utils";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { SaleOrder } from "@/types";
@@ -30,7 +30,7 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
   async function linkSo(soId: string) {
     setError(null);
     try {
-      await api.post(`/api/sale-orders/${soId}/po-links`, { purchase_order_id: purchaseOrderId });
+      await AetherClient.linkPurchaseOrder(soId, purchaseOrderId);
       onUpdated();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to link SO.");
@@ -40,7 +40,7 @@ export default function LinkedSaleOrdersEditor({ purchaseOrderId, saleOrders, on
   async function unlinkSo(soId: string) {
     setError(null);
     try {
-      await api.delete(`/api/sale-orders/${soId}/po-links/${purchaseOrderId}`);
+      await AetherClient.unlinkPurchaseOrder(soId, purchaseOrderId);
       onUpdated();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to unlink SO.");

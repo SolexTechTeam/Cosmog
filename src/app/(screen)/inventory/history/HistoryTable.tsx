@@ -4,33 +4,17 @@ import { useState, useMemo, type FormEvent } from "react";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
-import type { Product } from "@/types";
+import type { Product, LedgerEntry } from "@/types";
 import type { ColDef } from "ag-grid-community";
-
-interface LedgerEntry {
-  id: number;
-  product_id: string;
-  product_name: string | null;
-  inventory_lot_id: string | null;
-  movement_type: string;
-  quantity_change: number;
-  unit_cost: number | null;
-  unit_price: number | null;
-  reference_type: string | null;
-  reference_id: string | null;
-  performed_by: string | null;
-  notes: string | null;
-  created_at: string;
-}
 
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { data: products } = useApi<Product[]>("/api/products");
+  const { data: products } = useApi<Product[]>(() => AetherClient.getProducts());
   const [productId, setProductId] = useState("");
   const [quantityChange, setQuantityChange] = useState("");
   const [unitCost, setUnitCost] = useState("");
@@ -49,7 +33,7 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
     try {
       setSaving(true);
       setError(null);
-      await api.post("/api/inventory/ledger/adjustment", {
+      await AetherClient.createLedgerAdjustment({
         product_id: productId,
         quantity_change: qty,
         ...(unitCost ? { unit_cost: Number(unitCost) } : {}),
@@ -110,7 +94,7 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 export default function HistoryTable() {
-  const { data, loading, error, refetch } = useApi<LedgerEntry[]>("/api/inventory/ledger");
+  const { data, loading, error, refetch } = useApi<LedgerEntry[]>(() => AetherClient.getLedger());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [showAdjustment, setShowAdjustment] = useState(false);

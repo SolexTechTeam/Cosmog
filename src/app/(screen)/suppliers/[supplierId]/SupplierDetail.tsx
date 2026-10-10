@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -16,8 +16,8 @@ interface SupplierDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
-  const { data: suppliers, loading, error, refetch } = useApi<Supplier[]>("/api/suppliers");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
+  const { data: suppliers, loading, error, refetch } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
 
   const supplier = suppliers?.find((s) => s.id === supplierId);
   const orders = useMemo(
@@ -66,7 +66,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
       if (editValues.contact_email) contactInfo.email = editValues.contact_email;
       if (editValues.contact_phone) contactInfo.phone = editValues.contact_phone;
       if (Object.keys(contactInfo).length) payload.contact_info = contactInfo;
-      await api.patch(`/api/suppliers/${s.id}`, payload);
+      await AetherClient.updateSupplier(s.id, payload);
       setEditing(false);
       refetch();
     } catch (e) {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -217,7 +218,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 }
 
 export default function DemandPriorityTable() {
-  const { data, loading, error } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data, loading, error } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");

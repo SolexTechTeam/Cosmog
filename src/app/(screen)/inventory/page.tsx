@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import InventoryTable from "@/components/screens/inventory/InventoryTable";
+import InventoryTable from "./InventoryTable";
 
 export default function InventoryScreen() {
   return (

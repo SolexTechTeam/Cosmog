@@ -1,5 +1,5 @@
 import PageHeader from "@/components/common/PageHeader";
-import HistoryTable from "@/components/screens/inventory/HistoryTable";
+import HistoryTable from "./HistoryTable";
 
 export default function InventoryHistoryScreen() {
   return (

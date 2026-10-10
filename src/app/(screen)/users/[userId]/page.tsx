@@ -1,4 +1,4 @@
-import UserDetail from "@/components/screens/users/UserDetail";
+import UserDetail from "./UserDetail";
 
 export default async function UserDetailPage({
   params,

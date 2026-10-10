@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import MetricCard from "@/components/common/MetricCard";
@@ -14,7 +14,7 @@ import type { Customer } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function CustomersTable() {
-  const { data, loading, error, refetch } = useApi<Customer[]>("/api/customers");
+  const { data, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -81,8 +81,7 @@ export default function CustomersTable() {
     try {
       setCreating(true);
       setCreateError(null);
-      // TODO: fucking put this in a client brah
-      await api.post("/api/customers", {
+      await AetherClient.createCustomer({
         name: newCustomer.name.trim(),
         handle: newCustomer.handle.trim() || "",
         email: newCustomer.email.trim() || "",

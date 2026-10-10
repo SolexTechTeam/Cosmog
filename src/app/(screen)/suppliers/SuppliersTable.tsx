@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import type { Supplier } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function SuppliersTable() {
-  const { data, loading, error, refetch } = useApi<Supplier[]>("/api/suppliers");
+  const { data, loading, error, refetch } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -70,7 +70,7 @@ export default function SuppliersTable() {
     try {
       setCreating(true);
       setCreateError(null);
-      await api.post("/api/suppliers", { name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
+      await AetherClient.createSupplier({ name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
       setNewSupplier({ name: "", email: "", phone: "", default_lead_days: "1" });
       setShowCreate(false);
       refetch();

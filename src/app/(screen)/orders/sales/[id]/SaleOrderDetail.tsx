@@ -4,13 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
-import OrderStatusWidget from "@/components/screens/orders/OrderStatusWidget";
-import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
+import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
+import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
 import type { Profile, PurchaseOrder, SaleOrder } from "@/types";
 
 interface SaleOrderDetailProps {
@@ -20,9 +20,9 @@ interface SaleOrderDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
-  const { data: orders, loading, error, refetch } = useApi<SaleOrder[]>("/api/sale-orders");
-  const { data: profiles } = useApi<Profile[]>("/api/profiles");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
+  const { data: orders, loading, error, refetch } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data: profiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
   const { options: priorityOptions } = useLookup("so_priority");
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
 
@@ -84,7 +84,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
       if (editValues.tracking_reference) payload.tracking_reference = editValues.tracking_reference;
       if (editValues.shipping_details) payload.shipping_details = editValues.shipping_details;
       if (editValues.notes) payload.notes = editValues.notes;
-      await api.patch(`/api/sale-orders/${so.id}`, payload);
+      await AetherClient.updateSaleOrder(so.id, payload);
       setEditing(false);
       refetch();
     } catch (e) {
@@ -97,7 +97,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   async function inlinePatch(changes: Record<string, unknown>) {
     setInlineError(null);
     try {
-      await api.patch(`/api/sale-orders/${so.id}`, changes);
+      await AetherClient.updateSaleOrder(so.id, changes);
       refetch();
     } catch (e) {
       setInlineError(e instanceof Error ? e.message : "Failed to save.");
@@ -107,7 +107,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   async function linkPo(poId: string) {
     setInlineError(null);
     try {
-      await api.post(`/api/sale-orders/${so.id}/po-links`, { purchase_order_id: poId });
+      await AetherClient.linkPurchaseOrder(so.id, poId);
       refetch();
     } catch (e) {
       setInlineError(e instanceof Error ? e.message : "Failed to link PO.");
@@ -117,7 +117,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   async function unlinkPo(poId: string) {
     setInlineError(null);
     try {
-      await api.delete(`/api/sale-orders/${so.id}/po-links/${poId}`);
+      await AetherClient.unlinkPurchaseOrder(so.id, poId);
       refetch();
     } catch (e) {
       setInlineError(e instanceof Error ? e.message : "Failed to unlink PO.");
@@ -161,13 +161,13 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               }
             }
             if (status === "shipped") {
-              await api.post("/api/inventory/fulfill", { sale_order_id: saleOrder.id });
+              await AetherClient.fulfillSaleOrder(saleOrder.id);
             } else if (status === "cancelled") {
-              await api.post("/api/inventory/release", { sale_order_id: saleOrder.id });
+              await AetherClient.releaseSaleOrder(saleOrder.id);
             } else if (status === "returned") {
-              await api.post("/api/inventory/return", { sale_order_id: saleOrder.id });
+              await AetherClient.returnSaleOrder(saleOrder.id);
             } else {
-              await api.patch(`/api/sale-orders/${saleOrder.id}`, { status });
+              await AetherClient.updateSaleOrder(saleOrder.id, { status });
             }
             refetch();
           }}

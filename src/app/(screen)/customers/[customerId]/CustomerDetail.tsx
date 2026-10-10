@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -17,8 +17,8 @@ interface CustomerDetailProps {
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
-  const { data: customers, loading, error, refetch } = useApi<Customer[]>("/api/customers");
-  const { data: saleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: customers, loading, error, refetch } = useApi<Customer[]>(() => AetherClient.getCustomers());
+  const { data: saleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const { options: customerTypeOptions } = useLookup("customer_type");
 
   const customer = customers?.find((c) => c.id === customerId);
@@ -75,7 +75,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       if (editValues.contact_email) contactInfo.email = editValues.contact_email;
       if (editValues.contact_phone) contactInfo.phone = editValues.contact_phone;
       if (Object.keys(contactInfo).length) payload.contact_info = contactInfo;
-      await api.patch(`/api/customers/${c.id}`, payload);
+      await AetherClient.updateCustomer(c.id, payload);
       setEditing(false);
       refetch();
     } catch (e) {

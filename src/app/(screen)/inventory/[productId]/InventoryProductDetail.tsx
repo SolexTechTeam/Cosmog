@@ -2,43 +2,18 @@
 
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
-import type { StockStatus, PurchaseOrder } from "@/types";
-
-interface InventoryLot {
-  id: string;
-  product_id: string;
-  purchase_order_item_id: string;
-  quantity_total: number;
-  quantity_on_hand: number;
-  quantity_reserved: number;
-  lot_status: string;
-  unit_cost: number;
-  received_at: string | null;
-  created_at: string;
-  updated_at: string;
-  purchase_order_item?: { id: string; purchase_order_id: string; unit_cost: number } | null;
-}
-
-interface LedgerEntry {
-  id: number;
-  product_id: string;
-  product_name: string | null;
-  movement_type: string;
-  quantity_change: number;
-  reference_type: string | null;
-  reference_id: string | null;
-  created_at: string;
-}
+import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/types";
 
 
 interface InventoryProductDetailProps { productId: string; }
 
 export default function InventoryProductDetail({ productId }: InventoryProductDetailProps) {
-  const { data: stockItems, loading, error } = useApi<StockStatus[]>("/api/inventory/stock-status");
-  const { data: lots, error: lotsError } = useApi<InventoryLot[]>("/api/inventory/lots");
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
-  const { data: ledger } = useApi<LedgerEntry[]>("/api/inventory/ledger");
+  const { data: stockItems, loading, error } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
+  const { data: lots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: ledger } = useApi<LedgerEntry[]>(() => AetherClient.getLedger());
   const stock = stockItems?.find((item) => item.product_id === productId);
   const productLots = (lots ?? []).filter((lot) => lot.product_id === productId);
   const poMap = new Map<string, PurchaseOrder>();

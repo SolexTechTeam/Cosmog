@@ -1,22 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api } from "@/lib/api";
-
-interface LookupValue {
-  id: string;
-  category: string;
-  value: string;
-  label: string;
-  sort_order: number;
-  is_active: boolean;
-  is_system: boolean;
-}
-
-export interface LookupOption {
-  label: string;
-  value: string;
-}
+import { AetherClient } from "@/lib/aether-client";
+import type { LookupOption } from "@/types";
 
 export function useLookup(category: string) {
   const [options, setOptions] = useState<LookupOption[]>([]);
@@ -27,9 +13,7 @@ export function useLookup(category: string) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await api.get<LookupValue[]>(
-        `/api/lookups?category=${encodeURIComponent(categoryRef.current)}&active_only=true`
-      );
+      const data = await AetherClient.getLookups(categoryRef.current);
       setOptions(data.map((v) => ({ label: v.label, value: v.value })));
     } catch {
       setOptions([]);

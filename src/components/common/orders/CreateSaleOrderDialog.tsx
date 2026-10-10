@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useMemo, type FormEvent } from "react";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
-import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
+import CreatePurchaseOrderDialog from "./CreatePurchaseOrderDialog";
 import type { Customer, Product, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
 
 interface SaleLine {
@@ -58,11 +58,11 @@ function LookupSelect({ value, onChange, options, placeholder, className }: {
 }
 
 export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems, linkedPurchaseOrderId }: CreateSaleOrderDialogProps) {
-  const { data: fetchedCustomers, refetch: refetchCustomers } = useApi<Customer[]>("/api/customers");
-  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>("/api/products");
-  const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>("/api/purchase-orders");
-  const { data: fetchedProfiles } = useApi<Profile[]>("/api/profiles");
-  const { data: fetchedStock } = useApi<StockStatus[]>("/api/inventory/stock-status");
+  const { data: fetchedCustomers, refetch: refetchCustomers } = useApi<Customer[]>(() => AetherClient.getCustomers());
+  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: fetchedProfiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data: fetchedStock } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
 
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
   const { options: channelOptions } = useLookup("so_business_channel");
@@ -126,12 +126,11 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
     try {
       setCreatingCustomer(true);
       setError(null);
-      const customer = await api.post<Customer>("/api/customers", {
+      const customer = await AetherClient.createCustomer({
         name: newCustomer.name.trim(),
-        handle: newCustomer.handle.trim() || null,
-        email: newCustomer.email.trim() || null,
+        handle: newCustomer.handle.trim() || undefined,
+        email: newCustomer.email.trim() || undefined,
         customer_type: newCustomer.customer_type,
-        payment_terms: null,
         contact_info: {},
       });
       setCustomerId(customer.id);
@@ -153,7 +152,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
     try {
       setCreatingProduct(true);
       setError(null);
-      const product = await api.post<Product>("/api/products", { name: newProduct.name.trim(), category: newProduct.category.trim(), sku: newProduct.sku.trim() || undefined });
+      const product = await AetherClient.createProduct({ name: newProduct.name.trim(), category: newProduct.category.trim(), sku: newProduct.sku.trim() || undefined });
       setLines((current) => current.map((line, index) => index === current.length - 1 && !line.product_id ? { ...line, product_id: product.id } : line));
       setNewProduct({ name: "", category: "", sku: "" });
       setShowProductForm(false);
@@ -176,7 +175,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
     try {
       setSaving(true);
       setError(null);
-      const created = await api.post<CreateResponse>("/api/sale-orders", {
+      const created = await AetherClient.createSaleOrder({
         customer_id: customerId,
         order_date: orderDate,
         fulfillment_type: fulfillmentType,
@@ -195,7 +194,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         id: created.id,
         number: created.so_number,
         items: normalizedLines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
-        stockWarnings: created.stock_warnings ?? [],
+        stockWarnings: (created.stock_warnings ?? []) as StockWarning[],
       });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create sales order.");

@@ -1,4 +1,4 @@
-import SaleOrderDetail from "@/components/screens/orders/SaleOrderDetail";
+import SaleOrderDetail from "./SaleOrderDetail";
 
 export default async function SaleOrderDetailPage({
   params,

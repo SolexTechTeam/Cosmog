@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { useApi } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
-import CreateSaleOrderDialog from "@/components/screens/orders/CreateSaleOrderDialog";
+import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import type { Product, PurchaseOrder, SaleOrder, Supplier } from "@/types";
 
 interface PurchaseLine {
@@ -29,9 +29,9 @@ interface CreatePurchaseOrderDialogProps {
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
 export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId }: CreatePurchaseOrderDialogProps) {
-  const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>("/api/suppliers");
-  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>("/api/products");
-  const { data: fetchedSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>(() => AetherClient.getSuppliers());
+  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data: fetchedSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const { options: fulfillmentOptions } = useLookup("po_fulfillment_type");
   const [supplierId, setSupplierId] = useState("");
   const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);
@@ -70,7 +70,7 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
     try {
       setCreatingSupplier(true);
       setError(null);
-      const supplier = await api.post<Supplier>("/api/suppliers", { name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
+      const supplier = await AetherClient.createSupplier({ name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
       setSupplierId(supplier.id);
       setNewSupplier({ name: "", email: "", phone: "", default_lead_days: "1" });
       setShowSupplierForm(false);
@@ -90,7 +90,7 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
     try {
       setCreatingProduct(true);
       setError(null);
-      const product = await api.post<Product>("/api/products", { name: newProduct.name.trim(), category: newProduct.category.trim(), sku: newProduct.sku.trim() || undefined });
+      const product = await AetherClient.createProduct({ name: newProduct.name.trim(), category: newProduct.category.trim(), sku: newProduct.sku.trim() || undefined });
       setLines((current) => current.map((line, index) => index === current.length - 1 && !line.product_id ? { ...line, product_id: product.id } : line));
       setNewProduct({ name: "", category: "", sku: "" });
       setShowProductForm(false);
@@ -112,9 +112,9 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
     try {
       setSaving(true);
       setError(null);
-      const purchaseOrder = await api.post<PurchaseOrder>("/api/purchase-orders", { supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), items: normalizedLines });
+      const purchaseOrder = await AetherClient.createPurchaseOrder({ supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), items: normalizedLines });
       try {
-        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => api.post(`/api/sale-orders/${saleOrderId}/po-links`, { purchase_order_id: purchaseOrder.id })));
+        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => AetherClient.linkPurchaseOrder(saleOrderId, purchaseOrder.id)));
       } catch (linkError) {
         onCreated();
         setError(`PO ${purchaseOrder.po_number} was created, but its Sales Order links could not be saved: ${linkError instanceof Error ? linkError.message : "Unknown error"}`);

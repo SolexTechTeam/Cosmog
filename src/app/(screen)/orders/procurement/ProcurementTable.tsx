@@ -3,15 +3,15 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
-import CreatePurchaseOrderDialog from "@/components/screens/orders/CreatePurchaseOrderDialog";
-import ProcurementOverviewCards from "@/components/screens/orders/ProcurementOverviewCards";
-import LinkedSaleOrdersEditor from "@/components/screens/orders/LinkedSaleOrdersEditor";
+import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
+import ProcurementOverviewCards from "./ProcurementOverviewCards";
+import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -38,7 +38,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
     setSaving(true);
     setError(null);
     try {
-      await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, changes);
+      await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes);
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save.");
@@ -55,19 +55,19 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
 
       if (status === "in transit") {
         if (current === "draft") {
-          await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
+          await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
         }
-        await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
       } else if (status === "received") {
         if (current === "draft") {
-          await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status: "confirmed" });
-          await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+          await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status: "confirmed" });
+          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
         } else if (current === "confirmed") {
-          await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+          await AetherClient.shipPurchaseOrder(purchaseOrder.id);
         }
-        await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+        await AetherClient.receivePurchaseOrder(purchaseOrder.id);
       } else {
-        await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+        await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
       }
       onSaved();
     } catch (e) {
@@ -181,8 +181,8 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     try {
       setSaving(true);
       setError(null);
-      const updatedItem = await api.patch<PurchaseOrderItem>(
-        `/api/purchase-orders/${purchaseOrder.id}/items/${item.id}`,
+      const updatedItem = await AetherClient.updatePurchaseOrderItem(
+        purchaseOrder.id, item.id,
         { product_id: draft.product_id, quantity_ordered: quantityOrdered, unit_cost: unitCost }
       );
       setItems((current) => current.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
@@ -210,7 +210,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     try {
       setSaving(true);
       setError(null);
-      const newItem = await api.post<PurchaseOrderItem>(`/api/purchase-orders/${purchaseOrder.id}/items`, {
+      const newItem = await AetherClient.addPurchaseOrderItem(purchaseOrder.id, {
         product_id: draft.product_id,
         quantity_ordered: quantityOrdered,
         unit_cost: unitCost,
@@ -409,9 +409,9 @@ interface ProcurementTableProps {
 }
 
 export default function ProcurementTable({ detailsRowId }: ProcurementTableProps) {
-  const { data, loading, error, refetch } = useApi<PurchaseOrder[]>("/api/purchase-orders");
-  const { data: products } = useApi<Product[]>("/api/products");
-  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>("/api/sale-orders");
+  const { data, loading, error, refetch } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data: products } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
@@ -565,16 +565,16 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
           onSave: async (purchaseOrder, changes) => {
             const { status, ...headerChanges } = changes;
             if (Object.keys(headerChanges).length) {
-              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, headerChanges);
+              await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
             }
             if (status === "in transit") {
               if (purchaseOrder.status !== "confirmed") throw new Error("A PO can only enter transit after it is confirmed.");
-              await api.post("/api/inventory/ship-po", { purchase_order_id: purchaseOrder.id });
+              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
             } else if (status === "received") {
               if (purchaseOrder.status !== "in transit") throw new Error("A PO must be in transit before it can be received.");
-              await api.post("/api/inventory/receive-po", { purchase_order_id: purchaseOrder.id });
+              await AetherClient.receivePurchaseOrder(purchaseOrder.id);
             } else if (status !== undefined) {
-              await api.patch(`/api/purchase-orders/${purchaseOrder.id}`, { status });
+              await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
             }
             refetch();
           },

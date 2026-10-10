@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { api } from "@/lib/api";
 
 interface UseApiResult<T> {
   data: T | null;
@@ -10,18 +9,18 @@ interface UseApiResult<T> {
   refetch: () => void;
 }
 
-export function useApi<T>(path: string): UseApiResult<T> {
+export function useApi<T>(fetcher: () => Promise<T>): UseApiResult<T> {
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const pathRef = useRef(path);
-  pathRef.current = path;
+  const fetcherRef = useRef(fetcher);
+  fetcherRef.current = fetcher;
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const result = await api.get<T>(pathRef.current);
+      const result = await fetcherRef.current();
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");

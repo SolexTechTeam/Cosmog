@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi } from "@/hooks/useApi";
-import { api } from "@/lib/api";
+import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -13,7 +13,7 @@ import type { Profile } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function UsersTable() {
-  const { data, loading, error, refetch } = useApi<Profile[]>("/api/profiles");
+  const { data, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -76,7 +76,7 @@ export default function UsersTable() {
     try {
       setCreating(true);
       setCreateError(null);
-      await api.post("/api/profiles/create-user", { name: newUser.name.trim(), email: newUser.email.trim(), password: newUser.password, role: newUser.role });
+      await AetherClient.createUser({ name: newUser.name.trim(), email: newUser.email.trim(), password: newUser.password, role: newUser.role });
       setNewUser({ name: "", email: "", password: "", role: "staff" });
       setShowCreate(false);
       refetch();
@@ -138,7 +138,7 @@ export default function UsersTable() {
               },
             ],
             onSave: async (profile, changes) => {
-              await api.patch(`/api/profiles/${profile.id}`, changes);
+              await AetherClient.updateProfile(profile.id, changes);
               refetch();
             },
           }}
