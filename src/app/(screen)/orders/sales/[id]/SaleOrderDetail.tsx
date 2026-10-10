@@ -12,6 +12,8 @@ import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
+import AllocationTab from "./AllocationTab";
+import MarginTab from "./MarginTab";
 import type { Profile, PurchaseOrder, SaleOrder } from "@/types";
 
 interface SaleOrderDetailProps {
@@ -20,7 +22,7 @@ interface SaleOrderDetailProps {
 
 const inputClass = "h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-1 focus:ring-ring";
 
-type Tab = "items" | "details" | "notes";
+type Tab = "items" | "allocation" | "details" | "margin" | "notes";
 
 export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const { toast } = useToast();
@@ -110,7 +112,9 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "items", label: `Items (${items.length})` },
+    { key: "allocation", label: "Allocation" },
     { key: "details", label: "Details" },
+    { key: "margin", label: "Margin" },
     { key: "notes", label: "Notes" },
   ];
 
@@ -210,6 +214,10 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           </section>
         )}
 
+        {activeTab === "allocation" && (
+          <AllocationTab saleOrderId={saleOrderId} fulfillmentType={saleOrder.fulfillment_type} status={saleOrder.status} />
+        )}
+
         {activeTab === "details" && (
           editing ? (
             <section className="rounded-lg border border-primary/20 bg-muted p-4">
@@ -295,6 +303,10 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               )}
             </section>
           )
+        )}
+
+        {activeTab === "margin" && (
+          <MarginTab saleOrderId={saleOrderId} />
         )}
 
         {activeTab === "notes" && (
