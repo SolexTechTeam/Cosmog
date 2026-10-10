@@ -11,6 +11,7 @@ import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
 import ErrorBlock from "@/components/ui/error-block";
+import { Info } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -251,6 +252,7 @@ export default function InventoryTable() {
           </div>
         )}
       />
+      <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><Info size={12} /> Sell Price = Avg Cost &times; 1.25 (margin) &times; 1.14 (GST)</p>
       </div>
     </>
   );

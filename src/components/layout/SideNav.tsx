@@ -20,6 +20,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  HelpCircle,
 } from "lucide-react";
 import type { Profile } from "@/types";
 
@@ -159,6 +160,17 @@ export default function SideNav() {
             {!collapsed && <span className="truncate">{profile.name}</span>}
           </Link>
         )}
+        <Link
+          href="/help"
+          title={collapsed ? "Help" : undefined}
+          aria-label={collapsed ? "Help" : undefined}
+          className={`flex items-center gap-2 text-xs text-sidebar-foreground hover:text-white hover:bg-sidebar-accent rounded-md px-1 py-1 transition-colors mb-1 ${
+            collapsed ? "justify-center" : ""
+          }`}
+        >
+          <HelpCircle size={14} />
+          {!collapsed && "Help"}
+        </Link>
         <button
           onClick={handleSignOut}
           title="Sign Out"

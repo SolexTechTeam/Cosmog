@@ -12,8 +12,10 @@ import StatusBadge from "@/components/common/StatusBadge";
 import SaleOrderExpandedDetails from "@/components/common/orders/SaleOrderExpandedDetails";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
+import { Tooltip } from "@/components/ui/tooltip";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import ErrorBlock from "@/components/ui/error-block";
+import { Info } from "lucide-react";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -142,6 +144,10 @@ function DemandPriorityExpandedDetails({ line }: { line: DemandPriorityLine }) {
         <div>
           <p className="mb-1 text-muted-foreground">Point breakdown</p>
           <p className="text-foreground">{line.base_points.toFixed(1)} base + {line.age_points} age = <span className="font-semibold">{line.total_points.toFixed(1)}</span></p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Base: paid/part-paid = 3 pts, awaiting = 2 pts, EOI = qty &times; 0.5.
+            Age: 14+ days = 3, 7-13 = 2, 4-6 = 1, &lt;4 = 0.
+          </p>
         </div>
       }
     />
@@ -341,7 +347,15 @@ export default function DemandPriorityTable() {
           loading={loading}
           value={highCount}
           accent="danger"
-        />
+          labelClassName="inline-flex items-center gap-1"
+        >
+          <div className="flex items-center gap-1.5">
+            <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-foreground">{highCount}</p>
+            <Tooltip content="High = 4+ points. Based on payment status, EOI qty, and days open.">
+              <Info size={12} className="text-muted-foreground cursor-help" />
+            </Tooltip>
+          </div>
+        </MetricCard>
         <MetricCard
           label="Med Attention"
           loading={loading}
@@ -401,6 +415,7 @@ export default function DemandPriorityTable() {
           renderRowDetails={(line) => <DemandPriorityDetails line={line} />}
           renderExpandedRowDetails={(line) => <DemandPriorityExpandedDetails line={line} />}
         />
+        <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><Info size={12} /> Points = base (payment &amp; EOI qty) + age (days open). High &ge;4, Med &ge;3, Low &lt;3.</p>
       </div>
     </div>
   );
