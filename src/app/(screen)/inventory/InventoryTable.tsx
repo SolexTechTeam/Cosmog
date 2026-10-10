@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -93,9 +93,9 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
 
 export default function InventoryTable() {
   // Swap to once exec and memoised call because this is calling 4 times per mount render due to rebuilds
-  const { data, loading, error, refetch } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
-  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>(() => AetherClient.getInventoryLots());
-  const { data: purchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
+  const { data, loading, error, refetch } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
+  const { data: inventoryLots, error: lotsError } = useApi<InventoryLot[]>([...queryKeys.inventoryLots], () => AetherClient.getInventoryLots());
+  const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -187,12 +187,18 @@ export default function InventoryTable() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
-      </section>
-      <div className="flex flex-col gap-4">
+    <>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
+          <p className="mt-0.5 text-xs text-foreground/60">Stock levels and product tracking</p>
+        </div>
+        <div className="min-w-0 flex-1 lg:max-w-3xl">
+          <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
       <SearchFilterBar
         searchPlaceholder="Search products..."
         searchValue={search}
@@ -246,6 +252,6 @@ export default function InventoryTable() {
         )}
       />
       </div>
-    </div>
+    </>
   );
 }

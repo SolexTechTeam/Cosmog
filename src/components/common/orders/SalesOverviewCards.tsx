@@ -33,10 +33,10 @@ export default function SalesOverviewCards({ orders, loading, error }: SalesOver
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <MetricCardRow>
-      <MetricCard label="Open Sales" loading={loading} value={openCount} />
-      <MetricCard label="Total Sales" loading={loading} value={totalCount} />
-      <MetricCard label="Open Value" loading={loading} value={fmt(openValue)} />
+    <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+      <MetricCard label="Open" loading={loading} value={openCount} accent="primary" />
+      <MetricCard label="Total" loading={loading} value={totalCount} />
+      <MetricCard label="Open Value" loading={loading} value={fmt(openValue)} accent="warning" />
       <MetricCard label="Total Value" loading={loading} value={fmt(totalValue)} />
     </MetricCardRow>
   );

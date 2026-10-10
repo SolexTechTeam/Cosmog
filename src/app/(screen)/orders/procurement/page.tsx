@@ -1,4 +1,3 @@
-import PageHeader from "@/components/common/PageHeader";
 import ProcurementTable from "./ProcurementTable";
 
 export default async function PurchaseOrdersScreen({
@@ -9,10 +8,5 @@ export default async function PurchaseOrdersScreen({
   const { po } = await searchParams;
   const detailsRowId = Array.isArray(po) ? po[0] : po;
 
-  return (
-    <>
-      <PageHeader title="Purchase Orders" />
-      <ProcurementTable detailsRowId={detailsRowId} />
-    </>
-  );
+  return <ProcurementTable detailsRowId={detailsRowId} />;
 }

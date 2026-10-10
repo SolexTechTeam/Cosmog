@@ -1,31 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AetherClient } from "@/lib/aether-client";
+import { queryKeys } from "./useApi";
 import type { LookupOption } from "@/types";
 
 export function useLookup(category: string) {
-  const [options, setOptions] = useState<LookupOption[]>([]);
-  const [loading, setLoading] = useState(true);
-  const categoryRef = useRef(category);
-  categoryRef.current = category;
+  const { data, isLoading } = useQuery({
+    queryKey: [...queryKeys.lookups(category)],
+    queryFn: async () => {
+      const values = await AetherClient.getLookups(category);
+      return values.map((v): LookupOption => ({ label: v.label, value: v.value }));
+    },
+    staleTime: 5 * 60_000,
+  });
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await AetherClient.getLookups(categoryRef.current);
-      setOptions(data.map((v) => ({ label: v.label, value: v.value })));
-    } catch {
-      setOptions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return { options, loading };
+  return { options: data ?? [], loading: isLoading };
 }

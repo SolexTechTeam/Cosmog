@@ -2,7 +2,7 @@
 
 import { useState, useMemo, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import CreatePurchaseOrderDialog from "./CreatePurchaseOrderDialog";
 import type { Customer, Product, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
@@ -58,11 +58,11 @@ function LookupSelect({ value, onChange, options, placeholder, className }: {
 }
 
 export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems, linkedPurchaseOrderId }: CreateSaleOrderDialogProps) {
-  const { data: fetchedCustomers, refetch: refetchCustomers } = useApi<Customer[]>(() => AetherClient.getCustomers());
-  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>(() => AetherClient.getProducts());
-  const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>(() => AetherClient.getPurchaseOrders());
-  const { data: fetchedProfiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
-  const { data: fetchedStock } = useApi<StockStatus[]>(() => AetherClient.getStockStatus());
+  const { data: fetchedCustomers, refetch: refetchCustomers } = useApi<Customer[]>([...queryKeys.customers], () => AetherClient.getCustomers());
+  const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
+  const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const { data: fetchedProfiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
+  const { data: fetchedStock } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
 
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
   const { options: channelOptions } = useLookup("so_business_channel");

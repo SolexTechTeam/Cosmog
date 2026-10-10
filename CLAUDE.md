@@ -74,11 +74,57 @@ src/
 - Hooks wrap AetherClient methods, not raw fetch calls
 - When adding a new API connection: add the method to AetherClient first, then call it from the component
 
+### Data fetching — TanStack Query
+All client-side data fetching uses **TanStack Query** via the `useApi` wrapper hook (`src/hooks/useApi.ts`). Do not use raw `useEffect` + `useState` for API calls.
+
+**Reading data:**
+```tsx
+import { useApi, queryKeys } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
+
+const { data, loading, error, refetch } = useApi<SaleOrder[]>(
+  [...queryKeys.saleOrders],
+  () => AetherClient.getSaleOrders()
+);
+```
+
+- First argument is the **query key** — an array that uniquely identifies the data. Use `queryKeys` from `useApi.ts`.
+- Second argument is the **fetcher** — an AetherClient method call.
+- Optional third argument is TanStack Query options (e.g., `{ enabled: false }` to skip fetching).
+
+**Query keys** are defined in `src/hooks/useApi.ts` as `queryKeys`. When adding a new endpoint, add its key there. Use spread (`[...queryKeys.x]`) to create fresh arrays. For parameterized queries, append the param: `["sale-orders", id]`.
+
+**Invalidating after mutations:**
+```tsx
+import { useInvalidate } from "@/hooks/useApi";
+
+const invalidate = useInvalidate();
+await AetherClient.updateSaleOrder(id, changes);
+invalidate([...queryKeys.saleOrders]); // refetches all sale-order queries
+```
+
+**Rules:**
+- Never call `AetherClient.get*` outside of `useApi` or `useQuery` in components
+- Use `enabled: false` (not a skip flag) to conditionally prevent fetching
+- Use `queryKeys` constants — never hardcode key strings
+- Multiple components using the same query key share one network request (deduplication)
+- `staleTime` is 30s by default — data is served from cache for 30s before refetching
+- Lookups use `useLookup` hook which is already TanStack Query-based
+
 ### Next.js practices
 - Follow Next.js best practices for the installed version. Before writing Next.js code, check `node_modules/next/dist/docs/` for current API guidance.
 - Use route groups for shared layouts (e.g., `(screen)` group for authenticated pages with nav)
 - Keep `page.tsx` files thin — they import and compose screen-sections, they don't contain implementation
 - Use server components by default; add `"use client"` only when the component needs interactivity or browser APIs
+
+### Performance — avoid unnecessary re-fetches and re-renders
+TanStack Query handles request deduplication, caching, and Strict Mode safety. Follow these rules for the rest:
+
+- **Use `useApi` / `useQuery` for all reads.** Never raw `useEffect` + `fetch`. TanStack Query deduplicates, caches, and manages stale data automatically.
+- **Invalidate after mutations.** Call `invalidate([...queryKeys.x])` after a successful create/update/delete to refetch affected queries.
+- **Push state down.** Keep state in the lowest component that needs it. A search input's text belongs in the search bar, not the screen.
+- **Memoize expensive derived data.** If you're filtering, sorting, or transforming a large list on every render, wrap it in `useMemo` with the correct dependency array.
+- **Stable callbacks.** Functions passed as props should be wrapped in `useCallback` to prevent child re-renders.
 
 ### General style
 - Componentize aggressively — if a block of JSX has a clear name, extract it

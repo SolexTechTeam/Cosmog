@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import {
   Home,
@@ -65,7 +65,7 @@ export default function SideNav() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const { data: profile } = useApi<Profile>(() => AetherClient.getMyProfile());
+  const { data: profile } = useApi<Profile>([...queryKeys.myProfile], () => AetherClient.getMyProfile());
 
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
@@ -147,8 +147,17 @@ export default function SideNav() {
       </nav>
 
       <div className={`border-t border-sidebar-border px-4 py-4 ${collapsed ? "px-2" : ""}`}>
-        {!collapsed && profile && (
-          <p className="text-xs text-gray-500 truncate mb-2">{profile.name}</p>
+        {profile && (
+          <Link
+            href="/profile"
+            title={collapsed ? profile.name : undefined}
+            className={`flex items-center gap-2 rounded-md px-1 py-1 text-xs text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors truncate mb-2 ${collapsed ? "justify-center" : ""}`}
+          >
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary">
+              {profile.name.charAt(0).toUpperCase()}
+            </span>
+            {!collapsed && <span className="truncate">{profile.name}</span>}
+          </Link>
         )}
         <button
           onClick={handleSignOut}

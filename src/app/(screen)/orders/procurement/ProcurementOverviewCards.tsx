@@ -27,10 +27,10 @@ export default function ProcurementOverviewCards({ orders, loading, error }: Pro
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <MetricCardRow>
-      <MetricCard label="Draft POs" loading={loading} value={draft} />
-      <MetricCard label="In-Transit" loading={loading} value={inTransit} />
-      <MetricCard label="Received" loading={loading} value={received} />
+    <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+      <MetricCard label="Draft" loading={loading} value={draft} accent="default" />
+      <MetricCard label="In-Transit" loading={loading} value={inTransit} accent="primary" />
+      <MetricCard label="Received" loading={loading} value={received} accent="success" />
       <MetricCard label="Total Spend" loading={loading} value={fmt(totalSpend)} />
     </MetricCardRow>
   );

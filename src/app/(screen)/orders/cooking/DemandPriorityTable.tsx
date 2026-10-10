@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -210,7 +210,7 @@ function DemandPriorityDetails({ line }: { line: DemandPriorityLine }) {
 }
 
 export default function DemandPriorityTable() {
-  const { data, loading, error, refetch } = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
+  const { data, loading, error, refetch } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");
@@ -335,30 +335,27 @@ export default function DemandPriorityTable() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Open Order Priority</h2>
-        <MetricCardRow>
-          <MetricCard
-            label="High Attention"
-            value={loading ? "—" : highCount}
-            labelClassName="!text-red-600"
-            valueClassName="!text-red-600"
-          />
-          <MetricCard
-            label="Med Attention"
-            value={loading ? "—" : medCount}
-            labelClassName="!text-yellow-500"
-            valueClassName="!text-yellow-500"
-          />
-          <MetricCard
-            label="Low Attention"
-            value={loading ? "—" : lowCount}
-            labelClassName="!text-green-600"
-            valueClassName="!text-green-600"
-          />
-          <MetricCard label="Total Qty Demanded" value={loading ? "—" : totalDemand.toLocaleString()} />
-        </MetricCardRow>
-      </div>
+      <MetricCardRow>
+        <MetricCard
+          label="High Attention"
+          loading={loading}
+          value={highCount}
+          accent="danger"
+        />
+        <MetricCard
+          label="Med Attention"
+          loading={loading}
+          value={medCount}
+          accent="warning"
+        />
+        <MetricCard
+          label="Low Attention"
+          loading={loading}
+          value={lowCount}
+          accent="success"
+        />
+        <MetricCard label="Total Qty Demanded" loading={loading} value={totalDemand.toLocaleString()} />
+      </MetricCardRow>
       <div className="flex flex-col gap-4">
         <SearchFilterBar
           searchPlaceholder="Search orders, customers, products..."

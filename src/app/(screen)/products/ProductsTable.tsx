@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -16,7 +17,7 @@ import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function ProductsTable() {
-  const { data, loading, error, refetch } = useApi<Product[]>(() => AetherClient.getProducts());
+  const { data, loading, error, refetch } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -53,7 +54,19 @@ export default function ProductsTable() {
 
   const allColumns: ColDef<Product>[] = useMemo(
     () => [
-      { field: "name", headerName: "Product", minWidth: 280 },
+      {
+        field: "name",
+        headerName: "Product",
+        minWidth: 280,
+        cellRenderer: (params: { value: string; data?: Product }) =>
+          params.data ? (
+            <Link href={`/inventory/${params.data.id}`} className="font-medium text-primary hover:underline">
+              {params.value}
+            </Link>
+          ) : (
+            params.value
+          ),
+      },
       { field: "sku", headerName: "SKU", minWidth: 110 },
       { field: "category", headerName: "Category", minWidth: 180 },
       {
@@ -110,17 +123,23 @@ export default function ProductsTable() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <MetricCardRow>
-          <MetricCard label="Total Products" value={loading ? "—" : products.length} />
-          <MetricCard label="Active" value={loading ? "—" : activeCount} />
-          <MetricCard label="Inactive" value={loading ? "—" : inactiveCount} />
-          <MetricCard label="Categories" value={loading ? "—" : categories.length} />
-        </MetricCardRow>
+    <>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="shrink-0">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Products</h1>
+          <p className="mt-0.5 text-xs text-muted-foreground">Product catalog and SKU management</p>
+        </div>
+        <div className="min-w-0 flex-1 lg:max-w-3xl">
+          <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
+            <MetricCard label="Total Products" loading={loading} value={products.length} />
+            <MetricCard label="Active" loading={loading} value={activeCount} accent="success" />
+            <MetricCard label="Inactive" loading={loading} value={inactiveCount} />
+            <MetricCard label="Categories" loading={loading} value={categories.length} />
+          </MetricCardRow>
+        </div>
       </div>
-      <div className="flex flex-col gap-4">
+
+      <div className="flex flex-col gap-3">
         <SearchFilterBar
           searchPlaceholder="Search products, SKU..."
           searchValue={search}
@@ -149,7 +168,7 @@ export default function ProductsTable() {
               <button
                 type="button"
                 onClick={() => { setAddError(null); setIsAdding(true); }}
-                className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90"
+                className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
               >
                 Add Product
               </button>
@@ -189,6 +208,7 @@ export default function ProductsTable() {
           }}
         />
       </div>
+
       {isAdding && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -211,7 +231,7 @@ export default function ProductsTable() {
                   required
                   value={newProduct.name}
                   onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <label className="block text-sm font-medium text-foreground">
@@ -220,7 +240,7 @@ export default function ProductsTable() {
                   required
                   value={newProduct.category}
                   onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <label className="block text-sm font-medium text-foreground">
@@ -228,7 +248,7 @@ export default function ProductsTable() {
                 <input
                   value={newProduct.sku}
                   onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               <label className="block text-sm font-medium text-foreground">
@@ -237,7 +257,7 @@ export default function ProductsTable() {
                   type="url"
                   value={newProduct.image_url}
                   onChange={(event) => setNewProduct((current) => ({ ...current, image_url: event.target.value }))}
-                  className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                 />
               </label>
               {addError && <p className="text-sm text-destructive">{addError}</p>}
@@ -247,21 +267,21 @@ export default function ProductsTable() {
                 type="button"
                 onClick={() => setIsAdding(false)}
                 disabled={adding}
-                className="rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="h-8 rounded-md px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={adding}
-                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+                className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
               >
-                {adding ? "Adding…" : "Add Product"}
+                {adding ? "Adding..." : "Add Product"}
               </button>
             </div>
           </form>
         </div>
       )}
-    </div>
+    </>
   );
 }

@@ -37,6 +37,7 @@ const colorMap: Record<string, string> = {
 
   // Reservation / general
   active: "bg-blue-50 text-blue-700 border-blue-200",
+  inactive: "bg-gray-50 text-gray-500 border-gray-200",
   fulfilled: "bg-emerald-50 text-emerald-700 border-emerald-200",
   released: "bg-gray-50 text-gray-500 border-gray-200",
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -10,6 +10,7 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
+import OrderScreenLayout from "./OrderScreenLayout";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import SalesOverviewCards from "./SalesOverviewCards";
 import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
@@ -30,12 +31,13 @@ interface SalesTableProps {
 
 export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
   const { toast } = useToast();
-  const own = useApi<SaleOrder[]>(() => AetherClient.getSaleOrders());
-  const data = externalOrders !== undefined ? externalOrders : own.data;
-  const loading = externalLoading !== undefined ? externalLoading : own.loading;
-  const error = externalError !== undefined ? externalError : own.error;
+  const hasExternal = externalOrders !== undefined;
+  const own = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders(), { enabled: !hasExternal });
+  const data = hasExternal ? externalOrders : own.data;
+  const loading = hasExternal ? (externalLoading ?? false) : own.loading;
+  const error = hasExternal ? (externalError ?? null) : own.error;
   const refetch = own.refetch;
-  const { data: profiles } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data: profiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles(), { enabled: !compact });
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [paymentFilter, setPaymentFilter] = useState("");
@@ -163,13 +165,11 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <section className="rounded-lg border border-border bg-muted px-5 py-3">
-        <h2 className="text-header mb-2">Overview</h2>
-        <SalesOverviewCards orders={data ?? []} loading={loading} error={error} />
-      </section>
-      <div className="flex flex-col gap-4">
-      <SearchFilterBar
+    <OrderScreenLayout
+      title="Sales Orders"
+      subtitle="Manage customer orders and fulfillment"
+      overview={<SalesOverviewCards orders={data ?? []} loading={loading} error={error} />}
+      filters={<SearchFilterBar
         searchPlaceholder="Search orders, customers..."
         searchValue={search}
         onSearchChange={setSearch}
@@ -219,9 +219,9 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             onChange: setSourceFilter,
           },
         ]}
-        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
-      />
-      <DataGrid<SaleOrder>
+        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+      />}
+      table={<DataGrid<SaleOrder>
         rows={filtered}
         columns={visibleColumns}
         loading={loading}
@@ -528,9 +528,8 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             </div>
           );
         }}
-      />
-      {isCreating && <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { refetch(); toast("Sales order created"); }} />}
-      </div>
-    </div>
+      />}
+      dialog={isCreating ? <CreateSaleOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { refetch(); toast("Sales order created"); }} /> : undefined}
+    />
   );
 }

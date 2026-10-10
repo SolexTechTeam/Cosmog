@@ -4,7 +4,7 @@ import { useState, useMemo, type FormEvent } from "react";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi } from "@/hooks/useApi";
+import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
@@ -15,7 +15,7 @@ import type { Profile } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 export default function UsersTable() {
-  const { data, loading, error, refetch } = useApi<Profile[]>(() => AetherClient.getProfiles());
+  const { data, loading, error, refetch } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
