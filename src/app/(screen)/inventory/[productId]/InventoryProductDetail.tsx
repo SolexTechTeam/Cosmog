@@ -147,9 +147,10 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
       <div className="mt-4">
         <MetricCardRow>
           <MetricCard label="On-Hand" value={stock.qty_on_hand} accent="default" />
-          <MetricCard label="Reserved" value={stock.qty_reserved} accent="warning" />
-          <MetricCard label="Available" value={stock.qty_available} accent="success" />
           <MetricCard label="Incoming" value={stock.qty_incoming} accent="primary" />
+          <MetricCard label="Allocated" value={stock.qty_reserved} accent="warning" />
+          <MetricCard label="Available" value={stock.qty_available} accent="success" />
+          <MetricCard label="Demand" value={stock.qty_demand} />
         </MetricCardRow>
       </div>
 
@@ -208,9 +209,10 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
             <SidebarCard title="Stock Summary">
               <dl className="space-y-1.5 text-sm">
                 <SidebarRow label="On-Hand" value={String(stock.qty_on_hand)} />
-                <SidebarRow label="Reserved" value={String(stock.qty_reserved)} />
-                <SidebarRow label="Available" value={String(stock.qty_available)} />
                 <SidebarRow label="Incoming" value={String(stock.qty_incoming)} />
+                <SidebarRow label="Allocated" value={String(stock.qty_reserved)} />
+                <SidebarRow label="Available" value={String(stock.qty_available)} />
+                <SidebarRow label="Demand" value={String(stock.qty_demand)} />
               </dl>
             </SidebarCard>
 

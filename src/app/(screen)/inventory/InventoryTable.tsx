@@ -163,9 +163,10 @@ export default function InventoryTable() {
         cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
       },
       { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_reserved", headerName: "Reserved", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_incoming", headerName: "Incoming", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_reserved", headerName: "Allocated", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      { field: "qty_demand", headerName: "Demand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
         headerName: "Avg Cost",

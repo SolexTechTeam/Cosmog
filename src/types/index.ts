@@ -130,6 +130,7 @@ export interface StockStatus {
   qty_reserved: number;
   qty_available: number;
   qty_incoming: number;
+  qty_demand: number;
   avg_cost: number;
   stock_status: "In Stock" | "Low Stock" | "Out of Stock" | "Incoming";
 }
