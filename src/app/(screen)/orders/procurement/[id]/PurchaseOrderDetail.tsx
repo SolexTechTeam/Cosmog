@@ -11,13 +11,14 @@ import SidebarCard from "@/components/common/orders/SidebarCard";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import CreateSaleOrderDialog from "@/components/common/orders/CreateSaleOrderDialog";
 import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
+import PoAllocationTab from "./PoAllocationTab";
 import type { PurchaseOrder, SaleOrder, ConfirmPoResponse, ReceivePoResponse } from "@/types";
 
 interface PurchaseOrderDetailProps {
   purchaseOrderId: string;
 }
 
-type Tab = "items" | "details" | "notes";
+type Tab = "items" | "allocation" | "details" | "notes";
 
 type DialogData =
   | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
@@ -130,6 +131,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "items", label: `Items (${items.length})` },
+    { key: "allocation", label: "Allocation" },
     { key: "details", label: "Details" },
     { key: "notes", label: "Notes" },
   ];
@@ -243,6 +245,10 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             </div>
             {patchError && <p className="px-4 py-2 text-xs text-destructive">{patchError}</p>}
           </section>
+        )}
+
+        {activeTab === "allocation" && (
+          <PoAllocationTab purchaseOrderId={purchaseOrderId} />
         )}
 
         {activeTab === "details" && (
