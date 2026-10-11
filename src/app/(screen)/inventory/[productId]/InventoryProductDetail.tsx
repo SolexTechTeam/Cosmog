@@ -280,7 +280,7 @@ function LotsTab({
                   <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_on_hand}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_reserved}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
-                    {Math.max(0, lot.quantity_on_hand - lot.quantity_reserved)}
+                    {Math.max(0, (lot.lot_status === "incoming" ? lot.quantity_total : lot.quantity_on_hand) - lot.quantity_reserved)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{fmt(lot.unit_cost)}</td>
                 </tr>

@@ -13,9 +13,9 @@ interface InventoryOverviewCardsProps {
 export default function InventoryOverviewCards({ items, loading, error }: InventoryOverviewCardsProps) {
   const totalSkus = items.length;
   const onHand = items.reduce((sum, i) => sum + i.qty_on_hand, 0);
-  const allocated = items.reduce((sum, i) => sum + i.qty_reserved, 0);
-  const unallocated = items.reduce((sum, i) => sum + i.qty_available, 0);
   const inTransit = items.reduce((sum, i) => sum + i.qty_incoming, 0);
+  const allocated = items.reduce((sum, i) => sum + i.qty_reserved, 0);
+  const unallocated = onHand + inTransit - allocated;
   const outOfStock = items.filter((i) => i.stock_status === "Out of Stock").length;
 
   if (error) {
