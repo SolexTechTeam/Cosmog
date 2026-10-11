@@ -22,6 +22,7 @@ import type {
   ReallocateResponse,
   ReassignResponse,
   ReallocatePoolResponse,
+  PoAllocationRecord,
   MarginResponse,
 } from "@/types";
 
@@ -284,6 +285,10 @@ export class AetherClient {
 
   static receivePurchaseOrder(purchaseOrderId: string): Promise<ReceivePoResponse> {
     return request("/api/inventory/receive-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
+  }
+
+  static getCurrentPoAllocation(purchaseOrderId: string): Promise<PoAllocationRecord[]> {
+    return request(`/api/purchase-orders/${purchaseOrderId}/allocations`);
   }
 
   static previewAllocation(saleOrderId: string): Promise<AllocationPreviewResponse> {

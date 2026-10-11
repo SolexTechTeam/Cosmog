@@ -11,12 +11,13 @@ import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
 import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
+import PoAllocationDialog from "@/components/common/orders/PoAllocationDialog";
 import OrderScreenLayout from "@/components/common/orders/OrderScreenLayout";
 import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
-import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, ReceivePoResponse } from "@/types";
+import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, PoAllocationRecord } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -36,7 +37,7 @@ const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text
 
 type DialogData =
   | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
-  | { type: "receive"; result: ReceivePoResponse };
+  | { type: "receive"; allocations: PoAllocationRecord[] };
 
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { purchaseOrder: PurchaseOrder; onSaved: () => void; saleOrders: SaleOrder[] }) {
   const { toast } = useToast();
@@ -93,13 +94,13 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
   }
 
   async function completeReceive() {
-    const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
-    const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
-    toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}`);
+    await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+    const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
+    toast(`PO received — ${allocations.length} allocations found`);
     invalidate([...queryKeys.saleOrders]);
     invalidate([...queryKeys.purchaseOrders]);
-    if (result.reallocations?.length) {
-      setDialogData({ type: "receive", result });
+    if (allocations.length) {
+      setDialogData({ type: "receive", allocations });
     } else {
       onSaved();
     }
@@ -294,11 +295,8 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
         />
       )}
       {dialogData?.type === "receive" && (
-        <AllocationConfirmDialog
-          title="Re-allocation Results"
-          description="Stock was automatically re-allocated to these orders."
-          suggestions={dialogData.result.reallocations}
-          mode="review"
+        <PoAllocationDialog
+          allocations={dialogData.allocations}
           onClose={() => { setDialogData(null); onSaved(); }}
         />
       )}
@@ -645,7 +643,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
       },
     ],
     []
-  );
+  ); 
 
   const { columnKeys, visibleColumns, hiddenCols, toggle } = useColumnVisibility(allColumns,
     new Set(["Supplier", "received_date", "shipped_date", "expected_arrival", "Created By"])
@@ -766,6 +764,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               }
               return;
             } else if (status === "in transit") {
+              // Removed, we will not be doing this as it should be confirmed
               if (purchaseOrder.status === "draft") {
                 const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
                 toast(`PO confirmed — ${result.lots_created} lots created`);
@@ -782,23 +781,11 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               toast(`PO ${purchaseOrder.po_number} shipped`);
             } else if (status === "received") {
-              if (purchaseOrder.status === "draft") {
-                const confirmResult = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                if (confirmResult.suggested_allocations?.length) {
-                  for (const sa of confirmResult.suggested_allocations) {
-                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
-                  }
-                }
-                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              } else if (purchaseOrder.status === "confirmed") {
-                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              }
-              const result = await AetherClient.receivePurchaseOrder(purchaseOrder.id);
-              const reallocated = result.reallocations?.filter(r => !r.error).length ?? 0;
-              toast(`PO received — ${result.lots_received} lots on-hand${reallocated > 0 ? `, ${reallocated} orders re-allocated` : ""}`);
+              const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
+              toast(`PO received — ${allocations.length} allocations found`);
               invalidate([...queryKeys.purchaseOrders]);
-              if (result.reallocations?.length) {
-                setParentDialogData({ type: "receive", result });
+              if (allocations.length) {
+                setParentDialogData({ type: "receive", allocations });
                 invalidate([...queryKeys.saleOrders]);
                 return;
               }
@@ -930,11 +917,8 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
       />
     )}
     {parentDialogData?.type === "receive" && (
-      <AllocationConfirmDialog
-        title="Re-allocation Results"
-        description="Stock was automatically re-allocated to these orders."
-        suggestions={parentDialogData.result.reallocations}
-        mode="review"
+      <PoAllocationDialog
+        allocations={parentDialogData.allocations}
         onClose={() => { setParentDialogData(null); refetch(); }}
       />
     )}

@@ -269,6 +269,22 @@ export interface ReassignResponse {
   quantity: number;
 }
 
+export interface PoAllocationRecord {
+  allocation_id: string;
+  inventory_lot_id: string;
+  quantity_allocated: number;
+  sale_order_id: string | null;
+  so_number: string | null;
+  so_status: string | null;
+  customer_name: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  quantity_ordered: number | null;
+  qty_from_warehouse: number | null;
+  qty_from_incoming: number | null;
+  qty_shortfall: number | null;
+}
+
 export interface ReallocatePoolResponse {
   reallocations: {
     sale_order_id: string;
