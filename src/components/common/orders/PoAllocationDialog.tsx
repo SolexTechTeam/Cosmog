@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import StatusBadge from "@/components/common/StatusBadge";
 import type { PoAllocationRecord } from "@/types";
 
 interface PoAllocationDialogProps {
   allocations: PoAllocationRecord[];
+  onConfirm: () => Promise<void>;
+  onReallocate: () => void;
   onClose: () => void;
 }
 
@@ -36,9 +39,20 @@ function groupBySaleOrder(allocations: PoAllocationRecord[]): SoGroup[] {
   return Array.from(map.values());
 }
 
-export default function PoAllocationDialog({ allocations, onClose }: PoAllocationDialogProps) {
+export default function PoAllocationDialog({ allocations, onConfirm, onReallocate, onClose }: PoAllocationDialogProps) {
+  const [loading, setLoading] = useState(false);
   const groups = groupBySaleOrder(allocations);
   const totalAllocated = allocations.reduce((sum, a) => sum + a.quantity_allocated, 0);
+  const hasShortfall = allocations.some((a) => (a.qty_shortfall ?? 0) > 0);
+
+  async function handleConfirm() {
+    setLoading(true);
+    try {
+      await onConfirm();
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16" role="presentation" onMouseDown={onClose}>
@@ -97,11 +111,31 @@ export default function PoAllocationDialog({ allocations, onClose }: PoAllocatio
               ))}
             </div>
           )}
+
+          {hasShortfall && (
+            <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 dark:border-amber-700 dark:bg-amber-950/30">
+              <span className="mt-px text-amber-600 dark:text-amber-400">&#9888;</span>
+              <p className="text-xs font-medium text-amber-800 dark:text-amber-300">Some orders have shortfalls. You can re-allocate to adjust before confirming.</p>
+            </div>
+          )}
         </div>
 
-        <div className="flex justify-end border-t border-border px-5 py-3">
-          <button type="button" onClick={onClose} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
-            Close
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onReallocate}
+            disabled={loading}
+            className="rounded-md px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            Re-allocate
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={loading}
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+          >
+            {loading ? "Confirming..." : "Confirm"}
           </button>
         </div>
       </div>

@@ -37,7 +37,7 @@ const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text
 
 type DialogData =
   | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
-  | { type: "receive"; allocations: PoAllocationRecord[] };
+  | { type: "receive"; allocations: PoAllocationRecord[]; purchaseOrderId: string };
 
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { purchaseOrder: PurchaseOrder; onSaved: () => void; saleOrders: SaleOrder[] }) {
   const { toast } = useToast();
@@ -100,7 +100,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
     invalidate([...queryKeys.saleOrders]);
     invalidate([...queryKeys.purchaseOrders]);
     if (allocations.length) {
-      setDialogData({ type: "receive", allocations });
+      setDialogData({ type: "receive", allocations, purchaseOrderId: purchaseOrder.id });
     } else {
       onSaved();
     }
@@ -297,6 +297,31 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
       {dialogData?.type === "receive" && (
         <PoAllocationDialog
           allocations={dialogData.allocations}
+          onConfirm={async () => {
+            await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+            toast(`PO ${purchaseOrder.po_number} received`);
+            invalidate([...queryKeys.purchaseOrders]);
+            invalidate([...queryKeys.saleOrders]);
+            setDialogData(null);
+            onSaved();
+          }}
+          onReallocate={async () => {
+            const shortfallSoIds = [...new Set(
+              dialogData.allocations.filter(a => (a.qty_shortfall ?? 0) > 0 && a.sale_order_id).map(a => a.sale_order_id!)
+            )];
+            const soIds = shortfallSoIds.length > 0 ? shortfallSoIds : getOpenSoIds();
+            const [previews, ownLotIds] = await Promise.all([
+              Promise.all(soIds.map(async (soId) => {
+                try {
+                  const p = await AetherClient.previewAllocation(soId);
+                  return { sale_order_id: soId, suggested_allocations: p.suggested_allocations };
+                } catch { return { sale_order_id: soId, suggested_allocations: [] }; }
+              })),
+              fetchOwnLotIds(),
+            ]);
+            setPendingAction("receive");
+            setDialogData({ type: "preview", previews, ownLotIds });
+          }}
           onClose={() => { setDialogData(null); onSaved(); }}
         />
       )}
@@ -785,7 +810,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               toast(`PO received — ${allocations.length} allocations found`);
               invalidate([...queryKeys.purchaseOrders]);
               if (allocations.length) {
-                setParentDialogData({ type: "receive", allocations });
+                setParentDialogData({ type: "receive", allocations, purchaseOrderId: purchaseOrder.id });
                 invalidate([...queryKeys.saleOrders]);
                 return;
               }
@@ -919,6 +944,43 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
     {parentDialogData?.type === "receive" && (
       <PoAllocationDialog
         allocations={parentDialogData.allocations}
+        onConfirm={async () => {
+          await AetherClient.receivePurchaseOrder(parentDialogData.purchaseOrderId);
+          toast(`PO received`);
+          invalidate([...queryKeys.purchaseOrders]);
+          invalidate([...queryKeys.saleOrders]);
+          setParentDialogData(null);
+          refetch();
+        }}
+        onReallocate={async () => {
+          const shortfallSoIds = [...new Set(
+            parentDialogData.allocations.filter(a => (a.qty_shortfall ?? 0) > 0 && a.sale_order_id).map(a => a.sale_order_id!)
+          )];
+          const openSOs = (saleOrders ?? []).filter(so => so.status === "open");
+          const soIds = shortfallSoIds.length > 0 ? shortfallSoIds : openSOs.map(so => so.id);
+          const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];
+          for (const soId of soIds) {
+            try {
+              const p = await AetherClient.previewAllocation(soId);
+              if (p.suggested_allocations?.length) {
+                const so = openSOs.find(s => s.id === soId);
+                previews.push({ sale_order_id: soId, so_number: so?.so_number, suggested_allocations: p.suggested_allocations });
+              }
+            } catch {}
+          }
+          const po = (data ?? []).find(p => p.id === parentDialogData.purchaseOrderId);
+          const poItemIds = new Set((po?.items ?? []).map(i => i.id));
+          let ownLotIds = new Map<string, number>();
+          try {
+            const lots = await AetherClient.getInventoryLots();
+            for (const l of lots) {
+              if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
+                ownLotIds.set(l.id, l.quantity_total);
+              }
+            }
+          } catch {}
+          setParentDialogData({ type: "preview", previews, ownLotIds });
+        }}
         onClose={() => { setParentDialogData(null); refetch(); }}
       />
     )}
