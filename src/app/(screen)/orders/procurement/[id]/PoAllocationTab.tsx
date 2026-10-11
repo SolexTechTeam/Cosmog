@@ -5,8 +5,8 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/toast";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
-import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
-import type { PoAllocationRecord, SuggestedAllocationItem, SaleOrder, InventoryLot } from "@/types";
+import SoAllocationCard from "./SoAllocationCard";
+import type { PoAllocationRecord, PoReallocateResponse } from "@/types";
 
 interface PoAllocationTabProps {
   purchaseOrderId: string;
@@ -19,11 +19,6 @@ interface SoGroup {
   customer_name: string | null;
   items: PoAllocationRecord[];
 }
-
-type PreviewData = {
-  previews: { sale_order_id: string; so_number?: string; suggested_allocations: SuggestedAllocationItem[] }[];
-  ownLotIds: Map<string, number>;
-};
 
 function groupBySaleOrder(allocations: PoAllocationRecord[]): SoGroup[] {
   const map = new Map<string, SoGroup>();
@@ -52,43 +47,39 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
     ["po-allocation", purchaseOrderId],
     () => AetherClient.getCurrentPoAllocation(purchaseOrderId),
   );
-  const { data: saleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
-
-  const [previewData, setPreviewData] = useState<PreviewData | null>(null);
-  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [reallocateData, setReallocateData] = useState<PoReallocateResponse | null>(null);
+  const [loadingReallocate, setLoadingReallocate] = useState(false);
+  const [allocationEdits, setAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
 
   async function handleReallocate() {
-    setLoadingPreview(true);
+    setLoadingReallocate(true);
     try {
-      const openSOs = (saleOrders ?? []).filter((so) => so.status === "open");
-      const previews: PreviewData["previews"] = [];
-      for (const so of openSOs) {
-        try {
-          const p = await AetherClient.previewAllocation(so.id);
-          if (p.suggested_allocations?.length) {
-            previews.push({ sale_order_id: so.id, so_number: so.so_number, suggested_allocations: p.suggested_allocations });
-          }
-        } catch {}
-      }
-
-      const po = await AetherClient.getPurchaseOrder(purchaseOrderId);
-      const poItemIds = new Set((po?.items ?? []).map((i: any) => i.id));
-      const ownLotIds = new Map<string, number>();
-      try {
-        const lots = await AetherClient.getInventoryLots();
-        for (const l of lots) {
-          if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
-            ownLotIds.set(l.id, l.quantity_total);
-          }
+      const result = await AetherClient.poReallocateResources(purchaseOrderId);
+      const edits = new Map<string, Map<string, number>>();
+      for (const order of result.shortfall_orders) {
+        const items = new Map<string, number>();
+        for (const item of order.items) {
+          items.set(item.sale_order_item_id, 0);
         }
-      } catch {}
-
-      setPreviewData({ previews, ownLotIds });
+        edits.set(order.sale_order_id, items);
+      }
+      setAllocationEdits(edits);
+      setReallocateData(result);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to load allocation preview", "error");
+      toast(e instanceof Error ? e.message : "Failed to load reallocation data", "error");
     } finally {
-      setLoadingPreview(false);
+      setLoadingReallocate(false);
     }
+  }
+
+  function handleAllocationChange(soId: string, soItemId: string, value: number) {
+    setAllocationEdits((prev) => {
+      const next = new Map(prev);
+      const items = new Map(next.get(soId) ?? new Map());
+      items.set(soItemId, value);
+      next.set(soId, items);
+      return next;
+    });
   }
 
   if (loading) {
@@ -135,10 +126,10 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
           <button
             type="button"
             onClick={handleReallocate}
-            disabled={loadingPreview}
+            disabled={loadingReallocate}
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
-            {loadingPreview ? "Loading..." : "Re-allocate"}
+            {loadingReallocate ? "Loading..." : "Re-allocate"}
           </button>
         </div>
 
@@ -192,31 +183,88 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
         )}
       </section>
 
-      {previewData && (
-        <AllocationConfirmDialog
-          title="Re-allocate PO Stock"
-          description="Distribute this PO's stock across sale orders. Edit quantities or accept auto-allocation."
-          suggestions={previewData.previews}
-          mode="confirm"
-          ownLotIds={previewData.ownLotIds}
-          onAutoAllocate={async (soIds) => {
-            for (const soId of soIds) {
-              try { await AetherClient.allocateInventory({ sale_order_id: soId, mode: "auto" }); } catch {}
-            }
-            toast(`${soIds.length} order(s) allocated`);
-            invalidate([...queryKeys.saleOrders]);
-            setPreviewData(null);
-            refetch();
-          }}
-          onManualAllocate={async (soId, allocations) => {
-            await AetherClient.allocateInventory({ sale_order_id: soId, mode: "manual", allocations });
-            toast("Manual allocation saved");
-            invalidate([...queryKeys.saleOrders]);
-            setPreviewData(null);
-            refetch();
-          }}
-          onClose={() => { setPreviewData(null); }}
-        />
+      {reallocateData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-lg">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div>
+                <h3 className="text-sm font-semibold">Re-allocation Resources</h3>
+                <p className="text-xs text-muted-foreground">Orders with shortfalls that could use stock from this PO.</p>
+              </div>
+              <button type="button" onClick={() => { setReallocateData(null); setAllocationEdits(new Map()); refetch(); }} className="text-muted-foreground hover:text-foreground text-lg leading-none">&times;</button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-4">
+              {reallocateData.shortfall_orders.length === 0 && reallocateData.current_allocations.length == 1 ? (
+                <p className="text-center text-sm text-muted-foreground py-6">No other sales orders to allocate (there is only 1 SO for this PO's product).</p>
+              ) : (
+                <div className="space-y-3">
+                  {reallocateData.current_allocations.map((order) => (
+                    <SoAllocationCard
+                      key={order.sale_order_id}
+                      soNumber={order.so_number || "SO-????"}
+                      soStatus={order.so_status || "Unknown"}
+                      customerName={order.customer_name}
+                      items={order.sale_order_id || "SO-????"}
+                      allocations={allocationEdits.get(order.sale_order_id || "SO-????") ?? new Map()}
+                      onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id || "SO-????", soItemId, value)}
+                    />
+                  ))}
+                
+                  {reallocateData.shortfall_orders.map((order) => (
+                    <SoAllocationCard
+                      key={order.sale_order_id}
+                      soNumber={order.so_number}
+                      soStatus={order.so_status}
+                      customerName={order.customer_name}
+                      items={order.items}
+                      allocations={allocationEdits.get(order.sale_order_id) ?? new Map()}
+                      onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id, soItemId, value)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    for (const order of reallocateData.shortfall_orders) {
+                      const edits = allocationEdits.get(order.sale_order_id);
+                      const hasManual = edits && Array.from(edits.values()).some((v) => v > 0);
+                      if (hasManual) {
+                        const allocations = order.items
+                          .filter((item) => (edits?.get(item.sale_order_item_id) ?? 0) > 0)
+                          .map((item) => ({
+                            sale_order_item_id: item.sale_order_item_id,
+                            inventory_lot_id: "",
+                            quantity: edits!.get(item.sale_order_item_id)!,
+                          }));
+                        await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "manual", allocations });
+                      } else {
+                        await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "auto" });
+                      }
+                    }
+                    toast(`${reallocateData.shortfall_orders.length} order(s) re-allocated`);
+                    invalidate([...queryKeys.saleOrders]);
+                  } catch (e) {
+                    toast(e instanceof Error ? e.message : "Re-allocation failed", "error");
+                  }
+                  setReallocateData(null);
+                  setAllocationEdits(new Map());
+                  refetch();
+                }}
+                disabled={reallocateData.shortfall_orders.length === 0 && reallocateData.current_allocations.length == 1}
+                className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                Allocate
+              </button>
+              <button type="button" onClick={() => { setReallocateData(null); setAllocationEdits(new Map()); refetch(); }} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

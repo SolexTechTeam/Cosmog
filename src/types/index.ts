@@ -285,6 +285,32 @@ export interface PoAllocationRecord {
   qty_shortfall: number | null;
 }
 
+export interface PoReallocateShortfallItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  quantity_allocated: number;
+  qty_from_warehouse: number;
+  qty_from_incoming: number;
+  qty_shortfall: number;
+}
+
+export interface PoReallocateShortfallOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  payment_status: string | null;
+  priority: number | null;
+  customer_name: string | null;
+  items: PoReallocateShortfallItem[];
+}
+
+export interface PoReallocateResponse {
+  current_allocations: PoAllocationRecord[];
+  shortfall_orders: PoReallocateShortfallOrder[];
+}
+
 export interface ReallocatePoolResponse {
   reallocations: {
     sale_order_id: string;
