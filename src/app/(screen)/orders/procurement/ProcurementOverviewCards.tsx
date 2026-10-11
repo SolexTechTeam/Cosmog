@@ -15,10 +15,7 @@ export default function ProcurementOverviewCards({ orders, loading, error }: Pro
   const inTransit = orders.filter((o) => o.status === "in transit").length;
   const received = orders.filter((o) => o.status === "received").length;
 
-  const totalSpend = orders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity_ordered * i.unit_cost, 0);
-    return sum + itemTotal;
-  }, 0);
+  const totalSpend = orders.reduce((sum, o) => sum + o.order_total, 0);
 
   if (error) {
     return <p className="text-sm text-destructive">Failed to load procurement data: {error}</p>;

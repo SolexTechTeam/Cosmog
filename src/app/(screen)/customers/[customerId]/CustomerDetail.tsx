@@ -20,7 +20,7 @@ interface CustomerDetailProps {
 }
 
 const inputClass =
-  "h-8 w-48 rounded-md border border-zinc-300 bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
+  "h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
 
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   const { toast } = useToast();
@@ -78,10 +78,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
 
   const c = customer;
 
-  const totalRevenue = orders.reduce((sum, o) => {
-    const itemTotal = (o.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-    return sum + itemTotal + o.shipping_cost;
-  }, 0);
+  const totalRevenue = orders.reduce((sum, o) => sum + o.order_total, 0);
   const openOrders = orders.filter((o) => o.status === "open" || o.status === "shipped");
   const outstanding = totalRevenue - orders.reduce((sum, o) => sum + o.amount_paid, 0);
   const contactInfo = (c.contact_info ?? {}) as Record<string, unknown>;
@@ -157,7 +154,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       {/* Back link */}
       <Link
         href="/customers"
-        className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <span>&larr;</span> Customers
       </Link>
@@ -176,7 +173,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
             </h1>
             <StatusBadge status={c.customer_type} />
           </div>
-          <p className="mt-0.5 text-sm text-foreground/60">
+          <p className="mt-0.5 text-sm text-muted-foreground">
             {c.handle ?? "No handle"} · {c.email ?? "No email"}
           </p>
         </div>
@@ -198,14 +195,14 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
         {/* Main content */}
         <div className="flex flex-col gap-4">
           {/* Account section card */}
-          <section className="rounded-lg border border-zinc-300 bg-muted px-5 py-4">
+          <section className="rounded-lg border border-border bg-muted px-5 py-4">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
               Account
             </h2>
             <dl className="space-y-3 text-sm">
               {/* Name - inline editable */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Name</dt>
+                <dt className="text-xs text-muted-foreground">Name</dt>
                 {editingName ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -229,7 +226,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={() => setEditingName(false)}
-                      className="text-xs text-foreground/40 hover:text-foreground"
+                      className="text-xs text-muted-foreground/60 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -240,7 +237,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={startEditingName}
-                      className="text-foreground/30 hover:text-primary transition-colors"
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
                     >
                       <Pencil size={13} />
                     </button>
@@ -250,19 +247,19 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
 
               {/* Email - read only */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Email</dt>
+                <dt className="text-xs text-muted-foreground">Email</dt>
                 <dd className="font-medium">{c.email ?? "—"}</dd>
               </div>
 
               {/* Handle - read only */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Handle</dt>
+                <dt className="text-xs text-muted-foreground">Handle</dt>
                 <dd className="font-medium">{c.handle ?? "—"}</dd>
               </div>
 
               {/* Customer Type - inline editable dropdown */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Type</dt>
+                <dt className="text-xs text-muted-foreground">Type</dt>
                 {editingType ? (
                   <div className="flex items-center gap-2">
                     <select
@@ -286,7 +283,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={() => setEditingType(false)}
-                      className="text-xs text-foreground/40 hover:text-foreground"
+                      className="text-xs text-muted-foreground/60 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -297,7 +294,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={startEditingType}
-                      className="text-foreground/30 hover:text-primary transition-colors"
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
                     >
                       <Pencil size={13} />
                     </button>
@@ -307,7 +304,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
 
               {/* Payment Terms - inline editable */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Payment Terms</dt>
+                <dt className="text-xs text-muted-foreground">Payment Terms</dt>
                 {editingTerms ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -331,7 +328,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={() => setEditingTerms(false)}
-                      className="text-xs text-foreground/40 hover:text-foreground"
+                      className="text-xs text-muted-foreground/60 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -342,7 +339,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <button
                       type="button"
                       onClick={startEditingTerms}
-                      className="text-foreground/30 hover:text-primary transition-colors"
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
                     >
                       <Pencil size={13} />
                     </button>
@@ -353,13 +350,13 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
           </section>
 
           {/* Orders section */}
-          <section className="rounded-lg border border-zinc-300 bg-card px-5 py-4">
+          <section className="rounded-lg border border-border bg-card px-5 py-4">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
               Orders
             </h2>
-            <div className="overflow-x-auto rounded-md border border-zinc-300">
+            <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="bg-muted text-foreground/60">
+                <thead className="bg-muted text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-xs font-medium">SO #</th>
                     <th className="px-3 py-2 text-xs font-medium">Date</th>
@@ -369,9 +366,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-200">
-                  {orders.map((order) => {
-                    const itemTotal = (order.items ?? []).reduce((s, i) => s + i.quantity * i.unit_price, 0);
-                    return (
+                  {orders.map((order) => (
                       <tr key={order.id} className="hover:bg-muted/50">
                         <td className="px-3 py-2">
                           <Link href={`/orders/sales/${order.id}`} className="font-medium text-primary hover:underline">{order.so_number}</Link>
@@ -379,12 +374,11 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                         <td className="px-3 py-2">{order.order_date}</td>
                         <td className="px-3 py-2"><StatusBadge status={order.status} /></td>
                         <td className="px-3 py-2"><StatusBadge status={order.payment_status} /></td>
-                        <td className="px-3 py-2 text-right">{fmt(itemTotal + order.shipping_cost)}</td>
+                        <td className="px-3 py-2 text-right">{fmt(order.order_total)}</td>
                       </tr>
-                    );
-                  })}
+                    ))}
                   {orders.length === 0 && (
-                    <tr><td colSpan={5} className="px-3 py-5 text-center text-foreground/60">No sales orders</td></tr>
+                    <tr><td colSpan={5} className="px-3 py-5 text-center text-muted-foreground">No sales orders</td></tr>
                   )}
                 </tbody>
               </table>
@@ -397,15 +391,15 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
           <SidebarCard title="Details">
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-xs text-foreground/60">Type</dt>
+                <dt className="text-xs text-muted-foreground">Type</dt>
                 <dd className="mt-0.5"><StatusBadge status={c.customer_type} /></dd>
               </div>
               <div>
-                <dt className="text-xs text-foreground/60">Payment Terms</dt>
+                <dt className="text-xs text-muted-foreground">Payment Terms</dt>
                 <dd className="mt-0.5 font-medium">{c.payment_terms ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs text-foreground/60">Created</dt>
+                <dt className="text-xs text-muted-foreground">Created</dt>
                 <dd className="mt-0.5 font-medium">{new Date(c.created_at).toLocaleDateString()}</dd>
               </div>
             </dl>
@@ -414,11 +408,11 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
           <SidebarCard title="Contact">
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-xs text-foreground/60">Email</dt>
+                <dt className="text-xs text-muted-foreground">Email</dt>
                 <dd className="mt-0.5 font-medium">{contactEmail || c.email || "—"}</dd>
               </div>
               <div>
-                <dt className="text-xs text-foreground/60">Phone</dt>
+                <dt className="text-xs text-muted-foreground">Phone</dt>
                 <dd className="mt-0.5 font-medium">{contactPhone || "—"}</dd>
               </div>
             </dl>

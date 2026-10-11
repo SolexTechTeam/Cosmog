@@ -12,6 +12,8 @@ import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
+import AllocationTab from "./AllocationTab";
+import MarginTab from "./MarginTab";
 import type { Profile, PurchaseOrder, SaleOrder } from "@/types";
 
 interface SaleOrderDetailProps {
@@ -20,7 +22,7 @@ interface SaleOrderDetailProps {
 
 const inputClass = "h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-1 focus:ring-ring";
 
-type Tab = "items" | "details" | "notes";
+type Tab = "items" | "allocation" | "details" | "margin" | "notes";
 
 export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const { toast } = useToast();
@@ -50,7 +52,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const poLinks = saleOrder.po_links ?? [];
   const items = saleOrder.items ?? [];
   const itemTotal = items.reduce((total, item) => total + item.quantity * item.unit_price, 0);
-  const orderTotal = itemTotal + saleOrder.shipping_cost;
+  const orderTotal = saleOrder.order_total;
   const balance = orderTotal - saleOrder.amount_paid;
   const activeProfiles = (profiles ?? []).filter((p) => p.is_active);
   const canEdit = saleOrder.status === "open";
@@ -110,7 +112,9 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "items", label: `Items (${items.length})` },
+    { key: "allocation", label: "Allocation" },
     { key: "details", label: "Details" },
+    { key: "margin", label: "Margin" },
     { key: "notes", label: "Notes" },
   ];
 
@@ -168,10 +172,10 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
         </div>
 
         {activeTab === "items" && (
-          <section className="flex flex-col rounded-lg border border-zinc-300 bg-card overflow-hidden min-h-[300px]">
+          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
             <div className="flex-1 overflow-x-auto">
               <table className="w-full min-w-[480px] text-left text-sm">
-                <thead className="border-b border-zinc-300 bg-muted text-xs text-foreground/60">
+                <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 font-medium">Product</th>
                     <th className="px-4 py-2 text-right font-medium">Qty</th>
@@ -184,7 +188,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                     <tr key={item.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-2.5">
                         <Link href={`/inventory/${item.product_id}`} className="font-medium text-primary hover:underline">{item.product?.name ?? item.product_id}</Link>
-                        {item.product?.category && <span className="ml-2 text-xs text-foreground/60">{item.product.category}</span>}
+                        {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">${item.unit_price.toFixed(2)}</td>
@@ -195,13 +199,13 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                 </tbody>
               </table>
             </div>
-            <div className="mt-auto border-t border-zinc-300 bg-muted/30 px-4 py-2">
+            <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">Subtotal</dt><dd className="tabular-nums font-medium">${itemTotal.toFixed(2)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">GST</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-foreground/60">Shipping</dt><dd className="tabular-nums">${saleOrder.shipping_cost.toFixed(2)}</dd></div>
-                <div className="flex justify-between border-t border-zinc-300 pt-1.5 mt-1.5">
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Subtotal</dt><dd className="tabular-nums font-medium">${itemTotal.toFixed(2)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">GST</dt><dd className="tabular-nums">$0.00</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipping</dt><dd className="tabular-nums">${saleOrder.shipping_cost.toFixed(2)}</dd></div>
+                <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
                   <dd className="tabular-nums text-base font-bold text-primary">${orderTotal.toFixed(2)}</dd>
                 </div>
@@ -210,56 +214,60 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           </section>
         )}
 
+        {activeTab === "allocation" && (
+          <AllocationTab saleOrderId={saleOrderId} fulfillmentType={saleOrder.fulfillment_type} status={saleOrder.status} />
+        )}
+
         {activeTab === "details" && (
           editing ? (
             <section className="rounded-lg border border-primary/20 bg-muted p-4">
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-foreground/70">Editing</h2>
-                <button type="button" onClick={() => setEditing(false)} disabled={saving} className="text-xs text-foreground/60 hover:text-foreground">Cancel</button>
+                <button type="button" onClick={() => setEditing(false)} disabled={saving} className="text-xs text-muted-foreground hover:text-foreground">Cancel</button>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Priority
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Priority
                   <select value={editValues.priority} onChange={(e) => setEditValues((v) => ({ ...v, priority: e.target.value }))} className={inputClass}>
                     {(priorityOptions.length ? priorityOptions : [{ label: "Low", value: "low" }, { label: "Normal", value: "normal" }, { label: "High", value: "high" }, { label: "Urgent", value: "urgent" }]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Owner
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Owner
                   <select value={editValues.owner_id} onChange={(e) => setEditValues((v) => ({ ...v, owner_id: e.target.value }))} className={inputClass}>
                     <option value="">Unassigned</option>
                     {activeProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Fulfillment
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Fulfillment
                   <select value={editValues.fulfillment_type} onChange={(e) => setEditValues((v) => ({ ...v, fulfillment_type: e.target.value }))} className={inputClass}>
                     {(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Payment
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Payment
                   <select value={editValues.payment_status} onChange={(e) => setEditValues((v) => ({ ...v, payment_status: e.target.value }))} className={inputClass}>
                     <option value="not_requested">Not requested</option><option value="awaiting_payment">Awaiting payment</option>
                     <option value="part_paid">Part paid</option><option value="paid">Paid</option>
                     <option value="refunded">Refunded</option><option value="cancelled">Cancelled</option>
                   </select>
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Shipping cost
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipping cost
                   <input type="number" min="0" step="0.01" value={editValues.shipping_cost} onChange={(e) => setEditValues((v) => ({ ...v, shipping_cost: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Amount paid
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Amount paid
                   <input type="number" min="0" step="0.01" value={editValues.amount_paid} onChange={(e) => setEditValues((v) => ({ ...v, amount_paid: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Shipped
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipped
                   <input type="date" value={editValues.shipped_date} onChange={(e) => setEditValues((v) => ({ ...v, shipped_date: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Delivered
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Delivered
                   <input type="date" value={editValues.delivered_date} onChange={(e) => setEditValues((v) => ({ ...v, delivered_date: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60">Tracking
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Tracking
                   <input value={editValues.tracking_reference} onChange={(e) => setEditValues((v) => ({ ...v, tracking_reference: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60 sm:col-span-3">Shipping details
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-3">Shipping details
                   <textarea value={editValues.shipping_details} onChange={(e) => setEditValues((v) => ({ ...v, shipping_details: e.target.value }))} rows={2} className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal outline-none focus:ring-1 focus:ring-ring" />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-foreground/60 sm:col-span-3">Notes
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-3">Notes
                   <textarea value={editValues.notes} onChange={(e) => setEditValues((v) => ({ ...v, notes: e.target.value }))} rows={2} className="rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal outline-none focus:ring-1 focus:ring-ring" />
                 </label>
               </div>
@@ -269,27 +277,27 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               </div>
             </section>
           ) : (
-            <section className="rounded-lg border border-zinc-300 bg-card p-4">
+            <section className="rounded-lg border border-border bg-card p-4">
               <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                <div><p className="text-xs text-foreground/60">Owner</p><p className="text-sm font-medium">{saleOrder.owner_name ?? "Unassigned"}</p></div>
-                <div><p className="text-xs text-foreground/60">Priority</p><div className="mt-0.5"><StatusBadge status={saleOrder.priority} /></div></div>
-                <div><p className="text-xs text-foreground/60">Procurement</p><div className="mt-0.5">{isActive && procurementStatus ? <StatusBadge status={procurementStatus} /> : <span className="text-sm text-muted-foreground">—</span>}</div></div>
-                <div><p className="text-xs text-foreground/60">Fulfillment</p><p className="text-sm font-medium capitalize">{saleOrder.fulfillment_type.replace(/_/g, " ")}</p></div>
-                <div><p className="text-xs text-foreground/60">Business Channel</p><p className="text-sm font-medium capitalize">{saleOrder.business_channel?.replace(/_/g, " ") || "—"}</p></div>
-                <div><p className="text-xs text-foreground/60">Source</p><p className="text-sm font-medium">{saleOrder.source || "—"}</p></div>
-                <div><p className="text-xs text-foreground/60">Order Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.order_date}</p></div>
-                <div><p className="text-xs text-foreground/60">Shipped Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.shipped_date || "—"}</p></div>
-                <div><p className="text-xs text-foreground/60">Delivered Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.delivered_date || "—"}</p></div>
-                <div><p className="text-xs text-foreground/60">Tracking Reference</p><p className="text-sm font-medium font-mono">{saleOrder.tracking_reference || "—"}</p></div>
-                <div><p className="text-xs text-foreground/60">Shipping Cost</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.shipping_cost)}</p></div>
-                <div><p className="text-xs text-foreground/60">Amount Paid</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.amount_paid)}</p></div>
-                <div><p className="text-xs text-foreground/60">Balance</p><p className={`text-sm font-semibold tabular-nums ${balance > 0 ? "text-primary" : "text-emerald-600"}`}>{fmt(balance)}</p></div>
-                <div><p className="text-xs text-foreground/60">Created</p><p className="text-sm font-medium tabular-nums">{saleOrder.created_at?.slice(0, 10)}</p></div>
-                <div><p className="text-xs text-foreground/60">Updated</p><p className="text-sm font-medium tabular-nums">{saleOrder.updated_at?.slice(0, 10)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Owner</p><p className="text-sm font-medium">{saleOrder.owner_name ?? "Unassigned"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Priority</p><div className="mt-0.5"><StatusBadge status={saleOrder.priority} /></div></div>
+                <div><p className="text-xs text-muted-foreground">Procurement</p><div className="mt-0.5">{isActive && procurementStatus ? <StatusBadge status={procurementStatus} /> : <span className="text-sm text-muted-foreground">—</span>}</div></div>
+                <div><p className="text-xs text-muted-foreground">Fulfillment</p><p className="text-sm font-medium capitalize">{saleOrder.fulfillment_type.replace(/_/g, " ")}</p></div>
+                <div><p className="text-xs text-muted-foreground">Business Channel</p><p className="text-sm font-medium capitalize">{saleOrder.business_channel?.replace(/_/g, " ") || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Source</p><p className="text-sm font-medium">{saleOrder.source || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Order Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.order_date}</p></div>
+                <div><p className="text-xs text-muted-foreground">Shipped Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.shipped_date || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Delivered Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.delivered_date || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Tracking Reference</p><p className="text-sm font-medium font-mono">{saleOrder.tracking_reference || "—"}</p></div>
+                <div><p className="text-xs text-muted-foreground">Shipping Cost</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.shipping_cost)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Amount Paid</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.amount_paid)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Balance</p><p className={`text-sm font-semibold tabular-nums ${balance > 0 ? "text-primary" : "text-emerald-600"}`}>{fmt(balance)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Created</p><p className="text-sm font-medium tabular-nums">{saleOrder.created_at?.slice(0, 10)}</p></div>
+                <div><p className="text-xs text-muted-foreground">Updated</p><p className="text-sm font-medium tabular-nums">{saleOrder.updated_at?.slice(0, 10)}</p></div>
               </div>
               {saleOrder.shipping_details && (
                 <div className="mt-4 border-t border-border pt-3">
-                  <p className="text-xs text-foreground/60">Shipping Details</p>
+                  <p className="text-xs text-muted-foreground">Shipping Details</p>
                   <p className="mt-0.5 text-sm whitespace-pre-wrap">{saleOrder.shipping_details}</p>
                 </div>
               )}
@@ -297,8 +305,12 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           )
         )}
 
+        {activeTab === "margin" && (
+          <MarginTab saleOrderId={saleOrderId} />
+        )}
+
         {activeTab === "notes" && (
-          <section className="rounded-lg border border-zinc-300 bg-card p-4">
+          <section className="rounded-lg border border-border bg-card p-4">
             {saleOrder.notes ? (
               <p className="text-sm whitespace-pre-wrap">{saleOrder.notes}</p>
             ) : (
@@ -313,21 +325,21 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
         <SidebarCard title="Customer">
           <Link href={`/customers/${saleOrder.customer_id}`} className="block rounded-md -mx-1 px-1 py-0.5 hover:bg-background transition-colors">
             <span className="text-sm font-semibold text-foreground">{saleOrder.customer?.name ?? "—"}</span>
-            {saleOrder.customer?.handle && <span className="ml-1.5 text-xs text-foreground/60">@{saleOrder.customer.handle}</span>}
+            {saleOrder.customer?.handle && <span className="ml-1.5 text-xs text-muted-foreground">@{saleOrder.customer.handle}</span>}
           </Link>
         </SidebarCard>
 
         <SidebarCard title="Details">
           <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Owner</dt><dd className="font-medium">{saleOrder.owner_name ?? "Unassigned"}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Priority</dt><dd><StatusBadge status={saleOrder.priority} /></dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Fulfillment</dt><dd className="capitalize font-medium">{saleOrder.fulfillment_type.replace(/_/g, " ")}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Channel</dt><dd className="capitalize">{saleOrder.business_channel?.replace(/_/g, " ") || "—"}</dd></div>
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Source</dt><dd>{saleOrder.source || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Owner</dt><dd className="font-medium">{saleOrder.owner_name ?? "Unassigned"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Priority</dt><dd><StatusBadge status={saleOrder.priority} /></dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Fulfillment</dt><dd className="capitalize font-medium">{saleOrder.fulfillment_type.replace(/_/g, " ")}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Channel</dt><dd className="capitalize">{saleOrder.business_channel?.replace(/_/g, " ") || "—"}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Source</dt><dd>{saleOrder.source || "—"}</dd></div>
             {isActive && procurementStatus && (
-              <div className="flex justify-between"><dt className="text-xs text-foreground/60">Procurement</dt><dd><StatusBadge status={procurementStatus} /></dd></div>
+              <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Procurement</dt><dd><StatusBadge status={procurementStatus} /></dd></div>
             )}
-            <div className="flex justify-between"><dt className="text-xs text-foreground/60">Created</dt><dd className="tabular-nums">{saleOrder.created_at?.slice(0, 10)}</dd></div>
+            <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Created</dt><dd className="tabular-nums">{saleOrder.created_at?.slice(0, 10)}</dd></div>
           </dl>
         </SidebarCard>
 
@@ -343,7 +355,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                 </li>
               ))}
             </ul>
-          ) : <p className="text-xs text-foreground/60 mb-2">None linked</p>}
+          ) : <p className="text-xs text-muted-foreground mb-2">None linked</p>}
           <div className="relative">
             <input placeholder="Search POs..." value={poSearch} onChange={(e) => setPoSearch(e.target.value)} className="h-7 w-full rounded-md border border-border bg-background px-2 text-xs outline-none focus:ring-1 focus:ring-ring" />
             {poSearch && (
@@ -365,9 +377,9 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
         
         <SidebarCard title="Payment">
           <dl className="space-y-1.5 text-sm">
-            <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Total</dt><dd className="font-bold tabular-nums text-primary">{fmt(orderTotal)}</dd></div>
-            <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Paid</dt><dd className="font-bold tabular-nums">{fmt(saleOrder.amount_paid)}</dd></div>
-            {balance > 0 && <div className="flex justify-between items-baseline"><dt className="text-xs text-foreground/60">Balance</dt><dd className="font-semibold tabular-nums text-primary">{fmt(balance)}</dd></div>}
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Total</dt><dd className="font-bold tabular-nums text-primary">{fmt(orderTotal)}</dd></div>
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Paid</dt><dd className="font-bold tabular-nums">{fmt(saleOrder.amount_paid)}</dd></div>
+            {balance > 0 && <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Balance</dt><dd className="font-semibold tabular-nums text-primary">{fmt(balance)}</dd></div>}
           </dl>
           <select
             defaultValue={saleOrder.payment_status}

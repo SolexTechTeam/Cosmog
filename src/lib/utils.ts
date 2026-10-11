@@ -12,7 +12,9 @@ export function ownerName(ownerId: string | null | undefined, profiles: { id: st
 
 export function allocationLabel(status: string | null | undefined): string {
   if (status === "ready_to_ship") return "ready_to_ship";
+  if (status === "done") return "done";
   if (status === "awaiting_procurement") return "awaiting";
-  if (status === "needs_procurement" || status === "unallocated") return "need";
+  if (status === "needs_procurement") return "need";
+  if (status === "unallocated") return "unallocated";
   return status ?? "need";
 }

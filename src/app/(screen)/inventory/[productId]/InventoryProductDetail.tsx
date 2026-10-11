@@ -147,9 +147,10 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
       <div className="mt-4">
         <MetricCardRow>
           <MetricCard label="On-Hand" value={stock.qty_on_hand} accent="default" />
-          <MetricCard label="Reserved" value={stock.qty_reserved} accent="warning" />
+          <MetricCard label="Incoming" value={stock.qty_incoming} accent="primary" />
+          <MetricCard label="Allocated" value={stock.qty_reserved} accent="warning" />
           <MetricCard label="Available" value={stock.qty_available} accent="success" />
-          <MetricCard label="In-Transit" value={stock.qty_in_transit} accent="primary" />
+          <MetricCard label="Demand" value={stock.qty_demand} />
         </MetricCardRow>
       </div>
 
@@ -208,9 +209,10 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
             <SidebarCard title="Stock Summary">
               <dl className="space-y-1.5 text-sm">
                 <SidebarRow label="On-Hand" value={String(stock.qty_on_hand)} />
-                <SidebarRow label="Reserved" value={String(stock.qty_reserved)} />
+                <SidebarRow label="Incoming" value={String(stock.qty_incoming)} />
+                <SidebarRow label="Allocated" value={String(stock.qty_reserved)} />
                 <SidebarRow label="Available" value={String(stock.qty_available)} />
-                <SidebarRow label="In-Transit" value={String(stock.qty_in_transit)} />
+                <SidebarRow label="Demand" value={String(stock.qty_demand)} />
               </dl>
             </SidebarCard>
 
@@ -245,10 +247,10 @@ function LotsTab({
   }
 
   return (
-    <section className="flex flex-col rounded-lg border border-zinc-300 bg-card overflow-hidden min-h-[300px]">
+    <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
       <div className="flex-1 overflow-x-auto">
         <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="border-b border-zinc-300 bg-muted text-xs text-foreground/60">
+          <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-medium">PO #</th>
               <th className="px-4 py-2 font-medium">Received</th>
@@ -280,7 +282,7 @@ function LotsTab({
                   <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_on_hand}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_reserved}</td>
                   <td className="px-4 py-2.5 text-right tabular-nums">
-                    {Math.max(0, lot.quantity_on_hand - lot.quantity_reserved)}
+                    {Math.max(0, (lot.lot_status === "incoming" ? lot.quantity_total : lot.quantity_on_hand) - lot.quantity_reserved)}
                   </td>
                   <td className="px-4 py-2.5 text-right tabular-nums">{fmt(lot.unit_cost)}</td>
                 </tr>
@@ -314,10 +316,10 @@ function HistoryTab({
   onShowMore: () => void;
 }) {
   return (
-    <section className="flex flex-col rounded-lg border border-zinc-300 bg-card overflow-hidden min-h-[300px]">
+    <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
       <div className="flex-1 overflow-x-auto">
         <table className="w-full min-w-[620px] text-left text-sm">
-          <thead className="border-b border-zinc-300 bg-muted text-xs text-foreground/60">
+          <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
             <tr>
               <th className="px-4 py-2 font-medium">Date</th>
               <th className="px-4 py-2 font-medium">Type</th>
@@ -341,7 +343,7 @@ function HistoryTab({
                       ? "text-emerald-600"
                       : entry.quantity_change < 0
                         ? "text-red-600"
-                        : "text-foreground/60"
+                        : "text-muted-foreground"
                   }`}
                 >
                   {entry.quantity_change > 0
@@ -368,7 +370,7 @@ function HistoryTab({
       </div>
 
       {hasMore && (
-        <div className="border-t border-zinc-300 bg-muted/30 px-4 py-2 text-center">
+        <div className="border-t border-border bg-muted/30 px-4 py-2 text-center">
           <button
             type="button"
             onClick={onShowMore}
@@ -394,16 +396,16 @@ function DetailsTab({
   sellPrice: number;
 }) {
   return (
-    <section className="rounded-lg border border-zinc-300 bg-card p-4">
+    <section className="rounded-lg border border-border bg-card p-4">
       <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
         <DetailField label="Product Name" value={stock.name} />
         <DetailField label="Category" value={stock.category} />
         <DetailField label="SKU" value={stock.sku ?? "—"} mono />
         <DetailField label="Avg Cost" value={fmt(stock.avg_cost)} />
         <div>
-          <p className="text-xs text-foreground/60">Est. Sell Price</p>
+          <p className="text-xs text-muted-foreground">Est. Sell Price</p>
           <p className="text-sm font-medium tabular-nums">{fmt(sellPrice)}</p>
-          <p className="text-[11px] text-foreground/40">Avg Cost &times; 1.25 &times; 1.14</p>
+          <p className="text-[11px] text-muted-foreground/60">Avg Cost &times; 1.25 &times; 1.14</p>
         </div>
         <DetailField label="Stock Status">
           <div className="mt-0.5">
@@ -432,7 +434,7 @@ function DetailField({
 }) {
   return (
     <div>
-      <p className="text-xs text-foreground/60">{label}</p>
+      <p className="text-xs text-muted-foreground">{label}</p>
       {children ?? (
         <p className={`text-sm font-medium ${mono ? "font-mono" : ""}`}>{value}</p>
       )}
@@ -451,14 +453,14 @@ function SidebarRow({
 }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-xs text-foreground/60">{label}</dt>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className={`tabular-nums ${bold ? "font-bold" : "font-medium"}`}>{value}</dd>
     </div>
   );
 }
 
 function ReferenceLink({ entry }: { entry: LedgerEntry }) {
-  if (!entry.reference_id) return <span className="text-foreground/40">—</span>;
+  if (!entry.reference_id) return <span className="text-muted-foreground/60">—</span>;
 
   if (entry.reference_type === "sale_order") {
     return (
@@ -482,5 +484,5 @@ function ReferenceLink({ entry }: { entry: LedgerEntry }) {
     );
   }
 
-  return <span className="text-foreground/60">{entry.reference_id.slice(0, 8)}</span>;
+  return <span className="text-muted-foreground">{entry.reference_id.slice(0, 8)}</span>;
 }

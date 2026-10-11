@@ -17,7 +17,7 @@ interface StockWarning {
   product_id: string;
   requested: number;
   available: number;
-  in_transit: number;
+  incoming: number;
   shortfall: number;
   message: string;
 }
@@ -257,6 +257,11 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
             Type
             <LookupSelect value={fulfillmentType} onChange={setFulfillmentType} options={fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]} />
           </label>
+          {fulfillmentType === "direct_to_customer" && (
+            <p className="mt-1 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700 sm:col-span-2">
+              Direct-to-customer orders ship from supplier to customer. Link purchase orders to track coverage — no warehouse allocation is used.
+            </p>
+          )}
           <label className="grid gap-1 text-sm font-medium">
             Order date
             <input required type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} className={inputClass} />

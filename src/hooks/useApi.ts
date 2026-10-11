@@ -43,4 +43,6 @@ export const queryKeys = {
   ledger: ["ledger"] as const,
   inventoryLots: ["inventory-lots"] as const,
   lookups: (category: string) => ["lookups", category] as const,
+  allocation: (soId: string) => ["allocation", soId] as const,
+  margin: (soId: string) => ["margin", soId] as const,
 };

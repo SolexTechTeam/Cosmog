@@ -17,7 +17,7 @@ interface UserDetailProps {
 }
 
 const inputClass =
-  "h-8 w-48 rounded-md border border-zinc-300 bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
+  "h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
 
 export default function UserDetail({ userId }: UserDetailProps) {
   const { toast } = useToast();
@@ -149,7 +149,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
       {/* Back link */}
       <Link
         href="/users"
-        className="inline-flex items-center gap-1 text-xs font-medium text-foreground/60 hover:text-foreground transition-colors"
+        className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
       >
         <span>&larr;</span> Users
       </Link>
@@ -171,7 +171,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
               status={profile.is_active ? "active" : "inactive"}
             />
           </div>
-          <p className="mt-0.5 text-sm text-foreground/60">{profile.email}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{profile.email}</p>
         </div>
       </div>
 
@@ -183,14 +183,14 @@ export default function UserDetail({ userId }: UserDetailProps) {
         {/* Main content */}
         <div className="flex flex-col gap-4">
           {/* Account section card */}
-          <section className="rounded-lg border border-zinc-300 bg-muted px-5 py-4">
+          <section className="rounded-lg border border-border bg-muted px-5 py-4">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
               Account
             </h2>
             <dl className="space-y-3 text-sm">
               {/* Name - inline editable */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Name</dt>
+                <dt className="text-xs text-muted-foreground">Name</dt>
                 {editingName ? (
                   <div className="flex items-center gap-2">
                     <input
@@ -214,7 +214,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     <button
                       type="button"
                       onClick={() => setEditingName(false)}
-                      className="text-xs text-foreground/40 hover:text-foreground"
+                      className="text-xs text-muted-foreground/60 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -225,7 +225,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     <button
                       type="button"
                       onClick={startEditingName}
-                      className="text-foreground/30 hover:text-primary transition-colors"
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
                     >
                       <Pencil size={13} />
                     </button>
@@ -235,13 +235,13 @@ export default function UserDetail({ userId }: UserDetailProps) {
 
               {/* Email - read only */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Email</dt>
+                <dt className="text-xs text-muted-foreground">Email</dt>
                 <dd className="font-medium">{profile.email}</dd>
               </div>
 
               {/* Role - inline editable dropdown */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Role</dt>
+                <dt className="text-xs text-muted-foreground">Role</dt>
                 {editingRole ? (
                   <div className="flex items-center gap-2">
                     <select
@@ -260,7 +260,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     <button
                       type="button"
                       onClick={() => setEditingRole(false)}
-                      className="text-xs text-foreground/40 hover:text-foreground"
+                      className="text-xs text-muted-foreground/60 hover:text-foreground"
                     >
                       Cancel
                     </button>
@@ -273,7 +273,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     <button
                       type="button"
                       onClick={startEditingRole}
-                      className="text-foreground/30 hover:text-primary transition-colors"
+                      className="text-muted-foreground/40 hover:text-primary transition-colors"
                     >
                       <Pencil size={13} />
                     </button>
@@ -283,7 +283,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
 
               {/* Status - toggle */}
               <div className="flex items-center justify-between">
-                <dt className="text-xs text-foreground/60">Status</dt>
+                <dt className="text-xs text-muted-foreground">Status</dt>
                 <div className="flex items-center gap-2">
                   <dd>
                     <StatusBadge
@@ -294,7 +294,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     type="button"
                     onClick={toggleActive}
                     disabled={togglingActive}
-                    className="rounded-md border border-zinc-300 px-2 py-0.5 text-xs font-medium text-foreground/60 hover:bg-background hover:text-foreground transition-colors disabled:opacity-60"
+                    className="rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted-foreground hover:bg-background hover:text-foreground transition-colors disabled:opacity-60"
                   >
                     {togglingActive
                       ? "..."
@@ -313,7 +313,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
           <SidebarCard title="Details">
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-xs text-foreground/60">User ID</dt>
+                <dt className="text-xs text-muted-foreground">User ID</dt>
                 <dd className="mt-0.5 font-mono text-xs text-foreground/70 break-all">
                   {profile.id}
                 </dd>

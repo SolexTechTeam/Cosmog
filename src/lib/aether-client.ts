@@ -15,6 +15,18 @@ import type {
   LedgerEntry,
   LookupValue,
   AllocationResponse,
+  ConfirmPoResponse,
+  ReceivePoResponse,
+  AllocationPreviewResponse,
+  AllocateResponse,
+  ReallocateResponse,
+  ReassignResponse,
+  ReallocatePoolResponse,
+  PoAllocationRecord,
+  PoReallocateResponse,
+  PoAllocationPreviewResponse,
+  PoApplyAllocationRequest,
+  MarginResponse,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -230,7 +242,7 @@ export class AetherClient {
     return request(`/api/sale-orders/${id}/allocation`);
   }
 
-  static getSaleOrderMargin(id: string): Promise<unknown> {
+  static getSaleOrderMargin(id: string): Promise<MarginResponse> {
     return request(`/api/sale-orders/${id}/margin`);
   }
 
@@ -266,15 +278,35 @@ export class AetherClient {
     return request("/api/inventory/ledger/adjustment", { method: "POST", body: JSON.stringify(data) });
   }
 
-  static shipPurchaseOrder(purchaseOrderId: string): Promise<{ message: string; lots_created: number }> {
+  static confirmPurchaseOrder(purchaseOrderId: string): Promise<ConfirmPoResponse> {
+    return request("/api/inventory/confirm-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
+  }
+
+  static shipPurchaseOrder(purchaseOrderId: string): Promise<{ message: string }> {
     return request("/api/inventory/ship-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
-  static receivePurchaseOrder(purchaseOrderId: string): Promise<{ message: string; lots_received: number }> {
+  static receivePurchaseOrder(purchaseOrderId: string): Promise<ReceivePoResponse> {
     return request("/api/inventory/receive-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
-  static previewAllocation(saleOrderId: string): Promise<unknown> {
+  static getCurrentPoAllocation(purchaseOrderId: string): Promise<PoAllocationRecord[]> {
+    return request(`/api/purchase-orders/${purchaseOrderId}/allocations`);
+  }
+
+  static poReallocateResources(purchaseOrderId: string): Promise<PoReallocateResponse> {
+    return request(`/api/purchase-orders/${purchaseOrderId}/reallocate`);
+  }
+
+  static previewPoAllocation(purchaseOrderId: string): Promise<PoAllocationPreviewResponse> {
+    return request(`/api/purchase-orders/${purchaseOrderId}/preview-allocation`);
+  }
+
+  static applyPoAllocation(purchaseOrderId: string, data: PoApplyAllocationRequest): Promise<any> {
+    return request(`/api/purchase-orders/${purchaseOrderId}/apply-allocation`, { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static previewAllocation(saleOrderId: string): Promise<AllocationPreviewResponse> {
     return request("/api/inventory/allocate/preview", { method: "POST", body: JSON.stringify({ sale_order_id: saleOrderId }) });
   }
 
@@ -282,7 +314,7 @@ export class AetherClient {
     sale_order_id: string;
     mode: "auto" | "manual";
     allocations?: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
-  }): Promise<unknown> {
+  }): Promise<AllocateResponse> {
     return request("/api/inventory/allocate", { method: "POST", body: JSON.stringify(data) });
   }
 
@@ -291,8 +323,21 @@ export class AetherClient {
     release_lot_id: string;
     assign_lot_id: string;
     quantity: number;
-  }): Promise<unknown> {
+  }): Promise<ReallocateResponse> {
     return request("/api/inventory/reallocate", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static reassignAllocation(data: {
+    from_sale_order_item_id: string;
+    to_sale_order_item_id: string;
+    inventory_lot_id: string;
+    quantity: number;
+  }): Promise<ReassignResponse> {
+    return request("/api/inventory/reassign", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static reallocatePool(): Promise<ReallocatePoolResponse> {
+    return request("/api/inventory/reallocate-pool", { method: "POST", body: JSON.stringify({}) });
   }
 
   static fulfillSaleOrder(saleOrderId: string): Promise<void> {
@@ -305,5 +350,40 @@ export class AetherClient {
 
   static returnSaleOrder(saleOrderId: string): Promise<void> {
     return request("/api/inventory/return", { method: "POST", body: JSON.stringify({ sale_order_id: saleOrderId }) });
+  }
+
+  // ── Lookup mutations ───────────────────────────────────────────────
+
+  static createLookup(data: {
+    category: string;
+    value: string;
+    label: string;
+    sort_order?: number;
+    is_active?: boolean;
+  }): Promise<LookupValue> {
+    return request("/api/lookups", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static updateLookup(id: string, data: {
+    label?: string;
+    sort_order?: number;
+    is_active?: boolean;
+  }): Promise<LookupValue> {
+    return request(`/api/lookups/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  static deleteLookup(id: string): Promise<void> {
+    return request(`/api/lookups/${id}`, { method: "DELETE" });
+  }
+
+  // ── Profile creation ─────────────────────────────────────────────
+
+  static createProfile(data: {
+    id: string;
+    name: string;
+    email: string;
+    role?: string;
+  }): Promise<Profile> {
+    return request("/api/profiles", { method: "POST", body: JSON.stringify(data) });
   }
 }

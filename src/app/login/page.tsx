@@ -38,20 +38,25 @@ export default function LoginScreen() {
       <div className="w-full max-w-md">
         
         <div className="flex justify-center mb-8">
-          <Image
-            src="/icon_512.png"
-            alt="Solext"
-            width={120}
-            height={120}
-            priority
-            className="drop-shadow-[0_0_40px_rgba(249,115,22,0.3)]"
-          />
         </div>
         <div className="rounded-2xl border border-white/10 bg-[#18181B]/90 p-8 shadow-2xl backdrop-blur-sm">
           
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <div>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <div className="flex justify-center">
+              <Image
+                src="/solext_transparent.png"
+                alt="Solext"
+                width={192
+                  
+                }
+                height={100}
+                priority
+                className="drop-shadow-[0_0_40px_rgba(249,115,22,0.3)]"
+              />
+            </div>
+            
+            <div className="mb-4">
               <label htmlFor="email" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Email
               </label>
@@ -65,7 +70,7 @@ export default function LoginScreen() {
                 className="h-11 w-full rounded-lg border border-white/10 bg-white/5 px-4 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-colors"
               />
             </div>
-            <div>
+            <div className="mb-4">
               <label htmlFor="password" className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-zinc-400">
                 Password
               </label>

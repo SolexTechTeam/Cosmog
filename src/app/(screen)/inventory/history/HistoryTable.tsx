@@ -200,7 +200,7 @@ export default function HistoryTable() {
           const href = hrefMap[entry.reference_type];
           return (
             <span className="flex items-center gap-1.5">
-              <span className="text-foreground/60 text-xs">{label}</span>
+              <span className="text-muted-foreground text-xs">{label}</span>
               {href ? (
                 <Link href={href} className="text-primary hover:underline text-xs" onClick={(e) => e.stopPropagation()}>
                   {shortId}
@@ -239,7 +239,7 @@ export default function HistoryTable() {
             options: [
               { label: "Lot Created", value: "lot_created" },
               { label: "Received", value: "received" },
-              { label: "Reserved", value: "reserved" },
+              { label: "Allocated", value: "reserved" },
               { label: "Released", value: "released" },
               { label: "Shipped", value: "shipped" },
               { label: "Returned", value: "returned" },

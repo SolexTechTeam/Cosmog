@@ -45,11 +45,13 @@ export interface PurchaseOrder {
   status: "draft" | "confirmed" | "in transit" | "received" | "cancelled";
   fulfillment_type: "warehouse" | "direct_delivery";
   order_date: string;
+  order_total: number;
   shipped_date: string | null;
   expected_arrival: string | null;
   received_date: string | null;
   notes: string | null;
   created_by: string | null;
+  created_by_profile?: { id: string; name: string } | null;
   created_at: string;
   updated_at: string;
   supplier?: Pick<Supplier, "id" | "name">;
@@ -87,6 +89,7 @@ export interface SaleOrder {
   notes: string | null;
   created_at: string;
   updated_at: string;
+  order_total: number;
   allocation_status: string | null;
   owner_name: string | null;
   customer?: Pick<Customer, "id" | "name" | "handle">;
@@ -111,7 +114,7 @@ export interface SaleOrderPoLink {
 export interface InventorySummary {
   product_id: string;
   qty_on_hand: number;
-  qty_in_transit: number;
+  qty_incoming: number;
   qty_reserved: number;
   qty_available: number;
   avg_cost: number;
@@ -126,7 +129,8 @@ export interface StockStatus {
   qty_on_hand: number;
   qty_reserved: number;
   qty_available: number;
-  qty_in_transit: number;
+  qty_incoming: number;
+  qty_demand: number;
   avg_cost: number;
   stock_status: "In Stock" | "Low Stock" | "Out of Stock" | "Incoming";
 }
@@ -187,7 +191,218 @@ export interface LookupOption {
   value: string;
 }
 
+export interface AllocationLotDetail {
+  lot_id: string;
+  lot_status: "on_hand" | "incoming";
+  quantity: number;
+  unit_cost: number;
+}
+
+export interface AllocationItemBreakdown {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  qty_from_warehouse: number;
+  qty_from_incoming: number;
+  qty_shortfall: number;
+  allocations?: AllocationLotDetail[];
+  qty_needed?: number;
+  qty_covered_by_pos?: number;
+}
+
 export interface AllocationResponse {
   allocation_status: string;
   priority_points: number;
+  channel: "warehouse" | "direct_to_customer";
+  items: AllocationItemBreakdown[];
 }
+
+export interface SuggestedAllocationItem {
+  sale_order_item_id: string;
+  product_name: string;
+  quantity_needed: number;
+  already_allocated: number;
+  allocations: { lot_id: string; lot_status: string; quantity: number; unit_cost: number }[];
+  shortfall: number;
+}
+
+export interface ConfirmPoResponse {
+  message: string;
+  lots_created: number;
+  suggested_allocations: {
+    sale_order_id: string;
+    suggested_allocations: SuggestedAllocationItem[];
+  }[];
+}
+
+export interface ReceivePoResponse {
+  message: string;
+  lots_received: number;
+  reallocations: {
+    sale_order_id: string;
+    priority_points: number;
+    items?: AllocationItemBreakdown[];
+    error?: string;
+  }[];
+}
+
+export interface AllocationPreviewResponse {
+  suggested_allocations: SuggestedAllocationItem[];
+}
+
+export interface AllocateResponse {
+  message: string;
+  allocation_status: string;
+  items: AllocationItemBreakdown[];
+}
+
+export interface ReallocateResponse {
+  released_lot: string;
+  assigned_lot: string;
+  quantity: number;
+}
+
+export interface ReassignResponse {
+  from_so_item: string;
+  to_so_item: string;
+  lot_id: string;
+  quantity: number;
+}
+
+export interface PoAllocationRecord {
+  allocation_id: string;
+  inventory_lot_id: string;
+  quantity_allocated: number;
+  sale_order_id: string | null;
+  so_number: string | null;
+  so_status: string | null;
+  customer_name: string | null;
+  product_id: string | null;
+  product_name: string | null;
+  quantity_ordered: number | null;
+  qty_from_warehouse: number | null;
+  qty_from_incoming: number | null;
+  qty_shortfall: number | null;
+}
+
+export interface PoReallocateShortfallItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  quantity_allocated: number;
+  qty_from_warehouse: number;
+  qty_from_incoming: number;
+  qty_shortfall: number;
+}
+
+export interface PoReallocateShortfallOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  payment_status: string | null;
+  priority: number | null;
+  customer_name: string | null;
+  items: PoReallocateShortfallItem[];
+}
+
+export interface PoReallocateResponse {
+  current_allocations: PoAllocationRecord[];
+  shortfall_orders: PoReallocateShortfallOrder[];
+}
+
+export interface PoAllocationPreviewItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  qty_shortfall: number;
+  suggested_quantity: number;
+}
+
+export interface PoAllocationPreviewOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  priority_points: number;
+  customer_name: string | null;
+  items: PoAllocationPreviewItem[];
+}
+
+export interface PoAllocationPreviewBudget {
+  product_id: string;
+  product_name: string;
+  total: number;
+  assigned: number;
+}
+
+export interface PoCurrentAllocationLot {
+  allocation_id: string;
+  inventory_lot_id: string;
+  quantity: number;
+}
+
+export interface PoCurrentAllocationItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  quantity_allocated: number;
+  allocations: PoCurrentAllocationLot[];
+}
+
+export interface PoApplyAllocationRequest {
+  releases: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
+  allocation_so_ids: string[];
+}
+
+export interface PoCurrentAllocationOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  customer_name: string | null;
+  items: PoCurrentAllocationItem[];
+}
+
+export interface PoAllocationPreviewResponse {
+  product_budget: PoAllocationPreviewBudget[];
+  current_orders: PoCurrentAllocationOrder[];
+  shortfall_orders: PoAllocationPreviewOrder[];
+}
+
+export interface ReallocatePoolResponse {
+  reallocations: {
+    sale_order_id: string;
+    priority_points: number;
+    items?: AllocationItemBreakdown[];
+    error?: string;
+  }[];
+}
+
+export interface WarehouseMarginItem {
+  sale_order_item_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  weighted_fifo_cost: number;
+  margin_per_unit: number;
+  total_revenue: number;
+  total_cost: number;
+  total_margin: number;
+}
+
+export interface WarehouseMarginResponse {
+  items: WarehouseMarginItem[];
+  order_total_revenue: number;
+  order_total_cost: number;
+  order_total_margin: number;
+}
+
+export interface DtcMarginResponse {
+  revenue: number;
+  cost: number;
+  margin: number;
+}
+
+export type MarginResponse = WarehouseMarginResponse | DtcMarginResponse;
