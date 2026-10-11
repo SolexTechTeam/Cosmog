@@ -198,18 +198,6 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
                 <p className="text-center text-sm text-muted-foreground py-6">No other sales orders to allocate (there is only 1 SO for this PO's product).</p>
               ) : (
                 <div className="space-y-3">
-                  {reallocateData.current_allocations.map((order) => (
-                    <SoAllocationCard
-                      key={order.sale_order_id}
-                      soNumber={order.so_number || "SO-????"}
-                      soStatus={order.so_status || "Unknown"}
-                      customerName={order.customer_name}
-                      items={order.sale_order_id || "SO-????"}
-                      allocations={allocationEdits.get(order.sale_order_id || "SO-????") ?? new Map()}
-                      onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id || "SO-????", soItemId, value)}
-                    />
-                  ))}
-                
                   {reallocateData.shortfall_orders.map((order) => (
                     <SoAllocationCard
                       key={order.sale_order_id}

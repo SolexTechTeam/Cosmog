@@ -27,6 +27,29 @@ Do not skip these steps. Fix anything they surface before opening the PR.
 
 ---
 
+## Purchase Order Status Flow
+
+PO statuses follow a strict linear progression: **draft → confirmed → in transit → received**
+
+Each transition has distinct behavior — do NOT conflate them:
+
+### draft → confirmed
+- Creates inventory lots via `confirmPurchaseOrder` (incoming lots, qty_on_hand = 0). Incoming inventory is incremented at this step.
+- Shows an **Allocation Preview dialog**: fetches suggested allocations from BE (`poReallocateResources`), lets the user edit quantities or accept, then allocates
+- This is the ONLY transition that creates lots and shows the allocation preview
+
+### confirmed → in transit
+- Just a status update. No special logic, no dialog, no inventory changes.
+
+### in transit → received
+- Receives the PO via `receivePurchaseOrder` (lots become on_hand)
+- Shows a **Receive Results dialog**: displays what was re-allocated on receive (read-only review, not editable)
+- This is a completely different dialog from the confirm allocation preview
+
+**The confirm allocation dialog and the receive results dialog are two entirely separate flows.** Never treat them as the same thing or route them through the same code path.
+
+---
+
 ## Coding Style & Architecture
 
 ### Component hierarchy (SLAP — Single Level of Abstraction Principle)
