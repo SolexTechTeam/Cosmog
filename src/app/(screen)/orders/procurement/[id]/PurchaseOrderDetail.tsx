@@ -11,9 +11,10 @@ import SidebarCard from "@/components/common/orders/SidebarCard";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import CreateSaleOrderDialog from "@/components/common/orders/CreateSaleOrderDialog";
 import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
+import StatusBadge from "@/components/common/StatusBadge";
 import PoAllocationTab from "./PoAllocationTab";
 import SoAllocationCard from "./SoAllocationCard";
-import type { PurchaseOrder, SaleOrder, ConfirmPoResponse, ReceivePoResponse, PoReallocateResponse, PoReallocateShortfallOrder } from "@/types";
+import type { PurchaseOrder, SaleOrder, ConfirmPoResponse, ReceivePoResponse, PoAllocationPreviewResponse } from "@/types";
 
 interface PurchaseOrderDetailProps {
   purchaseOrderId: string;
@@ -22,7 +23,7 @@ interface PurchaseOrderDetailProps {
 type Tab = "items" | "allocation" | "details" | "notes";
 
 type DialogData =
-  | { type: "po-allocate"; data: PoReallocateResponse }
+  | { type: "po-allocate"; data: PoAllocationPreviewResponse }
   | { type: "receive"; result: ReceivePoResponse };
 
 export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDetailProps) {
@@ -48,6 +49,13 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   }
 
   function buildProductBudget(): Map<string, number> {
+    if (dialogData?.type === "po-allocate") {
+      const budget = new Map<string, number>();
+      for (const b of dialogData.data.product_budget) {
+        budget.set(b.product_id, b.total);
+      }
+      return budget;
+    }
     const budget = new Map<string, number>();
     for (const item of purchaseOrder?.items ?? []) {
       budget.set(item.product_id, (budget.get(item.product_id) ?? 0) + item.quantity_ordered);
@@ -90,22 +98,21 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     });
   }
 
-  function autoFillAllocations() {
-    if (dialogData?.type !== "po-allocate") return;
-    const remaining = buildProductBudget();
-    const result = new Map<string, Map<string, number>>();
-
-    for (const order of dialogData.data.shortfall_orders) {
+  function initEditsFromSuggestions(data: PoAllocationPreviewResponse) {
+    const edits = new Map<string, Map<string, number>>();
+    for (const order of data.shortfall_orders) {
       const items = new Map<string, number>();
       for (const item of order.items) {
-        const available = remaining.get(item.product_id) ?? 0;
-        const toAllocate = Math.min(item.qty_shortfall, available);
-        items.set(item.sale_order_item_id, toAllocate);
-        remaining.set(item.product_id, available - toAllocate);
+        items.set(item.sale_order_item_id, item.suggested_quantity);
       }
-      result.set(order.sale_order_id, items);
+      edits.set(order.sale_order_id, items);
     }
-    setAllocationEdits(result);
+    return edits;
+  }
+
+  function resetToSuggested() {
+    if (dialogData?.type !== "po-allocate") return;
+    setAllocationEdits(initEditsFromSuggestions(dialogData.data));
   }
 
   async function handleSubmitAllocations() {
@@ -197,17 +204,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               // draft → confirmed: create lots, then show allocation preview
               const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
               toast(`PO confirmed — ${result.lots_created} lots created`);
-              const reallocateResult = await AetherClient.poReallocateResources(purchaseOrder.id);
-              const edits = new Map<string, Map<string, number>>();
-              for (const order of reallocateResult.shortfall_orders) {
-                const items = new Map<string, number>();
-                for (const item of order.items) {
-                  items.set(item.sale_order_item_id, 0);
-                }
-                edits.set(order.sale_order_id, items);
-              }
-              setAllocationEdits(edits);
-              setDialogData({ type: "po-allocate", data: reallocateResult });
+              const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
+              setAllocationEdits(initEditsFromSuggestions(previewResult));
+              setDialogData({ type: "po-allocate", data: previewResult });
             } else if (status === "in transit") {
               // confirmed → in transit: just a status update
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
@@ -377,30 +376,68 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
           <div className="border-b border-border px-5 py-2 bg-muted/30">
             <div className="flex flex-wrap gap-4">
-              {Array.from(buildProductBudget()).map(([productId, budget]) => {
+              {dialogData.data.product_budget.map((b) => {
                 let used = 0;
                 for (const order of dialogData.data.shortfall_orders) {
                   const soEdits = allocationEdits.get(order.sale_order_id);
                   if (!soEdits) continue;
                   for (const item of order.items) {
-                    if (item.product_id === productId) used += soEdits.get(item.sale_order_item_id) ?? 0;
+                    if (item.product_id === b.product_id) used += soEdits.get(item.sale_order_item_id) ?? 0;
                   }
                 }
-                const productName = dialogData.data.shortfall_orders.flatMap((o) => o.items).find((i) => i.product_id === productId)?.product_name
-                  ?? (purchaseOrder?.items ?? []).find((i) => i.product_id === productId)?.product?.name ?? productId.slice(0, 8);
                 return (
-                  <div key={productId} className="flex items-center gap-1.5 text-xs">
-                    <span className="text-muted-foreground">{productName}:</span>
-                    <span className={`font-semibold tabular-nums ${used > budget ? "text-destructive" : used === budget ? "text-primary" : ""}`}>{used}</span>
+                  <div key={b.product_id} className="flex items-center gap-1.5 text-xs">
+                    <span className="text-muted-foreground">{b.product_name}:</span>
+                    <span className={`font-semibold tabular-nums ${used > b.total ? "text-destructive" : used === b.total ? "text-primary" : ""}`}>{used}</span>
                     <span className="text-muted-foreground/60">/</span>
-                    <span className="tabular-nums">{budget}</span>
+                    <span className="tabular-nums">{b.total}</span>
                   </div>
                 );
               })}
             </div>
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto px-5 py-3 space-y-3">
+          <div className="h-[60vh] overflow-y-auto px-5 py-3 space-y-3">
+            {dialogData.data.current_orders.length > 0 && (
+              <>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Allocations</span>
+                  <div className="flex-1 border-t border-border" />
+                </div>
+                {dialogData.data.current_orders.map((order) => (
+                  <div key={order.sale_order_id} className="rounded-lg border border-border overflow-hidden opacity-75">
+                    <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
+                      <span className="text-xs font-semibold text-primary">{order.so_number}</span>
+                      <StatusBadge status={order.so_status} />
+                      {order.customer_name && <span className="text-xs text-muted-foreground">{order.customer_name}</span>}
+                    </div>
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border text-xs text-muted-foreground">
+                        <tr>
+                          <th className="px-4 py-2 font-medium">Product</th>
+                          <th className="px-4 py-2 text-right font-medium">Ordered</th>
+                          <th className="px-4 py-2 text-right font-medium">Allocated</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {order.items.map((item) => (
+                          <tr key={item.product_id}>
+                            <td className="px-4 py-2 font-medium">{item.product_name}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{item.quantity_ordered}</td>
+                            <td className="px-4 py-2 text-right tabular-nums font-medium">{item.quantity_allocated}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shortfall Orders</span>
+                  <div className="flex-1 border-t border-border" />
+                </div>
+              </>
+            )}
+
             {dialogData.data.shortfall_orders.length === 0 ? (
               <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
             ) : (
@@ -410,6 +447,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                   soNumber={order.so_number}
                   soStatus={order.so_status}
                   customerName={order.customer_name}
+                  priorityPoints={order.priority_points}
                   items={order.items}
                   allocations={allocationEdits.get(order.sale_order_id) ?? new Map()}
                   onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id, soItemId, value)}
@@ -424,8 +462,8 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               Skip Allocation
             </button>
             <div className="flex gap-2">
-              <button type="button" onClick={autoFillAllocations} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
-                Auto-fill
+              <button type="button" onClick={resetToSuggested} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                Reset to Suggested
               </button>
               <button type="button" onClick={handleSubmitAllocations} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
                 Accept &amp; Allocate

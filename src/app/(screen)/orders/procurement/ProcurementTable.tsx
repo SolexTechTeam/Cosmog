@@ -10,14 +10,14 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
-import AllocationConfirmDialog from "@/components/common/orders/AllocationConfirmDialog";
 import PoAllocationDialog from "@/components/common/orders/PoAllocationDialog";
+import SoAllocationCard from "./[id]/SoAllocationCard";
 import OrderScreenLayout from "@/components/common/orders/OrderScreenLayout";
 import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
-import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, PoAllocationRecord } from "@/types";
+import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -36,7 +36,7 @@ const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 tex
 const poInputClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
 
 type DialogData =
-  | { type: "preview"; previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[]; ownLotIds: Map<string, number> }
+  | { type: "po-allocate"; data: PoAllocationPreviewResponse }
   | { type: "receive"; allocations: PoAllocationRecord[]; purchaseOrderId: string };
 
 function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { purchaseOrder: PurchaseOrder; onSaved: () => void; saleOrders: SaleOrder[] }) {
@@ -45,7 +45,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dialogData, setDialogData] = useState<DialogData | null>(null);
-  const [pendingAction, setPendingAction] = useState<"ship" | "receive" | null>(null);
+  const [allocationEdits, setAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
 
   async function patch(changes: Record<string, unknown>) {
     setSaving(true);
@@ -61,36 +61,69 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
     }
   }
 
-  function getOpenSoIds(): string[] {
-    return saleOrders.filter((so) => so.status === "open").map((so) => so.id);
-  }
-
-  async function fetchPreviews() {
-    const openSOs = saleOrders.filter((so) => so.status === "open");
-    const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];
-    for (const so of openSOs) {
-      try {
-        const p = await AetherClient.previewAllocation(so.id);
-        if (p.suggested_allocations?.length) {
-          previews.push({ sale_order_id: so.id, so_number: so.so_number, suggested_allocations: p.suggested_allocations });
-        }
-      } catch { /* skip */ }
+  function buildProductBudget(): Map<string, number> {
+    if (dialogData?.type === "po-allocate") {
+      const budget = new Map<string, number>();
+      for (const b of dialogData.data.product_budget) {
+        budget.set(b.product_id, b.total);
+      }
+      return budget;
     }
-    return previews;
+    const budget = new Map<string, number>();
+    for (const item of purchaseOrder.items ?? []) {
+      budget.set(item.product_id, (budget.get(item.product_id) ?? 0) + item.quantity_ordered);
+    }
+    return budget;
   }
 
-  async function fetchOwnLotIds(): Promise<Map<string, number>> {
-    const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
-    try {
-      const lots = await AetherClient.getInventoryLots();
-      const map = new Map<string, number>();
-      for (const l of lots) {
-        if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
-          map.set(l.id, l.quantity_total);
+  function computeMaxPerItem(targetSoId: string): Map<string, number> {
+    if (dialogData?.type !== "po-allocate") return new Map();
+    const remaining = buildProductBudget();
+    for (const order of dialogData.data.shortfall_orders) {
+      if (order.sale_order_id === targetSoId) continue;
+      const soEdits = allocationEdits.get(order.sale_order_id);
+      if (!soEdits) continue;
+      for (const item of order.items) {
+        const qty = soEdits.get(item.sale_order_item_id) ?? 0;
+        if (qty > 0) {
+          const cur = remaining.get(item.product_id) ?? 0;
+          remaining.set(item.product_id, Math.max(0, cur - qty));
         }
       }
-      return map;
-    } catch { return new Map(); }
+    }
+    const targetOrder = dialogData.data.shortfall_orders.find((o) => o.sale_order_id === targetSoId);
+    const maxMap = new Map<string, number>();
+    for (const item of targetOrder?.items ?? []) {
+      maxMap.set(item.sale_order_item_id, remaining.get(item.product_id) ?? 0);
+    }
+    return maxMap;
+  }
+
+  function handleAllocationChange(soId: string, soItemId: string, value: number) {
+    setAllocationEdits((prev) => {
+      const next = new Map(prev);
+      const items = new Map(next.get(soId) ?? new Map());
+      items.set(soItemId, value);
+      next.set(soId, items);
+      return next;
+    });
+  }
+
+  function initEditsFromSuggestions(data: PoAllocationPreviewResponse) {
+    const edits = new Map<string, Map<string, number>>();
+    for (const order of data.shortfall_orders) {
+      const items = new Map<string, number>();
+      for (const item of order.items) {
+        items.set(item.sale_order_item_id, item.suggested_quantity);
+      }
+      edits.set(order.sale_order_id, items);
+    }
+    return edits;
+  }
+
+  function resetToSuggested() {
+    if (dialogData?.type !== "po-allocate") return;
+    setAllocationEdits(initEditsFromSuggestions(dialogData.data));
   }
 
   async function completeReceive() {
@@ -112,25 +145,21 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
     try {
       const current = purchaseOrder.status;
 
-      if (status === "confirmed" || status === "in transit" || status === "received") {
-        // Confirm first if draft (creates lots)
-        if (current === "draft") {
-          const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-          toast(`PO confirmed — ${result.lots_created} lots created`);
-        }
-        // Now preview with lots available
-        const [previews, ownLotIds] = await Promise.all([fetchPreviews(), fetchOwnLotIds()]);
-        if (status === "confirmed") setPendingAction(null);
-        else if (status === "in transit") setPendingAction("ship");
-        else if (status === "received") setPendingAction("receive");
-        setDialogData({ type: "preview", previews, ownLotIds });
+      if (status === "confirmed" && current === "draft") {
+        // draft → confirmed: create lots, show allocation preview
+        const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+        toast(`PO confirmed — ${result.lots_created} lots created`);
+        const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
+        setAllocationEdits(initEditsFromSuggestions(previewResult));
+        setDialogData({ type: "po-allocate", data: previewResult });
       } else if (status === "in transit") {
-        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        toast(`PO ${purchaseOrder.po_number} shipped`);
-        invalidate([...queryKeys.saleOrders]);
+        // confirmed → in transit: just a status update
+        await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
+        toast(`PO ${purchaseOrder.po_number} → in transit`);
+        invalidate([...queryKeys.purchaseOrders]);
         onSaved();
       } else if (status === "received") {
-        if (current === "confirmed") await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+        // in transit → received
         await completeReceive();
       } else {
         await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
@@ -145,66 +174,30 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
     }
   }
 
-  async function handleDialogConfirm(allocateFn?: (soId: string) => Promise<void>) {
-    try {
-      // PO is already confirmed at this point — just allocate and continue
-      if (allocateFn) {
-        for (const soId of getOpenSoIds()) {
-          try { await allocateFn(soId); } catch { /* non-blocking */ }
-        }
-      }
-      invalidate([...queryKeys.saleOrders]);
-      invalidate([...queryKeys.purchaseOrders]);
-      setDialogData(null);
-      if (pendingAction === "ship") {
-        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        toast(`PO ${purchaseOrder.po_number} shipped`);
-        setPendingAction(null);
-        onSaved();
-      } else if (pendingAction === "receive") {
-        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        setPendingAction(null);
-        await completeReceive();
-      } else {
-        setPendingAction(null);
-        onSaved();
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to complete.");
-      setDialogData(null);
-      setPendingAction(null);
-      onSaved();
+  async function handleSubmitAllocations() {
+    if (dialogData?.type !== "po-allocate") return;
+    const shortfallOrders = dialogData.data.shortfall_orders;
+    setDialogData(null);
+    for (const order of shortfallOrders) {
+      const edits = allocationEdits.get(order.sale_order_id);
+      const hasAllocation = edits && Array.from(edits.values()).some((v) => v > 0);
+      if (!hasAllocation) continue;
+      try {
+        await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "auto" });
+      } catch { /* non-blocking */ }
     }
+    invalidate([...queryKeys.saleOrders]);
+    invalidate([...queryKeys.purchaseOrders]);
+    toast("Allocation complete");
+    setAllocationEdits(new Map());
+    onSaved();
   }
 
-  async function handleDialogComplete() {
-    if (pendingAction === "ship") {
-      try {
-        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        toast(`PO ${purchaseOrder.po_number} shipped`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to ship.");
-      }
-      setPendingAction(null);
-      setDialogData(null);
-      onSaved();
-    } else if (pendingAction === "receive") {
-      try {
-        await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-        setPendingAction(null);
-        setDialogData(null);
-        await completeReceive();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to complete receive.");
-        setPendingAction(null);
-        setDialogData(null);
-        onSaved();
-      }
-    } else {
-      setPendingAction(null);
-      setDialogData(null);
-      onSaved();
-    }
+  function handleSkipAllocation() {
+    setDialogData(null);
+    setAllocationEdits(new Map());
+    invalidate([...queryKeys.purchaseOrders]);
+    onSaved();
   }
 
   const isDone = purchaseOrder.status === "received" || purchaseOrder.status === "cancelled";
@@ -271,28 +264,109 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
         </div>
       </div>
 
-      {dialogData?.type === "preview" && (
-        <AllocationConfirmDialog
-          title="Allocation Preview"
-          description="Review allocations before confirming. Edit quantities if needed."
-          suggestions={dialogData.previews}
-          mode="confirm"
-          ownLotIds={dialogData.ownLotIds}
-          onAutoAllocate={async () => {
-            await handleDialogConfirm(async (soId) => {
-              await AetherClient.allocateInventory({ sale_order_id: soId, mode: "auto" });
-            });
-          }}
-          onManualAllocate={async (soId, allocations) => {
-            await handleDialogConfirm(async (sid) => {
-              if (sid === soId) await AetherClient.allocateInventory({ sale_order_id: sid, mode: "manual", allocations });
-              else await AetherClient.allocateInventory({ sale_order_id: sid, mode: "auto" });
-            });
-          }}
-          onClose={async () => {
-            await handleDialogConfirm();
-          }}
-        />
+      {dialogData?.type === "po-allocate" && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-xl" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-border px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Allocation Preview</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Review allocations before confirming. Edit quantities if needed.</p>
+            </div>
+            <div className="border-b border-border px-5 py-2 bg-muted/30">
+              <div className="flex flex-wrap gap-4">
+                {dialogData.data.product_budget.map((b) => {
+                  let used = 0;
+                  for (const order of dialogData.data.shortfall_orders) {
+                    const soEdits = allocationEdits.get(order.sale_order_id);
+                    if (!soEdits) continue;
+                    for (const item of order.items) {
+                      if (item.product_id === b.product_id) used += soEdits.get(item.sale_order_item_id) ?? 0;
+                    }
+                  }
+                  return (
+                    <div key={b.product_id} className="flex items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground">{b.product_name}:</span>
+                      <span className={`font-semibold tabular-nums ${used > b.total ? "text-destructive" : used === b.total ? "text-primary" : ""}`}>{used}</span>
+                      <span className="text-muted-foreground/60">/</span>
+                      <span className="tabular-nums">{b.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="h-[60vh] overflow-y-auto px-5 py-3 space-y-3">
+              {dialogData.data.current_orders.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Allocations</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  {dialogData.data.current_orders.map((order) => (
+                    <div key={order.sale_order_id} className="rounded-lg border border-border overflow-hidden opacity-75">
+                      <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
+                        <span className="text-xs font-semibold text-primary">{order.so_number}</span>
+                        <StatusBadge status={order.so_status} />
+                        {order.customer_name && <span className="text-xs text-muted-foreground">{order.customer_name}</span>}
+                      </div>
+                      <table className="w-full text-left text-sm">
+                        <thead className="border-b border-border text-xs text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2 font-medium">Product</th>
+                            <th className="px-4 py-2 text-right font-medium">Ordered</th>
+                            <th className="px-4 py-2 text-right font-medium">Allocated</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {order.items.map((item) => (
+                            <tr key={item.product_id}>
+                              <td className="px-4 py-2 font-medium">{item.product_name}</td>
+                              <td className="px-4 py-2 text-right tabular-nums">{item.quantity_ordered}</td>
+                              <td className="px-4 py-2 text-right tabular-nums font-medium">{item.quantity_allocated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shortfall Orders</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                </>
+              )}
+
+              {dialogData.data.shortfall_orders.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+              ) : (
+                dialogData.data.shortfall_orders.map((order) => (
+                  <SoAllocationCard
+                    key={order.sale_order_id}
+                    soNumber={order.so_number}
+                    soStatus={order.so_status}
+                    customerName={order.customer_name}
+                    priorityPoints={order.priority_points}
+                    items={order.items}
+                    allocations={allocationEdits.get(order.sale_order_id) ?? new Map()}
+                    onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id, soItemId, value)}
+                    maxPerItem={computeMaxPerItem(order.sale_order_id)}
+                  />
+                ))
+              )}
+            </div>
+            <div className="flex justify-between border-t border-border px-5 py-3">
+              <button type="button" onClick={handleSkipAllocation} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Skip Allocation
+              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={resetToSuggested} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                  Reset to Suggested
+                </button>
+                <button type="button" onClick={handleSubmitAllocations} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+                  Accept &amp; Allocate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {dialogData?.type === "receive" && (
         <PoAllocationDialog
@@ -306,21 +380,9 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
             onSaved();
           }}
           onReallocate={async () => {
-            const shortfallSoIds = [...new Set(
-              dialogData.allocations.filter(a => (a.qty_shortfall ?? 0) > 0 && a.sale_order_id).map(a => a.sale_order_id!)
-            )];
-            const soIds = shortfallSoIds.length > 0 ? shortfallSoIds : getOpenSoIds();
-            const [previews, ownLotIds] = await Promise.all([
-              Promise.all(soIds.map(async (soId) => {
-                try {
-                  const p = await AetherClient.previewAllocation(soId);
-                  return { sale_order_id: soId, suggested_allocations: p.suggested_allocations };
-                } catch { return { sale_order_id: soId, suggested_allocations: [] }; }
-              })),
-              fetchOwnLotIds(),
-            ]);
-            setPendingAction("receive");
-            setDialogData({ type: "preview", previews, ownLotIds });
+            const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
+            setAllocationEdits(initEditsFromSuggestions(previewResult));
+            setDialogData({ type: "po-allocate", data: previewResult });
           }}
           onClose={() => { setDialogData(null); onSaved(); }}
         />
@@ -609,6 +671,8 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   const [typeFilter, setTypeFilter] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [parentDialogData, setParentDialogData] = useState<DialogData | null>(null);
+  const [parentAllocationEdits, setParentAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
+  const [parentPurchaseOrder, setParentPurchaseOrder] = useState<PurchaseOrder | null>(null);
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
@@ -760,51 +824,29 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             if (Object.keys(headerChanges).length) {
               await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
             }
-            if (status === "confirmed") {
+            if (status === "confirmed" && purchaseOrder.status === "draft") {
               try {
-                // Confirm first to create lots
-                if (purchaseOrder.status === "draft") {
-                  const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                  toast(`PO confirmed — ${result.lots_created} lots created`);
-                }
-                // Get own lot IDs and previews
-                const poItemIds = new Set((purchaseOrder.items ?? []).map((i) => i.id));
-                let ownLotIds = new Map<string, number>();
-                try {
-                  const lots = await AetherClient.getInventoryLots();
-                  for (const l of lots) {
-                    if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
-                      ownLotIds.set(l.id, l.quantity_total);
-                    }
+                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                toast(`PO confirmed — ${result.lots_created} lots created`);
+                const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
+                const edits = new Map<string, Map<string, number>>();
+                for (const order of previewResult.shortfall_orders) {
+                  const items = new Map<string, number>();
+                  for (const item of order.items) {
+                    items.set(item.sale_order_item_id, item.suggested_quantity);
                   }
-                } catch {}
-                const openSOs = (saleOrders ?? []).filter((so) => so.status === "open");
-                const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];
-                for (const so of openSOs) {
-                  try { const p = await AetherClient.previewAllocation(so.id); if (p.suggested_allocations?.length) previews.push({ sale_order_id: so.id, so_number: so.so_number, suggested_allocations: p.suggested_allocations }); } catch {}
+                  edits.set(order.sale_order_id, items);
                 }
-                setParentDialogData({ type: "preview", previews, ownLotIds });
+                setParentAllocationEdits(edits);
+                setParentPurchaseOrder(purchaseOrder);
+                setParentDialogData({ type: "po-allocate", data: previewResult });
               } catch (e) {
                 toast(e instanceof Error ? e.message : "Failed to confirm PO", "error");
               }
               return;
             } else if (status === "in transit") {
-              // Removed, we will not be doing this as it should be confirmed
-              if (purchaseOrder.status === "draft") {
-                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                toast(`PO confirmed — ${result.lots_created} lots created`);
-                invalidate([...queryKeys.saleOrders]);
-                invalidate([...queryKeys.purchaseOrders]);
-                if (result.suggested_allocations?.length) {
-                  // Show dialog; ship will happen after inline editor handles it on reopen
-                  // For the grid-level quick-edit, auto-allocate then ship to keep it simple
-                  for (const sa of result.suggested_allocations) {
-                    try { await AetherClient.allocateInventory({ sale_order_id: sa.sale_order_id, mode: "auto" }); } catch { /* non-blocking */ }
-                  }
-                }
-              }
-              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              toast(`PO ${purchaseOrder.po_number} shipped`);
+              await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
+              toast(`PO ${purchaseOrder.po_number} → in transit`);
             } else if (status === "received") {
               const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
               toast(`PO received — ${allocations.length} allocations found`);
@@ -912,35 +954,176 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
       dialog={isCreating ? <CreatePurchaseOrderDialog onClose={() => setIsCreating(false)} onCreated={() => { toast("Purchase order created"); refetch(); }} /> : undefined}
     />
 
-    {parentDialogData?.type === "preview" && (
-      <AllocationConfirmDialog
-        title="Allocation Preview"
-        description="Review allocations before confirming. Edit quantities if needed."
-        suggestions={parentDialogData.previews}
-        mode="confirm"
-        ownLotIds={parentDialogData.ownLotIds}
-        onAutoAllocate={async (soIds) => {
-          // Confirm PO first, then allocate
-          // Find the PO that was being edited — use the first pending PO from the editConfig context
-          // For the parent dialog, we need to confirm then allocate
-          for (const soId of soIds) {
-            try { await AetherClient.allocateInventory({ sale_order_id: soId, mode: "auto" }); } catch {}
+    {parentDialogData?.type === "po-allocate" && (() => {
+      const po = parentPurchaseOrder;
+      const allocateData = parentDialogData.data;
+      function parentBuildBudget(): Map<string, number> {
+        const budget = new Map<string, number>();
+        for (const b of allocateData.product_budget) {
+          budget.set(b.product_id, b.total);
+        }
+        return budget;
+      }
+      function parentComputeMax(targetSoId: string): Map<string, number> {
+        const remaining = parentBuildBudget();
+        for (const order of allocateData.shortfall_orders) {
+          if (order.sale_order_id === targetSoId) continue;
+          const soEdits = parentAllocationEdits.get(order.sale_order_id);
+          if (!soEdits) continue;
+          for (const item of order.items) {
+            const qty = soEdits.get(item.sale_order_item_id) ?? 0;
+            if (qty > 0) {
+              const cur = remaining.get(item.product_id) ?? 0;
+              remaining.set(item.product_id, Math.max(0, cur - qty));
+            }
           }
-          invalidate([...queryKeys.saleOrders]);
-          toast(`${soIds.length} order(s) allocated`);
-          setParentDialogData(null);
-          refetch();
-        }}
-        onManualAllocate={async (soId, allocations) => {
-          await AetherClient.allocateInventory({ sale_order_id: soId, mode: "manual", allocations });
-          invalidate([...queryKeys.saleOrders]);
-          toast("Manual allocation saved");
-          setParentDialogData(null);
-          refetch();
-        }}
-        onClose={() => { setParentDialogData(null); refetch(); }}
-      />
-    )}
+        }
+        const targetOrder = allocateData.shortfall_orders.find((o) => o.sale_order_id === targetSoId);
+        const maxMap = new Map<string, number>();
+        for (const item of targetOrder?.items ?? []) {
+          maxMap.set(item.sale_order_item_id, remaining.get(item.product_id) ?? 0);
+        }
+        return maxMap;
+      }
+      return (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-xl" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-border px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Allocation Preview</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Review allocations before confirming. Edit quantities if needed.</p>
+            </div>
+            <div className="border-b border-border px-5 py-2 bg-muted/30">
+              <div className="flex flex-wrap gap-4">
+                {allocateData.product_budget.map((b) => {
+                  let used = 0;
+                  for (const order of allocateData.shortfall_orders) {
+                    const soEdits = parentAllocationEdits.get(order.sale_order_id);
+                    if (!soEdits) continue;
+                    for (const item of order.items) {
+                      if (item.product_id === b.product_id) used += soEdits.get(item.sale_order_item_id) ?? 0;
+                    }
+                  }
+                  return (
+                    <div key={b.product_id} className="flex items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground">{b.product_name}:</span>
+                      <span className={`font-semibold tabular-nums ${used > b.total ? "text-destructive" : used === b.total ? "text-primary" : ""}`}>{used}</span>
+                      <span className="text-muted-foreground/60">/</span>
+                      <span className="tabular-nums">{b.total}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="h-[60vh] overflow-y-auto px-5 py-3 space-y-3">
+              {allocateData.current_orders.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Allocations</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  {allocateData.current_orders.map((order) => (
+                    <div key={order.sale_order_id} className="rounded-lg border border-border overflow-hidden opacity-75">
+                      <div className="flex items-center gap-2 border-b border-border bg-muted/50 px-4 py-2">
+                        <span className="text-xs font-semibold text-primary">{order.so_number}</span>
+                        <StatusBadge status={order.so_status} />
+                        {order.customer_name && <span className="text-xs text-muted-foreground">{order.customer_name}</span>}
+                      </div>
+                      <table className="w-full text-left text-sm">
+                        <thead className="border-b border-border text-xs text-muted-foreground">
+                          <tr>
+                            <th className="px-4 py-2 font-medium">Product</th>
+                            <th className="px-4 py-2 text-right font-medium">Ordered</th>
+                            <th className="px-4 py-2 text-right font-medium">Allocated</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {order.items.map((item) => (
+                            <tr key={item.product_id}>
+                              <td className="px-4 py-2 font-medium">{item.product_name}</td>
+                              <td className="px-4 py-2 text-right tabular-nums">{item.quantity_ordered}</td>
+                              <td className="px-4 py-2 text-right tabular-nums font-medium">{item.quantity_allocated}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shortfall Orders</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                </>
+              )}
+
+              {allocateData.shortfall_orders.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+              ) : (
+                allocateData.shortfall_orders.map((order) => (
+                  <SoAllocationCard
+                    key={order.sale_order_id}
+                    soNumber={order.so_number}
+                    soStatus={order.so_status}
+                    customerName={order.customer_name}
+                    priorityPoints={order.priority_points}
+                    items={order.items}
+                    allocations={parentAllocationEdits.get(order.sale_order_id) ?? new Map()}
+                    onAllocationChange={(soItemId, value) => {
+                      setParentAllocationEdits((prev) => {
+                        const next = new Map(prev);
+                        const items = new Map(next.get(order.sale_order_id) ?? new Map());
+                        items.set(soItemId, value);
+                        next.set(order.sale_order_id, items);
+                        return next;
+                      });
+                    }}
+                    maxPerItem={parentComputeMax(order.sale_order_id)}
+                  />
+                ))
+              )}
+            </div>
+            <div className="flex justify-between border-t border-border px-5 py-3">
+              <button type="button" onClick={() => { setParentDialogData(null); setParentAllocationEdits(new Map()); refetch(); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                Skip Allocation
+              </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => {
+                  const edits = new Map<string, Map<string, number>>();
+                  for (const order of allocateData.shortfall_orders) {
+                    const items = new Map<string, number>();
+                    for (const item of order.items) {
+                      items.set(item.sale_order_item_id, item.suggested_quantity);
+                    }
+                    edits.set(order.sale_order_id, items);
+                  }
+                  setParentAllocationEdits(edits);
+                }} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                  Reset to Suggested
+                </button>
+                <button type="button" onClick={async () => {
+                  const shortfallOrders = allocateData.shortfall_orders;
+                  setParentDialogData(null);
+                  for (const order of shortfallOrders) {
+                    const edits = parentAllocationEdits.get(order.sale_order_id);
+                    const hasAllocation = edits && Array.from(edits.values()).some((v) => v > 0);
+                    if (!hasAllocation) continue;
+                    try {
+                      await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "auto" });
+                    } catch {}
+                  }
+                  invalidate([...queryKeys.saleOrders]);
+                  invalidate([...queryKeys.purchaseOrders]);
+                  toast("Allocation complete");
+                  setParentAllocationEdits(new Map());
+                  refetch();
+                }} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90">
+                  Accept &amp; Allocate
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
     {parentDialogData?.type === "receive" && (
       <PoAllocationDialog
         allocations={parentDialogData.allocations}
@@ -953,33 +1136,19 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
           refetch();
         }}
         onReallocate={async () => {
-          const shortfallSoIds = [...new Set(
-            parentDialogData.allocations.filter(a => (a.qty_shortfall ?? 0) > 0 && a.sale_order_id).map(a => a.sale_order_id!)
-          )];
-          const openSOs = (saleOrders ?? []).filter(so => so.status === "open");
-          const soIds = shortfallSoIds.length > 0 ? shortfallSoIds : openSOs.map(so => so.id);
-          const previews: { sale_order_id: string; so_number?: string; suggested_allocations: import("@/types").SuggestedAllocationItem[] }[] = [];
-          for (const soId of soIds) {
-            try {
-              const p = await AetherClient.previewAllocation(soId);
-              if (p.suggested_allocations?.length) {
-                const so = openSOs.find(s => s.id === soId);
-                previews.push({ sale_order_id: soId, so_number: so?.so_number, suggested_allocations: p.suggested_allocations });
-              }
-            } catch {}
-          }
           const po = (data ?? []).find(p => p.id === parentDialogData.purchaseOrderId);
-          const poItemIds = new Set((po?.items ?? []).map(i => i.id));
-          let ownLotIds = new Map<string, number>();
-          try {
-            const lots = await AetherClient.getInventoryLots();
-            for (const l of lots) {
-              if (l.purchase_order_item_id && poItemIds.has(l.purchase_order_item_id)) {
-                ownLotIds.set(l.id, l.quantity_total);
-              }
+          const previewResult = await AetherClient.previewPoAllocation(parentDialogData.purchaseOrderId);
+          const edits = new Map<string, Map<string, number>>();
+          for (const order of previewResult.shortfall_orders) {
+            const items = new Map<string, number>();
+            for (const item of order.items) {
+              items.set(item.sale_order_item_id, item.suggested_quantity);
             }
-          } catch {}
-          setParentDialogData({ type: "preview", previews, ownLotIds });
+            edits.set(order.sale_order_id, items);
+          }
+          setParentAllocationEdits(edits);
+          setParentPurchaseOrder(po ?? null);
+          setParentDialogData({ type: "po-allocate", data: previewResult });
         }}
         onClose={() => { setParentDialogData(null); refetch(); }}
       />

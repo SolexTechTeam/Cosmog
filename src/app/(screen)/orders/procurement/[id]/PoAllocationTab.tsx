@@ -6,7 +6,7 @@ import { useToast } from "@/components/ui/toast";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
 import SoAllocationCard from "./SoAllocationCard";
-import type { PoAllocationRecord, PoReallocateResponse } from "@/types";
+import type { PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
 
 interface PoAllocationTabProps {
   purchaseOrderId: string;
@@ -47,29 +47,98 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
     ["po-allocation", purchaseOrderId],
     () => AetherClient.getCurrentPoAllocation(purchaseOrderId),
   );
-  const [reallocateData, setReallocateData] = useState<PoReallocateResponse | null>(null);
-  const [loadingReallocate, setLoadingReallocate] = useState(false);
+  const [previewData, setPreviewData] = useState<PoAllocationPreviewResponse | null>(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
   const [allocationEdits, setAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
+  const [currentEdits, setCurrentEdits] = useState<Map<string, Map<string, number>>>(new Map());
 
   async function handleReallocate() {
-    setLoadingReallocate(true);
+    setLoadingPreview(true);
     try {
-      const result = await AetherClient.poReallocateResources(purchaseOrderId);
-      const edits = new Map<string, Map<string, number>>();
+      const result = await AetherClient.previewPoAllocation(purchaseOrderId);
+      const shortEdits = new Map<string, Map<string, number>>();
       for (const order of result.shortfall_orders) {
         const items = new Map<string, number>();
         for (const item of order.items) {
-          items.set(item.sale_order_item_id, 0);
+          items.set(item.sale_order_item_id, item.suggested_quantity);
         }
-        edits.set(order.sale_order_id, items);
+        shortEdits.set(order.sale_order_id, items);
       }
-      setAllocationEdits(edits);
-      setReallocateData(result);
+      const curEdits = new Map<string, Map<string, number>>();
+      for (const order of result.current_orders) {
+        const items = new Map<string, number>();
+        for (const item of order.items) {
+          items.set(item.sale_order_item_id, item.quantity_allocated);
+        }
+        curEdits.set(order.sale_order_id, items);
+      }
+      setAllocationEdits(shortEdits);
+      setCurrentEdits(curEdits);
+      setPreviewData(result);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to load reallocation data", "error");
+      toast(e instanceof Error ? e.message : "Failed to load allocation preview", "error");
     } finally {
-      setLoadingReallocate(false);
+      setLoadingPreview(false);
     }
+  }
+
+  function getReleasedByProduct(): Map<string, number> {
+    if (!previewData) return new Map();
+    const released = new Map<string, number>();
+    for (const order of previewData.current_orders) {
+      const soEdits = currentEdits.get(order.sale_order_id);
+      for (const item of order.items) {
+        const edited = soEdits?.get(item.sale_order_item_id) ?? item.quantity_allocated;
+        const diff = item.quantity_allocated - edited;
+        if (diff > 0) {
+          released.set(item.product_id, (released.get(item.product_id) ?? 0) + diff);
+        }
+      }
+    }
+    return released;
+  }
+
+  function getEffectiveBudget(): Map<string, number> {
+    if (!previewData) return new Map();
+    const released = getReleasedByProduct();
+    const budget = new Map<string, number>();
+    for (const b of previewData.product_budget) {
+      budget.set(b.product_id, b.total + (released.get(b.product_id) ?? 0));
+    }
+    return budget;
+  }
+
+  function computeMaxPerItem(targetSoId: string): Map<string, number> {
+    if (!previewData) return new Map();
+    const remaining = getEffectiveBudget();
+    for (const order of previewData.shortfall_orders) {
+      if (order.sale_order_id === targetSoId) continue;
+      const soEdits = allocationEdits.get(order.sale_order_id);
+      if (!soEdits) continue;
+      for (const item of order.items) {
+        const qty = soEdits.get(item.sale_order_item_id) ?? 0;
+        if (qty > 0) {
+          const cur = remaining.get(item.product_id) ?? 0;
+          remaining.set(item.product_id, Math.max(0, cur - qty));
+        }
+      }
+    }
+    const targetOrder = previewData.shortfall_orders.find((o) => o.sale_order_id === targetSoId);
+    const maxMap = new Map<string, number>();
+    for (const item of targetOrder?.items ?? []) {
+      maxMap.set(item.sale_order_item_id, remaining.get(item.product_id) ?? 0);
+    }
+    return maxMap;
+  }
+
+  function handleCurrentChange(soId: string, soItemId: string, value: number) {
+    setCurrentEdits((prev) => {
+      const next = new Map(prev);
+      const items = new Map(next.get(soId) ?? new Map());
+      items.set(soItemId, value);
+      next.set(soId, items);
+      return next;
+    });
   }
 
   function handleAllocationChange(soId: string, soItemId: string, value: number) {
@@ -126,10 +195,10 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
           <button
             type="button"
             onClick={handleReallocate}
-            disabled={loadingReallocate}
+            disabled={loadingPreview}
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
           >
-            {loadingReallocate ? "Loading..." : "Re-allocate"}
+            {loadingPreview ? "Loading..." : "Re-allocate"}
           </button>
         </div>
 
@@ -183,73 +252,164 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
         )}
       </section>
 
-      {reallocateData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-lg">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <div>
-                <h3 className="text-sm font-semibold">Re-allocation Resources</h3>
-                <p className="text-xs text-muted-foreground">Orders with shortfalls that could use stock from this PO.</p>
-              </div>
-              <button type="button" onClick={() => { setReallocateData(null); setAllocationEdits(new Map()); refetch(); }} className="text-muted-foreground hover:text-foreground text-lg leading-none">&times;</button>
+      {previewData && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
+          <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-xl" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <div className="border-b border-border px-5 py-3">
+              <h2 className="text-sm font-semibold text-foreground">Re-allocation Preview</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Review suggested allocations. Edit quantities if needed.</p>
             </div>
-            <div className="max-h-[60vh] overflow-y-auto p-4">
-              {reallocateData.shortfall_orders.length === 0 && reallocateData.current_allocations.length == 1 ? (
-                <p className="text-center text-sm text-muted-foreground py-6">No other sales orders to allocate (there is only 1 SO for this PO's product).</p>
-              ) : (
-                <div className="space-y-3">
-                  {reallocateData.shortfall_orders.map((order) => (
+
+            <div className="border-b border-border px-5 py-2 bg-muted/30">
+              <div className="flex flex-wrap gap-4">
+                {previewData.product_budget.map((b) => {
+                  const effectiveBudget = getEffectiveBudget().get(b.product_id) ?? b.total;
+                  let used = 0;
+                  for (const order of previewData.shortfall_orders) {
+                    const soEdits = allocationEdits.get(order.sale_order_id);
+                    if (!soEdits) continue;
+                    for (const item of order.items) {
+                      if (item.product_id === b.product_id) used += soEdits.get(item.sale_order_item_id) ?? 0;
+                    }
+                  }
+                  return (
+                    <div key={b.product_id} className="flex items-center gap-1.5 text-xs">
+                      <span className="text-muted-foreground">{b.product_name}:</span>
+                      <span className={`font-semibold tabular-nums ${used > effectiveBudget ? "text-destructive" : used === effectiveBudget ? "text-primary" : ""}`}>{used}</span>
+                      <span className="text-muted-foreground/60">/</span>
+                      <span className="tabular-nums">{effectiveBudget}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="h-[60vh] overflow-y-auto px-5 py-3 space-y-3">
+              {previewData.current_orders.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Current Allocations</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                  {previewData.current_orders.map((order) => (
                     <SoAllocationCard
-                      key={order.sale_order_id}
+                      key={`current-${order.sale_order_id}`}
                       soNumber={order.so_number}
                       soStatus={order.so_status}
                       customerName={order.customer_name}
-                      items={order.items}
-                      allocations={allocationEdits.get(order.sale_order_id) ?? new Map()}
-                      onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id, soItemId, value)}
+                      mode="current"
+                      items={order.items.map((i) => ({
+                        sale_order_item_id: i.sale_order_item_id,
+                        product_name: i.product_name,
+                        quantity_ordered: i.quantity_ordered,
+                        qty_shortfall: i.quantity_allocated,
+                      }))}
+                      allocations={currentEdits.get(order.sale_order_id) ?? new Map()}
+                      onAllocationChange={(soItemId, value) => handleCurrentChange(order.sale_order_id, soItemId, value)}
+                      maxPerItem={new Map(order.items.map((i) => [i.sale_order_item_id, i.quantity_allocated]))}
                     />
                   ))}
-                </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Shortfall Orders</span>
+                    <div className="flex-1 border-t border-border" />
+                  </div>
+                </>
+              )}
+
+              {previewData.shortfall_orders.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+              ) : (
+                previewData.shortfall_orders.map((order) => (
+                  <SoAllocationCard
+                    key={order.sale_order_id}
+                    soNumber={order.so_number}
+                    soStatus={order.so_status}
+                    customerName={order.customer_name}
+                    priorityPoints={order.priority_points}
+                    items={order.items}
+                    allocations={allocationEdits.get(order.sale_order_id) ?? new Map()}
+                    onAllocationChange={(soItemId, value) => handleAllocationChange(order.sale_order_id, soItemId, value)}
+                    maxPerItem={computeMaxPerItem(order.sale_order_id)}
+                  />
+                ))
               )}
             </div>
-            <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
-              <button
-                type="button"
-                onClick={async () => {
-                  try {
-                    for (const order of reallocateData.shortfall_orders) {
-                      const edits = allocationEdits.get(order.sale_order_id);
-                      const hasManual = edits && Array.from(edits.values()).some((v) => v > 0);
-                      if (hasManual) {
-                        const allocations = order.items
-                          .filter((item) => (edits?.get(item.sale_order_item_id) ?? 0) > 0)
-                          .map((item) => ({
-                            sale_order_item_id: item.sale_order_item_id,
-                            inventory_lot_id: "",
-                            quantity: edits!.get(item.sale_order_item_id)!,
-                          }));
-                        await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "manual", allocations });
-                      } else {
-                        await AetherClient.allocateInventory({ sale_order_id: order.sale_order_id, mode: "auto" });
-                      }
-                    }
-                    toast(`${reallocateData.shortfall_orders.length} order(s) re-allocated`);
-                    invalidate([...queryKeys.saleOrders]);
-                  } catch (e) {
-                    toast(e instanceof Error ? e.message : "Re-allocation failed", "error");
-                  }
-                  setReallocateData(null);
-                  setAllocationEdits(new Map());
-                  refetch();
-                }}
-                disabled={reallocateData.shortfall_orders.length === 0 && reallocateData.current_allocations.length == 1}
-                className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-              >
-                Allocate
-              </button>
-              <button type="button" onClick={() => { setReallocateData(null); setAllocationEdits(new Map()); refetch(); }} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+
+            <div className="flex justify-between border-t border-border px-5 py-3">
+              <button type="button" onClick={() => { setPreviewData(null); setAllocationEdits(new Map()); setCurrentEdits(new Map()); refetch(); }} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
                 Close
               </button>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => {
+                  if (!previewData) return;
+                  const shortEdits = new Map<string, Map<string, number>>();
+                  for (const order of previewData.shortfall_orders) {
+                    const items = new Map<string, number>();
+                    for (const item of order.items) {
+                      items.set(item.sale_order_item_id, item.suggested_quantity);
+                    }
+                    shortEdits.set(order.sale_order_id, items);
+                  }
+                  setAllocationEdits(shortEdits);
+                  const curEdits = new Map<string, Map<string, number>>();
+                  for (const order of previewData.current_orders) {
+                    const items = new Map<string, number>();
+                    for (const item of order.items) {
+                      items.set(item.sale_order_item_id, item.quantity_allocated);
+                    }
+                    curEdits.set(order.sale_order_id, items);
+                  }
+                  setCurrentEdits(curEdits);
+                }} className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted">
+                  Reset to Suggested
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const releases: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[] = [];
+                      for (const order of previewData.current_orders) {
+                        const soEdits = currentEdits.get(order.sale_order_id);
+                        for (const item of order.items) {
+                          const edited = soEdits?.get(item.sale_order_item_id) ?? item.quantity_allocated;
+                          const diff = item.quantity_allocated - edited;
+                          if (diff > 0) {
+                            let remaining = diff;
+                            for (const lot of item.allocations) {
+                              if (remaining <= 0) break;
+                              const releaseQty = Math.min(remaining, lot.quantity);
+                              releases.push({ sale_order_item_id: item.sale_order_item_id, inventory_lot_id: lot.inventory_lot_id, quantity: releaseQty });
+                              remaining -= releaseQty;
+                            }
+                          }
+                        }
+                      }
+
+                      const allocationSoIds: string[] = [];
+                      for (const order of previewData.shortfall_orders) {
+                        const edits = allocationEdits.get(order.sale_order_id);
+                        if (edits && Array.from(edits.values()).some((v) => v > 0)) {
+                          allocationSoIds.push(order.sale_order_id);
+                        }
+                      }
+
+                      await AetherClient.applyPoAllocation(purchaseOrderId, { releases, allocation_so_ids: allocationSoIds });
+                      toast("Allocation updated");
+                      invalidate([...queryKeys.saleOrders]);
+                      invalidate([...queryKeys.purchaseOrders]);
+                    } catch (e) {
+                      toast(e instanceof Error ? e.message : "Re-allocation failed", "error");
+                    }
+                    setPreviewData(null);
+                    setAllocationEdits(new Map());
+                    setCurrentEdits(new Map());
+                    refetch();
+                  }}
+                  className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  Accept &amp; Allocate
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -311,6 +311,65 @@ export interface PoReallocateResponse {
   shortfall_orders: PoReallocateShortfallOrder[];
 }
 
+export interface PoAllocationPreviewItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  qty_shortfall: number;
+  suggested_quantity: number;
+}
+
+export interface PoAllocationPreviewOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  priority_points: number;
+  customer_name: string | null;
+  items: PoAllocationPreviewItem[];
+}
+
+export interface PoAllocationPreviewBudget {
+  product_id: string;
+  product_name: string;
+  total: number;
+  assigned: number;
+}
+
+export interface PoCurrentAllocationLot {
+  allocation_id: string;
+  inventory_lot_id: string;
+  quantity: number;
+}
+
+export interface PoCurrentAllocationItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  quantity_allocated: number;
+  allocations: PoCurrentAllocationLot[];
+}
+
+export interface PoApplyAllocationRequest {
+  releases: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
+  allocation_so_ids: string[];
+}
+
+export interface PoCurrentAllocationOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  customer_name: string | null;
+  items: PoCurrentAllocationItem[];
+}
+
+export interface PoAllocationPreviewResponse {
+  product_budget: PoAllocationPreviewBudget[];
+  current_orders: PoCurrentAllocationOrder[];
+  shortfall_orders: PoAllocationPreviewOrder[];
+}
+
 export interface ReallocatePoolResponse {
   reallocations: {
     sale_order_id: string;
