@@ -3,6 +3,7 @@
 import { Select } from "@/components/ui/select";
 
 interface FilterConfig {
+  allLabel?: string;
   key: string;
   label: string;
   options: { label: string; value: string }[];
@@ -41,7 +42,7 @@ export default function SearchFilterBar({
           onChange={(e) => filter.onChange(e.target.value)}
           className="h-8 w-32 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30"
         >
-          <option value="">{filter.label}</option>
+          <option value="">{filter.allLabel ?? filter.label}</option>
           {filter.options.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}

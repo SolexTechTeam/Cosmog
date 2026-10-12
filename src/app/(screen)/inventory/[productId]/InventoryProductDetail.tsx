@@ -8,6 +8,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import SidebarCard from "@/components/common/orders/SidebarCard";
+import InventoryLotsTable from "@/components/common/InventoryLotsTable";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
@@ -204,11 +205,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
 
           {/* Lots tab */}
           {activeTab === "lots" && (
-            <LotsTab
-              productLots={productLots}
-              poMap={poMap}
-              lotsError={lotsError}
-            />
+            <InventoryLotsTable lots={productLots} error={lotsError} poMap={poMap} />
           )}
 
           {/* History tab */}
@@ -293,79 +290,6 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
         </div>
       </div>
     </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Lots Tab                                                           */
-/* ------------------------------------------------------------------ */
-
-function LotsTab({
-  productLots,
-  poMap,
-  lotsError,
-}: {
-  productLots: InventoryLot[];
-  poMap: Map<string, PurchaseOrder>;
-  lotsError: string | null;
-}) {
-  if (lotsError) {
-    return <ErrorBlock message={`Unable to load inventory lots: ${lotsError}`} />;
-  }
-
-  return (
-    <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
-      <div className="flex-1 overflow-x-auto">
-        <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">PO #</th>
-              <th className="px-4 py-2 font-medium">Received</th>
-              <th className="px-4 py-2 text-right font-medium">On-Hand</th>
-              <th className="px-4 py-2 text-right font-medium">Reserved</th>
-              <th className="px-4 py-2 text-right font-medium">Available</th>
-              <th className="px-4 py-2 text-right font-medium">Unit Cost</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {productLots.map((lot) => {
-              const poId = lot.purchase_order_item?.purchase_order_id;
-              const po = poId ? poMap.get(poId) : undefined;
-              return (
-                <tr key={lot.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5">
-                    {po ? (
-                      <Link
-                        href={`/orders/procurement/${po.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {po.po_number}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">{lot.received_at?.slice(0, 10) ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_on_hand}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_reserved}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {Math.max(0, (lot.lot_status === "incoming" ? lot.quantity_total : lot.quantity_on_hand) - lot.quantity_reserved)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{fmt(lot.unit_cost)}</td>
-                </tr>
-              );
-            })}
-            {productLots.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                  No inventory lots
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }
 

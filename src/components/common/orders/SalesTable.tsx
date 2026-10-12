@@ -9,13 +9,15 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import StatusBadge from "@/components/common/StatusBadge";
+import { Select } from "@/components/ui/select";
+import { SegmentedToggle } from "@/components/ui/segmented-toggle";
 import ErrorBlock from "@/components/ui/error-block";
 import OrderScreenLayout from "./OrderScreenLayout";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import SalesOverviewCards from "./SalesOverviewCards";
 import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
 import { useToast } from "@/components/ui/toast";
-import { allocationLabel } from "@/lib/utils";
+import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -44,7 +46,13 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
   const [sourceFilter, setSourceFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");
   const [ownerFilter, setOwnerFilter] = useState("");
+  const [orderTypeFilter, setOrderTypeFilter] = useState<"" | "dtc" | "warehouse">("");
+  const [monthFilter, setMonthFilter] = useState("");
+  const [viewMode, setViewMode] = useState<"total" | "open">("total");
   const [isCreating, setIsCreating] = useState(false);
+
+  const today = new Date();
+  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 
   const sources = useMemo(() => {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
@@ -54,6 +62,10 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     { label: "Unassigned", value: "__unassigned__" },
     ...(profiles ?? []).filter((p) => p.is_active).map((p) => ({ label: p.name, value: p.id })),
   ], [profiles]);
+  const months = useMemo(() => {
+    const values = new Set((data ?? []).map((order) => order.order_date?.slice(0, 7)).filter(Boolean) as string[]);
+    return Array.from(values).sort().reverse();
+  }, [data]);
   const filtered = useMemo(() => {
     let rows = data ?? [];
     if (activeOnly) rows = rows.filter((r) => r.status === "open" || r.status === "shipped");
@@ -69,11 +81,15 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     if (statusFilter) rows = rows.filter((r) => r.status === statusFilter);
     if (paymentFilter) rows = rows.filter((r) => r.payment_status === paymentFilter);
     if (sourceFilter) rows = rows.filter((r) => r.source === sourceFilter);
+    if (orderTypeFilter === "dtc") rows = rows.filter((r) => r.fulfillment_type === "direct_to_customer");
+    if (orderTypeFilter === "warehouse") rows = rows.filter((r) => r.fulfillment_type !== "direct_to_customer");
     if (procurementFilter) rows = rows.filter((r) => allocationLabel(r.allocation_status) === procurementFilter);
     if (ownerFilter === "__unassigned__") rows = rows.filter((r) => !r.owner_id);
     else if (ownerFilter) rows = rows.filter((r) => r.owner_id === ownerFilter);
+    if (monthFilter) rows = rows.filter((r) => isActiveSaleOrderStatus(r.status) || r.order_date?.startsWith(monthFilter));
+    if (viewMode === "open") rows = rows.filter((r) => isActiveSaleOrderStatus(r.status));
     return rows;
-  }, [data, search, statusFilter, paymentFilter, sourceFilter, procurementFilter, ownerFilter]);
+  }, [data, activeOnly, search, statusFilter, paymentFilter, sourceFilter, orderTypeFilter, procurementFilter, ownerFilter, monthFilter, viewMode]);
 
   const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
@@ -224,6 +240,17 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             onChange: setSourceFilter,
           },
           {
+            key: "order-type",
+            label: "Order Type",
+            allLabel: "Total",
+            options: [
+              { label: "DTC", value: "dtc" },
+              { label: "Warehouse", value: "warehouse" },
+            ],
+            value: orderTypeFilter,
+            onChange: (value) => setOrderTypeFilter(value as "" | "dtc" | "warehouse"),
+          },
+          {
             key: "owner",
             label: "Owner",
             options: ownerOptions,
@@ -231,7 +258,26 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             onChange: setOwnerFilter,
           },
         ]}
-        trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+        trailing={<>
+          <SegmentedToggle
+            ariaLabel="Sales month filter"
+            value={monthFilter === currentMonth ? "current" : monthFilter ? null : "all"}
+            onValueChange={(value) => setMonthFilter(value === "current" ? currentMonth : "")}
+            options={[{ label: "All", value: "all" }, { label: "This Month", value: "current" }]}
+          />
+          <Select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="h-8 w-32 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30">
+            <option value="">Select month</option>
+            {months.map((month) => <option key={month} value={month}>{new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</option>)}
+          </Select>
+          <SegmentedToggle
+            ariaLabel="Sales view mode"
+            value={viewMode}
+            onValueChange={setViewMode}
+            options={[{ label: "Total", value: "total" }, { label: "Open", value: "open" }]}
+          />
+          <button type="button" onClick={() => setIsCreating(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button>
+          <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
+        </>}
       />}
       table={<DataGrid<SaleOrder>
         rows={filtered}
