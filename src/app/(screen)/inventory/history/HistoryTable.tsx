@@ -10,6 +10,7 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
+import { Select } from "@/components/ui/select";
 import type { Product, LedgerEntry } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -62,10 +63,10 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1 text-sm font-medium">
             Product
-            <select required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
+            <Select required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
               <option value="">Select product</option>
               {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-1 text-sm font-medium">
             Quantity Change
@@ -244,6 +245,7 @@ export default function HistoryTable() {
               { label: "Shipped", value: "shipped" },
               { label: "Returned", value: "returned" },
               { label: "Adjustment", value: "adjustment" },
+              { label: "Conversion", value: "conversion" },
             ],
             value: typeFilter,
             onChange: setTypeFilter,

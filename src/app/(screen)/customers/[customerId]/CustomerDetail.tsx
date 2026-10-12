@@ -11,6 +11,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Pencil } from "lucide-react";
 import type { Customer, SaleOrder } from "@/types";
@@ -285,7 +286,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                 <dt className="text-xs text-muted-foreground">Type</dt>
                 {editingType ? (
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={typeValue}
                       onChange={(e) => {
                         setTypeValue(e.target.value);
@@ -302,7 +303,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                       ]).map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
-                    </select>
+                    </Select>
                     <button
                       type="button"
                       onClick={() => setEditingType(false)}

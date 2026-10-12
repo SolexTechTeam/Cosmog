@@ -163,7 +163,7 @@ export interface DemandPriority {
 export interface InventoryLot {
   id: string;
   product_id: string;
-  purchase_order_item_id: string;
+  purchase_order_item_id: string | null;
   quantity_total: number;
   quantity_on_hand: number;
   quantity_reserved: number;
@@ -284,6 +284,13 @@ export interface ReassignResponse {
   to_so_item: string;
   lot_id: string;
   quantity: number;
+}
+
+export interface TransformInventoryResponse {
+  target_lot_id: string;
+  source_quantity: number;
+  output_quantity: number;
+  target_unit_cost: number;
 }
 
 export interface PoAllocationRecord {

@@ -12,6 +12,7 @@ import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
+import { Select } from "@/components/ui/select";
 import type { Customer } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -173,7 +174,7 @@ export default function CustomersTable() {
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
               <label className="grid gap-1 text-sm font-medium">Handle<input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
-              <label className="grid gap-1 text-sm font-medium">Type<select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></select></label>
+              <label className="grid gap-1 text-sm font-medium">Type<Select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-9 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></Select></label>
               <label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
               <label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
             </div>

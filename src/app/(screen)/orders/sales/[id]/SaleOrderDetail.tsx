@@ -7,6 +7,7 @@ import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { Select } from "@/components/ui/select";
 import StatusBadge from "@/components/common/StatusBadge";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
@@ -227,27 +228,27 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Priority
-                  <select value={editValues.priority} onChange={(e) => setEditValues((v) => ({ ...v, priority: e.target.value }))} className={inputClass}>
+                  <Select value={editValues.priority} onChange={(e) => setEditValues((v) => ({ ...v, priority: e.target.value }))} className={inputClass}>
                     {(priorityOptions.length ? priorityOptions : [{ label: "Low", value: "low" }, { label: "Normal", value: "normal" }, { label: "High", value: "high" }, { label: "Urgent", value: "urgent" }]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Owner
-                  <select value={editValues.owner_id} onChange={(e) => setEditValues((v) => ({ ...v, owner_id: e.target.value }))} className={inputClass}>
+                  <Select value={editValues.owner_id} onChange={(e) => setEditValues((v) => ({ ...v, owner_id: e.target.value }))} className={inputClass}>
                     <option value="">Unassigned</option>
                     {activeProfiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Fulfillment
-                  <select value={editValues.fulfillment_type} onChange={(e) => setEditValues((v) => ({ ...v, fulfillment_type: e.target.value }))} className={inputClass}>
+                  <Select value={editValues.fulfillment_type} onChange={(e) => setEditValues((v) => ({ ...v, fulfillment_type: e.target.value }))} className={inputClass}>
                     {(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  </Select>
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Payment
-                  <select value={editValues.payment_status} onChange={(e) => setEditValues((v) => ({ ...v, payment_status: e.target.value }))} className={inputClass}>
+                  <Select value={editValues.payment_status} onChange={(e) => setEditValues((v) => ({ ...v, payment_status: e.target.value }))} className={inputClass}>
                     <option value="not_requested">Not requested</option><option value="awaiting_payment">Awaiting payment</option>
                     <option value="part_paid">Part paid</option><option value="paid">Paid</option>
                     <option value="refunded">Refunded</option><option value="cancelled">Cancelled</option>
-                  </select>
+                  </Select>
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipping cost
                   <input type="number" min="0" step="0.01" value={editValues.shipping_cost} onChange={(e) => setEditValues((v) => ({ ...v, shipping_cost: e.target.value }))} className={inputClass} />
@@ -381,7 +382,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Paid</dt><dd className="font-bold tabular-nums">{fmt(saleOrder.amount_paid)}</dd></div>
             {balance > 0 && <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Balance</dt><dd className="font-semibold tabular-nums text-primary">{fmt(balance)}</dd></div>}
           </dl>
-          <select
+          <Select
             defaultValue={saleOrder.payment_status}
             onChange={(e) => inlinePatch({ payment_status: e.target.value })}
             className="mt-2 h-7 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-xs font-medium capitalize text-foreground outline-none transition hover:bg-muted focus:ring-1 focus:ring-primary/50"
@@ -392,7 +393,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <option value="paid">Paid</option>
             <option value="refunded">Refunded</option>
             <option value="cancelled">Cancelled</option>
-          </select>
+          </Select>
         </SidebarCard>
       </>}
 

@@ -5,6 +5,7 @@ import { AetherClient } from "@/lib/aether-client";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { CategoryComboBox } from "@/components/ui/category-combobox";
+import { Select } from "@/components/ui/select";
 import CreatePurchaseOrderDialog from "./CreatePurchaseOrderDialog";
 import type { Customer, Product, PricingConfig, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
 
@@ -32,6 +33,7 @@ interface CreatedOrderInfo {
   number: string;
   items: { product_id: string; quantity: number }[];
   stockWarnings: StockWarning[];
+  fulfillmentType: string;
 }
 
 interface CreateSaleOrderDialogProps {
@@ -51,10 +53,10 @@ function LookupSelect({ value, onChange, options, placeholder, className }: {
   className?: string;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={className ?? inputClass}>
+    <Select value={value} onChange={(e) => onChange(e.target.value)} className={className ?? inputClass}>
       {placeholder && <option value="">{placeholder}</option>}
       {options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-    </select>
+    </Select>
   );
 }
 
@@ -101,7 +103,13 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const products = fetchedProducts ?? [];
   const existingCategories = useMemo(() => Array.from(new Set(products.map((p) => p.category))).sort(), [products]);
   const profiles = (fetchedProfiles ?? []).filter((p) => p.is_active);
-  const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((po) => po.status !== "cancelled" && po.status !== "received");
+  const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((po) => (
+    po.status !== "cancelled"
+    && po.status !== "received"
+    && (fulfillmentType === "direct_to_customer"
+      ? po.fulfillment_type === "direct_delivery"
+      : po.fulfillment_type !== "direct_delivery")
+  ));
   const stockByProductId = useMemo(() => {
     const map = new Map<string, StockStatus>();
     for (const s of fetchedStock ?? []) map.set(s.product_id, s);
@@ -202,6 +210,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         number: created.so_number,
         items: normalizedLines.map((l) => ({ product_id: l.product_id, quantity: l.quantity })),
         stockWarnings: (created.stock_warnings ?? []) as StockWarning[],
+        fulfillmentType: fulfillmentType,
       });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create sales order.");
@@ -217,6 +226,8 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         onCreated={onCreated}
         initialItems={createdOrder.items.map((i) => ({ product_id: i.product_id, quantity_ordered: String(i.quantity), unit_cost: "" }))}
         linkedSaleOrderId={createdOrder.id}
+        initialFulfillmentType={createdOrder.fulfillmentType === "direct_to_customer" ? "direct_delivery" : undefined}
+        lockFulfillmentType={createdOrder.fulfillmentType === "direct_to_customer"}
       />
     );
   }
@@ -236,10 +247,10 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           {/* Customer */}
           <label className="grid gap-1 text-sm font-medium">
             Customer
-            <select required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputClass}>
+            <Select required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputClass}>
               <option value="">Select customer</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.handle ? ` (${c.handle})` : ""}</option>)}
-            </select>
+            </Select>
           </label>
           <div className="flex items-end">
             <button type="button" onClick={() => setShowCustomerForm((v) => !v)} className="h-10 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">
@@ -262,7 +273,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           {/* Order details */}
           <label className="grid gap-1 text-sm font-medium">
             Type
-            <LookupSelect value={fulfillmentType} onChange={setFulfillmentType} options={fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]} />
+            <LookupSelect value={fulfillmentType} onChange={(value) => { setFulfillmentType(value); setLinkedPoIds([]); }} options={fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]} />
           </label>
           {fulfillmentType === "direct_to_customer" && (
             <p className="mt-1 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700 sm:col-span-2">
@@ -287,10 +298,10 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           </label>
           <label className="grid gap-1 text-sm font-medium">
             Owner
-            <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass}>
+            <Select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass}>
               <option value="">Current user (default)</option>
               {profiles.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
+            </Select>
           </label>
           <label className="grid gap-1 text-sm font-medium">
             Shipping cost
@@ -374,10 +385,10 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
               return (
                 <div key={index} className="space-y-1">
                   <div className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_4rem]">
-                    <select value={line.product_id} onChange={(e) => updateLine(index, { product_id: e.target.value })} className={inputClass}>
+                    <Select value={line.product_id} onChange={(e) => updateLine(index, { product_id: e.target.value })} className={inputClass}>
                       <option value="">Select product</option>
                       {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
+                    </Select>
                     <input type="number" min="1" step="1" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} className={inputClass} placeholder="Qty" />
                     <input type="number" min="0" step="0.01" value={line.unit_price} onChange={(e) => updateLine(index, { unit_price: e.target.value })} className={inputClass} placeholder="Sale price" />
                     <button type="button" onClick={() => setLines((c) => c.length === 1 ? c : c.filter((_, i) => i !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button>
@@ -427,9 +438,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
               </div>
             )}
             <div className="mt-3 flex gap-2">
-              {createdOrder.stockWarnings.length > 0 && (
-                <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Purchase Order</button>
-              )}
+              <button type="button" onClick={() => setShowCreatePo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+                {createdOrder.fulfillmentType === "direct_to_customer" ? "Create Direct-Delivery PO" : "Create linked Purchase Order"}
+              </button>
               <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
             </div>
           </div>

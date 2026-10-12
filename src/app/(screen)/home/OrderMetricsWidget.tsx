@@ -7,6 +7,7 @@ import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select } from "@/components/ui/select";
 import type { SaleOrder, PurchaseOrder, Profile } from "@/types";
 
 interface OrderMetricsWidgetProps {
@@ -62,18 +63,21 @@ export default function OrderMetricsWidget({ orders, purchaseOrders, loading, po
 
   return (
     <div className="flex flex-col gap-3">
-      <h1>Active Sales Orders</h1>
-      <select
-        value={selectedOwnerId}
-        onChange={(e) => setSelectedOwnerId(e.target.value)}
-        className="h-8 w-64 rounded-md border border-border bg-background pl-2.5 pr-8 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
-      >
-        <option value="">All Owners</option>
-        <option value="__unassigned__">Unassigned</option>
-        {ownerOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      <div className="flex flex-row gap-4">
+        <h1 className="text-s font-semibold uppercase tracking-wider">Active Sales Orders</h1>
+        <Select
+          value={selectedOwnerId}
+          onChange={(e) => setSelectedOwnerId(e.target.value)}
+          className="h-6 w-32 rounded-md pl-2.5 pr-8 text-xs text-foreground outline   focus:ring-1 focus:ring-primary/50"
+        >
+          <option value="">All Owners</option>
+          <option value="__unassigned__">Unassigned</option>
+          {ownerOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </Select>
+      </div>
+
       <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <MetricCard label="Open Orders" loading={loading} value={openOrders.length} accent="primary" />
         <MetricCard label="Procurement" value="">

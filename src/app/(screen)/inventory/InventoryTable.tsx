@@ -13,6 +13,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import ErrorBlock from "@/components/ui/error-block";
+import TransformProductDialog from "@/components/common/TransformProductDialog";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -104,6 +105,7 @@ export default function InventoryTable() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showReallocate, setShowReallocate] = useState(false);
+  const [showTransform, setShowTransform] = useState(false);
   const [reallocating, setReallocating] = useState(false);
 
   const categories = useMemo(() => {
@@ -225,6 +227,13 @@ export default function InventoryTable() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowTransform(true)}
+              className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+            >
+              Convert Products
+            </button>
+            <button
+              type="button"
               onClick={() => setShowReallocate(true)}
               className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
             >
@@ -284,6 +293,19 @@ export default function InventoryTable() {
             }
           }}
           onCancel={() => setShowReallocate(false)}
+        />
+      )}
+      {showTransform && (
+        <TransformProductDialog
+          items={data ?? []}
+          onClose={() => setShowTransform(false)}
+          onTransformed={() => {
+            invalidate([...queryKeys.stockStatus]);
+            invalidate([...queryKeys.inventoryLots]);
+            invalidate([...queryKeys.inventorySummary]);
+            invalidate([...queryKeys.ledger]);
+            toast("Product conversion recorded");
+          }}
         />
       )}
     </>

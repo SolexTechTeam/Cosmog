@@ -6,6 +6,7 @@ import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
+import { Select } from "@/components/ui/select";
 import type { StockStatus } from "@/types";
 
 export default function InventorySummaryWidget() {
@@ -38,8 +39,8 @@ export default function InventorySummaryWidget() {
     <div className="flex flex-col gap-3">
       <div className="flex flex-row gap-4">
 
-        <h1>Inventory</h1>
-        <select
+        <h1 className="text-s font-semibold uppercase tracking-wider">Warehouse Inventory Overview</h1>
+        <Select
           value={selectedProductId}
           onChange={(e) => setSelectedProductId(e.target.value)}
           className="h-6 w-48 rounded-md border border-border bg-background pl-2.5 pr-8 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
@@ -48,7 +49,7 @@ export default function InventorySummaryWidget() {
           {productOptions.map((opt) => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
-        </select>
+        </Select>
 
       </div>
       <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">

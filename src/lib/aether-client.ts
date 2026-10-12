@@ -21,6 +21,7 @@ import type {
   AllocateResponse,
   ReallocateResponse,
   ReassignResponse,
+  TransformInventoryResponse,
   ReallocatePoolResponse,
   PoAllocationRecord,
   PoReallocateResponse,
@@ -236,6 +237,10 @@ export class AetherClient {
     return request(`/api/sale-orders/${saleOrderId}/po-links`, { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
+  static linkDtcPurchaseOrder(saleOrderId: string, purchaseOrderId: string): Promise<SaleOrderPoLink> {
+    return request(`/api/sale-orders/${saleOrderId}/dtc-po-links`, { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
+  }
+
   static unlinkPurchaseOrder(saleOrderId: string, purchaseOrderId: string): Promise<void> {
     return request(`/api/sale-orders/${saleOrderId}/po-links/${purchaseOrderId}`, { method: "DELETE" });
   }
@@ -278,6 +283,17 @@ export class AetherClient {
     notes?: string;
   }): Promise<LedgerEntry> {
     return request("/api/inventory/ledger/adjustment", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static transformInventory(data: {
+    from_product_id: string;
+    to_product_id: string;
+    source_quantity: number;
+    output_quantity: number;
+    target_unit_cost: number;
+    notes?: string;
+  }): Promise<TransformInventoryResponse> {
+    return request("/api/inventory/transform", { method: "POST", body: JSON.stringify(data) });
   }
 
   static confirmPurchaseOrder(purchaseOrderId: string): Promise<ConfirmPoResponse> {
