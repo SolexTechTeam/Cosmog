@@ -43,12 +43,17 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
   const [paymentFilter, setPaymentFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
   const [procurementFilter, setProcurementFilter] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   const sources = useMemo(() => {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
     return Array.from(set).sort().map((s) => ({ label: s, value: s }));
   }, [data]);
+  const ownerOptions = useMemo(() => [
+    { label: "Unassigned", value: "__unassigned__" },
+    ...(profiles ?? []).filter((p) => p.is_active).map((p) => ({ label: p.name, value: p.id })),
+  ], [profiles]);
   const filtered = useMemo(() => {
     let rows = data ?? [];
     if (activeOnly) rows = rows.filter((r) => r.status === "open" || r.status === "shipped");
@@ -65,8 +70,10 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     if (paymentFilter) rows = rows.filter((r) => r.payment_status === paymentFilter);
     if (sourceFilter) rows = rows.filter((r) => r.source === sourceFilter);
     if (procurementFilter) rows = rows.filter((r) => allocationLabel(r.allocation_status) === procurementFilter);
+    if (ownerFilter === "__unassigned__") rows = rows.filter((r) => !r.owner_id);
+    else if (ownerFilter) rows = rows.filter((r) => r.owner_id === ownerFilter);
     return rows;
-  }, [data, search, statusFilter, paymentFilter, sourceFilter, procurementFilter]);
+  }, [data, search, statusFilter, paymentFilter, sourceFilter, procurementFilter, ownerFilter]);
 
   const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
@@ -164,7 +171,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     <OrderScreenLayout
       title="Sales Orders"
       subtitle="Manage customer orders and fulfillment"
-      overview={<SalesOverviewCards orders={data ?? []} loading={loading} error={error} />}
+      overview={<SalesOverviewCards orders={filtered} loading={loading} error={error} />}
       filters={<SearchFilterBar
         searchPlaceholder="Search orders, customers..."
         searchValue={search}
@@ -215,6 +222,13 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             options: sources,
             value: sourceFilter,
             onChange: setSourceFilter,
+          },
+          {
+            key: "owner",
+            label: "Owner",
+            options: ownerOptions,
+            value: ownerFilter,
+            onChange: setOwnerFilter,
           },
         ]}
         trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => setIsCreating(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Sales Order</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}

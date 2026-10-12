@@ -8,7 +8,7 @@ import InventorySummaryWidget from "./InventorySummaryWidget";
 import OrderMetricsWidget from "./OrderMetricsWidget";
 import SalesTable from "@/components/common/orders/SalesTable";
 import { X } from "lucide-react";
-import type { SaleOrder } from "@/types";
+import type { SaleOrder, PurchaseOrder } from "@/types";
 
 function WelcomeBanner() {
   const [visible, setVisible] = useState(false);
@@ -54,6 +54,7 @@ function WelcomeBanner() {
 
 export default function HomeScreen() {
   const { data: saleOrders, loading, error } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
+  const { data: purchaseOrders, loading: poLoading } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
 
   return (
     <>
@@ -73,7 +74,7 @@ export default function HomeScreen() {
 
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Orders</h2>
-        <OrderMetricsWidget orders={saleOrders ?? []} loading={loading} error={error} />
+        <OrderMetricsWidget orders={saleOrders ?? []} purchaseOrders={purchaseOrders ?? []} loading={loading} poLoading={poLoading} error={error} />
       </section>
 
       <section>
