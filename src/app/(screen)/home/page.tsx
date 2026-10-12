@@ -77,7 +77,7 @@ export default function HomeScreen() {
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Active Orders</h2>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Active Sale Orders</h2>
         <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact pageSize={10} hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
       </section>
     </>

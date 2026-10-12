@@ -189,6 +189,7 @@ export default function ProductsTable() {
               { key: "category", label: "Category" },
               { key: "sku", label: "SKU" },
               { key: "image_url", label: "Image URL" },
+              { key: "low_stock_threshold", label: "Low Stock Threshold", type: "number" },
               { key: "is_active", label: "Active", type: "checkbox" },
             ],
             onSave: async (product, changes) => {

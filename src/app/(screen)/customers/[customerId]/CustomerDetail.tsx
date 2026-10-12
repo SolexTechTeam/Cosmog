@@ -46,6 +46,10 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   const [termsValue, setTermsValue] = useState("");
   const [savingTerms, setSavingTerms] = useState(false);
 
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
   /* ---- loading / error / not-found ---- */
 
   if (loading) {
@@ -144,6 +148,25 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       toast(e instanceof Error ? e.message : "Failed to update payment terms", "error");
     } finally {
       setSavingTerms(false);
+    }
+  }
+
+  function startEditingNotes() {
+    setNotesValue(c.notes ?? "");
+    setEditingNotes(true);
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true);
+    try {
+      await AetherClient.updateCustomer(c.id, { notes: notesValue.trim() });
+      setEditingNotes(false);
+      toast("Notes updated");
+      refetch();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to update notes", "error");
+    } finally {
+      setSavingNotes(false);
     }
   }
 
@@ -346,6 +369,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                   </div>
                 )}
               </div>
+
             </dl>
           </section>
 
@@ -416,6 +440,51 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                 <dd className="mt-0.5 font-medium">{contactPhone || "—"}</dd>
               </div>
             </dl>
+          </SidebarCard>
+
+          <SidebarCard title="Notes">
+            {editingNotes ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setEditingNotes(false);
+                  }}
+                  rows={4}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50 resize-y"
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveNotes}
+                    disabled={savingNotes}
+                    className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {savingNotes ? "..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingNotes(false)}
+                    className="text-xs text-muted-foreground/60 hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{c.notes || "No notes"}</p>
+                <button
+                  type="button"
+                  onClick={startEditingNotes}
+                  className="shrink-0 text-muted-foreground/40 hover:text-primary transition-colors"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
+            )}
           </SidebarCard>
         </div>
       </div>

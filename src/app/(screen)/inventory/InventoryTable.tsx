@@ -13,7 +13,6 @@ import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import ErrorBlock from "@/components/ui/error-block";
-import { Info } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -173,16 +172,6 @@ export default function InventoryTable() {
         minWidth: 100,
         valueFormatter: (p) => `$${(p.value ?? 0).toFixed(2)}`,
       },
-      {
-        headerName: "Sell Price",
-        minWidth: 130,
-        valueGetter: (p) => {
-          const cost = p.data?.avg_cost ?? 0;
-          return cost > 0 ? (cost * 1.25) * 1.14 : 0;
-        },
-        valueFormatter: (p) => p.value > 0 ? `$${p.value.toFixed(2)}` : "—",
-        cellClass: "text-center font-semibold",
-      },
       { field: "sku", headerName: "SKU", minWidth: 110 },
     ],
     []
@@ -270,7 +259,6 @@ export default function InventoryTable() {
           </div>
         )}
       />
-      <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><Info size={12} /> Sell Price = Avg Cost &times; 1.25 (margin) &times; 1.14 (GST)</p>
       </div>
 
       {showReallocate && (

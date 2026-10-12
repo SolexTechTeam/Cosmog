@@ -10,6 +10,8 @@ import MetricCardRow from "@/components/common/MetricCardRow";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
+import { Pencil } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -65,8 +67,12 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
     () => AetherClient.getLedger(),
   );
 
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("lots");
   const [historyLimit, setHistoryLimit] = useState(INITIAL_HISTORY_COUNT);
+  const [editingThreshold, setEditingThreshold] = useState(false);
+  const [thresholdValue, setThresholdValue] = useState(0);
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   /* Derived data */
   const stock = stockItems?.find((item) => item.product_id === productId);
@@ -80,7 +86,24 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
   const productLedger = allProductLedger.slice(0, historyLimit);
   const hasMoreHistory = allProductLedger.length > historyLimit;
 
-  const sellPrice = stock ? stock.avg_cost * 1.25 * 1.14 : 0;
+  function startEditingThreshold() {
+    setThresholdValue(stock?.low_stock_threshold ?? 5);
+    setEditingThreshold(true);
+  }
+
+  async function saveThreshold() {
+    setSavingThreshold(true);
+    try {
+      await AetherClient.updateProduct(productId, { low_stock_threshold: thresholdValue });
+      setEditingThreshold(false);
+      toast("Low stock threshold updated");
+      refetch();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to update threshold", "error");
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   /* ---------------------------------------------------------------- */
   /*  Loading state                                                    */
@@ -199,7 +222,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
 
           {/* Details tab */}
           {activeTab === "details" && (
-            <DetailsTab stock={stock} sellPrice={sellPrice} />
+            <DetailsTab stock={stock} />
           )}
         </div>
 
@@ -219,8 +242,52 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
             <SidebarCard title="Cost">
               <dl className="space-y-1.5 text-sm">
                 <SidebarRow label="Avg Cost" value={fmt(stock.avg_cost)} bold />
-                <SidebarRow label="Est. Sell Price" value={fmt(sellPrice)} bold />
               </dl>
+            </SidebarCard>
+
+            <SidebarCard title="Low Stock Threshold">
+              {editingThreshold ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={thresholdValue}
+                    onChange={(e) => setThresholdValue(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveThreshold();
+                      if (e.key === "Escape") setEditingThreshold(false);
+                    }}
+                    className="h-8 w-20 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={saveThreshold}
+                    disabled={savingThreshold}
+                    className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {savingThreshold ? "..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingThreshold(false)}
+                    className="text-xs text-muted-foreground/60 hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">{stock.low_stock_threshold} units</p>
+                  <button
+                    type="button"
+                    onClick={startEditingThreshold}
+                    className="text-muted-foreground/40 hover:text-primary transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
+              )}
             </SidebarCard>
           </div>
         </div>
@@ -390,10 +457,8 @@ function HistoryTab({
 
 function DetailsTab({
   stock,
-  sellPrice,
 }: {
   stock: StockStatus;
-  sellPrice: number;
 }) {
   return (
     <section className="rounded-lg border border-border bg-card p-4">
@@ -402,11 +467,6 @@ function DetailsTab({
         <DetailField label="Category" value={stock.category} />
         <DetailField label="SKU" value={stock.sku ?? "—"} mono />
         <DetailField label="Avg Cost" value={fmt(stock.avg_cost)} />
-        <div>
-          <p className="text-xs text-muted-foreground">Est. Sell Price</p>
-          <p className="text-sm font-medium tabular-nums">{fmt(sellPrice)}</p>
-          <p className="text-[11px] text-muted-foreground/60">Avg Cost &times; 1.25 &times; 1.14</p>
-        </div>
         <DetailField label="Stock Status">
           <div className="mt-0.5">
             <StatusBadge status={stock.stock_status} />

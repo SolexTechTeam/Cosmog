@@ -5,6 +5,7 @@ export interface Product {
   sku: string | null;
   image_url: string | null;
   is_active: boolean;
+  low_stock_threshold?: number;
   created_at: string;
   updated_at: string;
 }
@@ -17,6 +18,7 @@ export interface Customer {
   customer_type: "b2b" | "b2c" | "special";
   contact_info: Record<string, unknown>;
   payment_terms: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -132,6 +134,7 @@ export interface StockStatus {
   qty_incoming: number;
   qty_demand: number;
   avg_cost: number;
+  low_stock_threshold: number;
   stock_status: "In Stock" | "Low Stock" | "Out of Stock" | "Incoming";
 }
 
