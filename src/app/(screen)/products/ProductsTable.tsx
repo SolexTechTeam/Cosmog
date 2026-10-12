@@ -12,6 +12,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
+import { CategoryComboBox } from "@/components/ui/category-combobox";
 import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -186,7 +187,7 @@ export default function ProductsTable() {
           editConfig={{
             fields: [
               { key: "name", label: "Product Name" },
-              { key: "category", label: "Category" },
+              { key: "category", label: "Category", type: "select", options: categories },
               { key: "sku", label: "SKU" },
               { key: "image_url", label: "Image URL" },
               { key: "low_stock_threshold", label: "Low Stock Threshold", type: "number" },
@@ -237,12 +238,15 @@ export default function ProductsTable() {
               </label>
               <label className="block text-sm font-medium text-foreground">
                 Category
-                <input
-                  required
-                  value={newProduct.category}
-                  onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}
-                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
-                />
+                <div className="mt-1">
+                  <CategoryComboBox
+                    required
+                    value={newProduct.category}
+                    onChange={(v) => setNewProduct((current) => ({ ...current, category: v }))}
+                    categories={categories.map((c) => c.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
               </label>
               <label className="block text-sm font-medium text-foreground">
                 SKU

@@ -162,6 +162,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   if (!purchaseOrder) return <p className="text-sm text-muted-foreground">Purchase order not found.</p>;
 
   const items = purchaseOrder.items ?? [];
+  const hasForeignSourceCost = items.some((item) => (item.source_currency ?? "AUD") !== "AUD");
   const totalCost = purchaseOrder.order_total;
   const totalReceived = items.reduce((total, item) => total + item.quantity_received, 0);
   const totalOrdered = items.reduce((total, item) => total + item.quantity_ordered, 0);
@@ -247,13 +248,14 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         {activeTab === "items" && (
           <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
             <div className="flex-1 overflow-x-auto">
-              <table className="w-full min-w-[520px] text-left text-sm">
+              <table className={`w-full ${hasForeignSourceCost ? "min-w-[680px]" : "min-w-[520px]"} text-left text-sm`}>
                 <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 font-medium">Product</th>
                     <th className="px-4 py-2 text-right font-medium">Ordered</th>
                     <th className="px-4 py-2 text-right font-medium">Received</th>
-                    <th className="px-4 py-2 text-right font-medium">Unit Cost</th>
+                    {hasForeignSourceCost && <th className="px-4 py-2 text-right font-medium">Source Cost</th>}
+                    <th className="px-4 py-2 text-right font-medium">Unit Cost (AUD)</th>
                     <th className="px-4 py-2 text-right font-medium">Line Total</th>
                   </tr>
                 </thead>
@@ -266,11 +268,15 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity_ordered}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity_received}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">${item.unit_cost.toFixed(2)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">${(item.quantity_ordered * item.unit_cost).toFixed(2)}</td>
+                      {hasForeignSourceCost && <td className="px-4 py-2.5 text-right tabular-nums">
+                        <div>{item.source_currency ?? "AUD"} ${(item.source_unit_cost ?? item.unit_cost).toFixed(2)}</div>
+                        {(item.source_currency ?? "AUD") !== "AUD" && item.fx_rate && <div className="text-xs text-muted-foreground">Rate {item.fx_rate.toFixed(6)}</div>}
+                      </td>}
+                      <td className="px-4 py-2.5 text-right tabular-nums">AUD ${(item.landed_unit_cost ?? item.unit_cost).toFixed(2)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">${(item.quantity_ordered * (item.landed_unit_cost ?? item.unit_cost)).toFixed(2)}</td>
                     </tr>
                   ))}
-                  {items.length === 0 && <tr><td colSpan={5} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={hasForeignSourceCost ? 6 : 5} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -439,7 +445,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             )}
 
             {dialogData.data.shortfall_orders.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO&apos;s products.</p>
             ) : (
               dialogData.data.shortfall_orders.map((order) => (
                 <SoAllocationCard

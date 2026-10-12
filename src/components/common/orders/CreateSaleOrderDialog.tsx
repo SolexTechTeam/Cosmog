@@ -4,8 +4,9 @@ import { useState, useMemo, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
+import { CategoryComboBox } from "@/components/ui/category-combobox";
 import CreatePurchaseOrderDialog from "./CreatePurchaseOrderDialog";
-import type { Customer, Product, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
+import type { Customer, Product, PricingConfig, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
 
 interface SaleLine {
   product_id: string;
@@ -63,6 +64,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const { data: fetchedPurchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
   const { data: fetchedProfiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
   const { data: fetchedStock } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
+  const { data: pricingConfig } = useApi<PricingConfig>([...queryKeys.pricingConfig], () => AetherClient.getPricingConfig());
 
   const { options: fulfillmentOptions } = useLookup("so_fulfillment_type");
   const { options: channelOptions } = useLookup("so_business_channel");
@@ -78,6 +80,8 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const [source, setSource] = useState("");
   const [priority, setPriority] = useState("normal");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
+  const [gstRateOverride, setGstRate] = useState<string | null>(null);
+  const gstRate = gstRateOverride ?? (pricingConfig?.gst_rate ?? 0.10).toString();
   const [shippingCost, setShippingCost] = useState("0");
   const [shippingDetails, setShippingDetails] = useState("");
   const [notes, setNotes] = useState("");
@@ -95,6 +99,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
 
   const customers = fetchedCustomers ?? [];
   const products = fetchedProducts ?? [];
+  const existingCategories = useMemo(() => Array.from(new Set(products.map((p) => p.category))).sort(), [products]);
   const profiles = (fetchedProfiles ?? []).filter((p) => p.is_active);
   const purchaseOrders = (fetchedPurchaseOrders ?? []).filter((po) => po.status !== "cancelled" && po.status !== "received");
   const stockByProductId = useMemo(() => {
@@ -111,7 +116,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
       if (changes.product_id && changes.product_id !== line.product_id) {
         const stock = stockByProductId.get(changes.product_id);
         if (stock && stock.avg_cost > 0) {
-          updated.unit_price = (stock.avg_cost * 1.25 * 1.14).toFixed(2);
+          const margin = pricingConfig?.margin_multiplier ?? 1.25;
+          const gst = Number(gstRate) || 0;
+          updated.unit_price = (stock.avg_cost * margin * (1 + gst)).toFixed(2);
         }
       }
       return updated;
@@ -289,6 +296,13 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
             Shipping cost
             <input type="number" min="0" step="0.01" value={shippingCost} onChange={(e) => setShippingCost(e.target.value)} className={inputClass} />
           </label>
+          <label className="grid gap-1 text-sm font-medium">
+            GST rate
+            <div className="flex items-center gap-2">
+              <input type="number" min="0" max="1" step="0.01" value={gstRate} onChange={(e) => setGstRate(e.target.value)} className={inputClass} />
+              <span className="text-xs text-muted-foreground whitespace-nowrap">{(Number(gstRate) * 100).toFixed(0)}%</span>
+            </div>
+          </label>
 
           {/* PO links */}
           <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2">
@@ -341,7 +355,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           {showProductForm && (
             <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <input placeholder="Product name" value={newProduct.name} onChange={(e) => setNewProduct((c) => ({ ...c, name: e.target.value }))} className={inputClass} />
-              <input placeholder="Category" value={newProduct.category} onChange={(e) => setNewProduct((c) => ({ ...c, category: e.target.value }))} className={inputClass} />
+              <CategoryComboBox value={newProduct.category} onChange={(v) => setNewProduct((c) => ({ ...c, category: v }))} categories={existingCategories} className={inputClass} />
               <input placeholder="SKU" value={newProduct.sku} onChange={(e) => setNewProduct((c) => ({ ...c, sku: e.target.value }))} className={inputClass} />
               <button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button>
             </div>
@@ -370,7 +384,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
                   </div>
                   {stock && stock.avg_cost > 0 && (
                     <p className="pl-1 text-xs text-muted-foreground">
-                      AC: ${stock.avg_cost.toFixed(2)} · Recommended: ${(stock.avg_cost * 1.25 * 1.14).toFixed(2)}
+                      AC: ${stock.avg_cost.toFixed(2)} · Recommended: ${(stock.avg_cost * (pricingConfig?.margin_multiplier ?? 1.25) * (1 + (Number(gstRate) || 0))).toFixed(2)}
                     </p>
                   )}
                 </div>

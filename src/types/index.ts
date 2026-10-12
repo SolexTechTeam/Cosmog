@@ -67,7 +67,19 @@ export interface PurchaseOrderItem {
   quantity_ordered: number;
   quantity_received: number;
   unit_cost: number;
+  source_currency?: string;
+  source_unit_cost?: number;
+  fx_rate?: number;
+  landed_unit_cost?: number;
   product?: Pick<Product, "id" | "name" | "category">;
+}
+
+export interface PricingConfig {
+  id: string;
+  margin_multiplier: number;
+  gst_rate: number;
+  updated_at: string;
+  updated_by: string | null;
 }
 
 export interface SaleOrder {
@@ -227,6 +239,7 @@ export interface SuggestedAllocationItem {
   quantity_needed: number;
   already_allocated: number;
   allocations: { lot_id: string; lot_status: string; quantity: number; unit_cost: number }[];
+  available_lots?: { lot_id: string; lot_status: string; available_quantity: number; unit_cost: number }[];
   shortfall: number;
 }
 

@@ -42,6 +42,8 @@ export const queryKeys = {
   demandPriority: ["demand-priority"] as const,
   ledger: ["ledger"] as const,
   inventoryLots: ["inventory-lots"] as const,
+  pricingConfig: ["pricing-config"] as const,
+  fxRate: (from: string, to: string) => ["fx-rate", from, to] as const,
   lookups: (category: string) => ["lookups", category] as const,
   allocation: (soId: string) => ["allocation", soId] as const,
   margin: (soId: string) => ["margin", soId] as const,

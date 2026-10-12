@@ -27,6 +27,7 @@ import type {
   PoAllocationPreviewResponse,
   PoApplyAllocationRequest,
   MarginResponse,
+  PricingConfig,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -179,6 +180,7 @@ export class AetherClient {
     items: { product_id: string; quantity_ordered: number; unit_cost: number }[];
     fulfillment_type?: string;
     notes?: string;
+    source_currency?: string;
   }): Promise<PurchaseOrder> {
     return request("/api/purchase-orders", { method: "POST", body: JSON.stringify(data) });
   }
@@ -385,5 +387,19 @@ export class AetherClient {
     role?: string;
   }): Promise<Profile> {
     return request("/api/profiles", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  // ── Pricing config ──────────────────────────────────────────────
+
+  static getPricingConfig(): Promise<PricingConfig> {
+    return request("/api/pricing-config");
+  }
+
+  static updatePricingConfig(data: { margin_multiplier?: number; gst_rate?: number }): Promise<PricingConfig> {
+    return request("/api/pricing-config", { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  static getFxRate(from: string, to: string): Promise<{ from: string; to: string; rate: number }> {
+    return request(`/api/fx-rate?from=${from}&to=${to}`);
   }
 }

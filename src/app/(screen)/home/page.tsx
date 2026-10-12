@@ -68,12 +68,12 @@ export default function HomeScreen() {
       <WelcomeBanner />
 
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Inventory</h2>
+        {/* <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Inventory</h2> */}
         <InventorySummaryWidget />
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Orders</h2>
+        {/* <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Orders</h2> */}
         <OrderMetricsWidget orders={saleOrders ?? []} purchaseOrders={purchaseOrders ?? []} loading={loading} poLoading={poLoading} error={error} />
       </section>
 

@@ -36,16 +36,21 @@ export default function InventorySummaryWidget() {
 
   return (
     <div className="flex flex-col gap-3">
-      <select
-        value={selectedProductId}
-        onChange={(e) => setSelectedProductId(e.target.value)}
-        className="h-8 w-64 rounded-md border border-border bg-background pl-2.5 pr-8 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
-      >
-        <option value="">All Products</option>
-        {productOptions.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
-        ))}
-      </select>
+      <div className="flex flex-row gap-4">
+
+        <h1>Inventory</h1>
+        <select
+          value={selectedProductId}
+          onChange={(e) => setSelectedProductId(e.target.value)}
+          className="h-6 w-48 rounded-md border border-border bg-background pl-2.5 pr-8 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary/50"
+        >
+          <option value="">All Products</option>
+          {productOptions.map((opt) => (
+            <option key={opt.value} value={opt.value}>{opt.label}</option>
+          ))}
+        </select>
+
+      </div>
       <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
         <MetricCard label="On-Hand" loading={loading} value={onHand.toLocaleString()} />
         <MetricCard label="Incoming" loading={loading} value={incoming.toLocaleString()} accent="primary" />

@@ -10,7 +10,6 @@ import type {
   AllocationResponse,
   AllocationItemBreakdown,
   AllocationPreviewResponse,
-  SuggestedAllocationItem,
 } from "@/types";
 
 interface AllocationTabProps {
@@ -29,8 +28,12 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [preview, setPreview] = useState<AllocationPreviewResponse | null>(null);
+  const [manualPreview, setManualPreview] = useState<AllocationPreviewResponse | null>(null);
+  const [manualQuantities, setManualQuantities] = useState<Record<string, string>>({});
+  const [manualError, setManualError] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [allocating, setAllocating] = useState(false);
+  const [allocatingManual, setAllocatingManual] = useState(false);
   const [showPoolConfirm, setShowPoolConfirm] = useState(false);
   const [poolLoading, setPoolLoading] = useState(false);
 
@@ -67,6 +70,69 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
       toast(e instanceof Error ? e.message : "Failed to allocate inventory", "error");
     } finally {
       setAllocating(false);
+    }
+  }
+
+  async function handleOpenManualAllocation() {
+    setLoadingPreview(true);
+    try {
+      setManualPreview(await AetherClient.previewAllocation(saleOrderId));
+      setManualQuantities({});
+      setManualError(null);
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to load available lots", "error");
+    } finally {
+      setLoadingPreview(false);
+    }
+  }
+
+  async function handleManualAllocate() {
+    if (!manualPreview) return;
+
+    let allocations: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
+    try {
+      allocations = manualPreview.suggested_allocations.flatMap((item) => {
+      const remaining = item.quantity_needed - item.already_allocated;
+      const lots = item.available_lots ?? [];
+      const selected = lots.map((lot) => ({
+        lot,
+        quantity: Number(manualQuantities[`${item.sale_order_item_id}:${lot.lot_id}`] || 0),
+      })).filter(({ quantity }) => Number.isInteger(quantity) && quantity > 0);
+      const total = selected.reduce((sum, { quantity }) => sum + quantity, 0);
+
+      if (total > remaining) throw new Error(`${item.product_name} only needs ${remaining} more.`);
+      if (selected.some(({ lot, quantity }) => quantity > lot.available_quantity)) {
+        throw new Error(`One or more ${item.product_name} lots exceed their available quantity.`);
+      }
+
+        return selected.map(({ lot, quantity }) => ({
+          sale_order_item_id: item.sale_order_item_id,
+          inventory_lot_id: lot.lot_id,
+          quantity,
+        }));
+      });
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : "Check the allocation quantities.");
+      return;
+    }
+
+    if (!allocations.length) {
+      setManualError("Enter at least one allocation quantity.");
+      return;
+    }
+
+    setAllocatingManual(true);
+    setManualError(null);
+    try {
+      await AetherClient.allocateInventory({ sale_order_id: saleOrderId, mode: "manual", allocations });
+      toast("Manual allocation saved");
+      setManualPreview(null);
+      invalidate([...queryKeys.allocation(saleOrderId)]);
+      invalidate([...queryKeys.saleOrders]);
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : "Failed to save manual allocation.");
+    } finally {
+      setAllocatingManual(false);
     }
   }
 
@@ -203,6 +269,14 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
           </button>
           <button
             type="button"
+            onClick={handleOpenManualAllocation}
+            disabled={loadingPreview}
+            className="h-8 rounded-md border border-border px-3 text-xs font-semibold hover:bg-muted disabled:opacity-60"
+          >
+            Allocate Manually
+          </button>
+          <button
+            type="button"
             onClick={() => setShowPoolConfirm(true)}
             className="h-8 rounded-md bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/20"
           >
@@ -275,6 +349,49 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {manualPreview && (
+        <div className="rounded-lg border border-primary/20 bg-muted/50 p-4">
+          <div className="mb-3 flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/70">Manual Allocation</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Choose available lots. Existing allocations remain unchanged.</p>
+            </div>
+            <button type="button" onClick={() => setManualPreview(null)} disabled={allocatingManual} className="text-xs text-muted-foreground hover:text-foreground">Close</button>
+          </div>
+          <div className="space-y-4">
+            {manualPreview.suggested_allocations.map((item) => {
+              const remaining = item.quantity_needed - item.already_allocated;
+              const lots = item.available_lots ?? [];
+              const selected = lots.reduce((sum, lot) => sum + (Number(manualQuantities[`${item.sale_order_item_id}:${lot.lot_id}`]) || 0), 0);
+              return (
+                <div key={item.sale_order_item_id} className="overflow-x-auto rounded-md border border-border bg-card">
+                  <div className="flex items-center justify-between border-b border-border px-3 py-2 text-sm">
+                    <span className="font-medium">{item.product_name}</span>
+                    <span className="text-xs text-muted-foreground">{selected} selected / {remaining} remaining</span>
+                  </div>
+                  {lots.length ? (
+                    <table className="w-full min-w-[480px] text-xs">
+                      <thead className="bg-muted text-muted-foreground"><tr><th className="px-3 py-2 text-left font-medium">Lot</th><th className="px-3 py-2 text-left font-medium">Status</th><th className="px-3 py-2 text-right font-medium">Available</th><th className="px-3 py-2 text-right font-medium">Unit Cost</th><th className="px-3 py-2 text-right font-medium">Allocate</th></tr></thead>
+                      <tbody className="divide-y divide-border">
+                        {lots.map((lot) => {
+                          const key = `${item.sale_order_item_id}:${lot.lot_id}`;
+                          return <tr key={lot.lot_id}><td className="px-3 py-2 font-mono text-muted-foreground">{lot.lot_id.slice(0, 8)}</td><td className="px-3 py-2"><StatusBadge status={lot.lot_status} /></td><td className="px-3 py-2 text-right tabular-nums">{lot.available_quantity}</td><td className="px-3 py-2 text-right tabular-nums">{fmt(lot.unit_cost)}</td><td className="px-3 py-2 text-right"><input type="number" min="0" max={lot.available_quantity} step="1" value={manualQuantities[key] ?? ""} onChange={(e) => setManualQuantities((current) => ({ ...current, [key]: e.target.value }))} className="h-8 w-20 rounded-md border border-input bg-background px-2 text-right tabular-nums outline-none focus:ring-1 focus:ring-ring" aria-label={`Allocate from lot ${lot.lot_id}`} /></td></tr>;
+                        })}
+                      </tbody>
+                    </table>
+                  ) : <p className="px-3 py-4 text-xs text-muted-foreground">No available lots for this product.</p>}
+                </div>
+              );
+            })}
+          </div>
+          {manualError && <p role="alert" className="mt-3 text-xs text-destructive">{manualError}</p>}
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={handleManualAllocate} disabled={allocatingManual} className="h-8 rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{allocatingManual ? "Saving..." : "Confirm Manual Allocation"}</button>
+            <button type="button" onClick={() => setManualPreview(null)} disabled={allocatingManual} className="h-8 rounded-md px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">Cancel</button>
           </div>
         </div>
       )}

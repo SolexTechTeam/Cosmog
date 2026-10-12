@@ -50,7 +50,7 @@ const sections: FaqSection[] = [
           specific purchase order and unit cost. This enables FIFO costing and traceability.
         </p>
         <p className="text-sm text-muted-foreground">
-          <span className="text-foreground font-medium">Sell Price</span> = Avg Cost &times; 1.25 (margin) &times; 1.14 (GST).
+          <span className="text-foreground font-medium">Sell Price</span> = Avg Cost &times; Margin &times; (1 + GST Rate). Margin and GST rate are configurable in pricing settings (defaults: 1.25 margin, 10% GST).
         </p>
       </div>
     ),

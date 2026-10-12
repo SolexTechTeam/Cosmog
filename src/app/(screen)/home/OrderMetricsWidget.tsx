@@ -62,6 +62,7 @@ export default function OrderMetricsWidget({ orders, purchaseOrders, loading, po
 
   return (
     <div className="flex flex-col gap-3">
+      <h1>Active Sales Orders</h1>
       <select
         value={selectedOwnerId}
         onChange={(e) => setSelectedOwnerId(e.target.value)}
