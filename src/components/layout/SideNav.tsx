@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase";
@@ -98,11 +99,11 @@ export default function SideNav() {
         {collapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
       </button>
 
-      <div className={`px-5 pt-6 pb-6 ${collapsed ? "px-2 text-center" : ""}`}>
+      <div className={`flex items-center pt-6 pb-6 ${collapsed ? "justify-center px-2" : "px-5"}`}>
         {collapsed ? (
-          <span className="text-xl font-bold text-primary">S</span>
+          <Image src="/icon_180.png" alt="Solext" width={28} height={28} />
         ) : (
-          <h1 className="text-2xl font-bold tracking-tight text-primary">Solext</h1>
+          <Image src="/solext_transparent.png" alt="Solext" width={140} height={40} className="h-auto" />
         )}
       </div>
 
