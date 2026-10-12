@@ -10,6 +10,15 @@ export interface Product {
   updated_at: string;
 }
 
+export interface CustomerAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
+}
+
 export interface Customer {
   id: string;
   name: string;
@@ -19,6 +28,7 @@ export interface Customer {
   contact_info: Record<string, unknown>;
   payment_terms: string | null;
   notes: string | null;
+  address?: CustomerAddress;
   created_at: string;
   updated_at: string;
 }

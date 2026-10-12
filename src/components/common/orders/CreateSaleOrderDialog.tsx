@@ -2,6 +2,7 @@
 
 import { useState, useMemo, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
+import { formatCustomerAddress } from "@/lib/customer-address";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { CategoryComboBox } from "@/components/ui/category-combobox";
@@ -86,6 +87,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const gstRate = gstRateOverride ?? (pricingConfig?.gst_rate ?? 0.10).toString();
   const [shippingCost, setShippingCost] = useState("0");
   const [shippingDetails, setShippingDetails] = useState("");
+  const [shippingDetailsPreFilled, setShippingDetailsPreFilled] = useState(false);
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<SaleLine[]>(initialItems?.length ? initialItems : [{ product_id: "", quantity: "1", unit_price: "" }]);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
@@ -131,6 +133,14 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
       }
       return updated;
     }));
+  }
+
+  function selectCustomer(nextCustomerId: string) {
+    setCustomerId(nextCustomerId);
+    const address = formatCustomerAddress(customers.find((customer) => customer.id === nextCustomerId)?.address);
+
+    if (address) setShippingDetails(address);
+    setShippingDetailsPreFilled(Boolean(address));
   }
 
   async function addCustomer() {
@@ -247,7 +257,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           {/* Customer */}
           <label className="grid gap-1 text-sm font-medium">
             Customer
-            <Select required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className={inputClass}>
+            <Select required value={customerId} onChange={(e) => selectCustomer(e.target.value)} className={inputClass}>
               <option value="">Select customer</option>
               {customers.map((c) => <option key={c.id} value={c.id}>{c.name}{c.handle ? ` (${c.handle})` : ""}</option>)}
             </Select>
@@ -407,7 +417,8 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         {/* Shipping details + Notes */}
         <label className="mt-5 grid gap-1 text-sm font-medium">
           Shipping details
-          <textarea value={shippingDetails} onChange={(e) => setShippingDetails(e.target.value)} rows={2} placeholder="Shipping address or delivery instructions" className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+          <textarea value={shippingDetails} onChange={(e) => { setShippingDetails(e.target.value); setShippingDetailsPreFilled(false); }} rows={2} placeholder="Shipping address or delivery instructions" className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+          {shippingDetailsPreFilled && <span className="text-xs font-normal text-muted-foreground">Pre-filled from customer address</span>}
         </label>
         <label className="mt-4 grid gap-1 text-sm font-medium">
           Notes

@@ -2,6 +2,7 @@ import { getSupabaseBrowser } from "./supabase";
 import type {
   Product,
   Customer,
+  CustomerAddress,
   Supplier,
   Profile,
   PurchaseOrder,
@@ -112,6 +113,7 @@ export class AetherClient {
     email?: string;
     contact_info?: Record<string, unknown>;
     payment_terms?: string;
+    address?: CustomerAddress;
   }): Promise<Customer> {
     return request("/api/customers", { method: "POST", body: JSON.stringify(data) });
   }

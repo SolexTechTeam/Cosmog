@@ -26,20 +26,20 @@ export default function SearchFilterBar({
   trailing,
 }: SearchFilterBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2 overflow-x-auto">
       <input
         type="text"
         placeholder={searchPlaceholder}
         value={searchValue}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="h-8 flex-1 min-w-[180px] rounded-md border border-border bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="h-8 min-w-[180px] flex-1 rounded-md border border-border bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
       />
       {filters.map((filter) => (
         <Select
           key={filter.key}
           value={filter.value}
           onChange={(e) => filter.onChange(e.target.value)}
-          className="h-8 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30"
+          className="h-8 w-32 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30"
         >
           <option value="">{filter.label}</option>
           {filter.options.map((opt) => (
@@ -49,7 +49,7 @@ export default function SearchFilterBar({
           ))}
         </Select>
       ))}
-      {trailing && <div className="ml-auto flex items-center gap-2">{trailing}</div>}
+      {trailing && <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>}
     </div>
   );
 }
