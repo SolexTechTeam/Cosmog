@@ -10,7 +10,10 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { Select } from "@/components/ui/select";
 import type { Profile } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -149,7 +152,20 @@ export default function UsersTable() {
           }}
         />
       </div>
-      {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createUser} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-user-title"><h2 id="add-user-title" className="text-lg font-semibold">Add User</h2><p className="mt-1 text-sm text-muted-foreground">Admin access is required to create an account.</p><div className="mt-4 grid gap-4"><label className="grid gap-1 text-sm font-medium">Name<input required value={newUser.name} onChange={(event) => setNewUser((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Email<input required type="email" value={newUser.email} onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Temporary password<input required type="password" minLength={8} value={newUser.password} onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Role<select value={newUser.role} onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal"><option value="staff">Staff</option><option value="admin">Admin</option></select></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add User"}</button></div></form></div>}
+      {showCreate && (
+        <Dialog description="Admin access is required to create an account." loading={creating} onClose={() => setShowCreate(false)} title="Add User" width={512}>
+          <form onSubmit={createUser}>
+            <div className="grid gap-4">
+              <label className="grid gap-1 text-sm font-medium">Name<Input required value={newUser.name} onChange={(event) => setNewUser((current) => ({ ...current, name: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Email<Input required type="email" value={newUser.email} onChange={(event) => setNewUser((current) => ({ ...current, email: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Temporary password<Input required type="password" minLength={8} value={newUser.password} onChange={(event) => setNewUser((current) => ({ ...current, password: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Role<Select value={newUser.role} onChange={(event) => setNewUser((current) => ({ ...current, role: event.target.value }))} className="h-10 font-normal"><option value="staff">Staff</option><option value="admin">Admin</option></Select></label>
+            </div>
+            {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
+            <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add User"}</button></div>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 }

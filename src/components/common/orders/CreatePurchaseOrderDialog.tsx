@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useMemo, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
+import { CategoryComboBox } from "@/components/ui/category-combobox";
+import { Dialog } from "@/components/ui/dialog";
+import { Input, TextArea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import type { Product, PurchaseOrder, SaleOrder, Supplier } from "@/types";
 
@@ -24,18 +28,25 @@ interface CreatePurchaseOrderDialogProps {
   onCreated: () => void;
   initialItems?: { product_id: string; quantity_ordered: string; unit_cost: string }[];
   linkedSaleOrderId?: string;
+  initialFulfillmentType?: string;
+  lockFulfillmentType?: boolean;
 }
 
 const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
 
-export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId }: CreatePurchaseOrderDialogProps) {
+export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId, initialFulfillmentType, lockFulfillmentType = false }: CreatePurchaseOrderDialogProps) {
   const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>([...queryKeys.suppliers], () => AetherClient.getSuppliers());
   const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { data: fetchedSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { options: fulfillmentOptions } = useLookup("po_fulfillment_type");
+  const { data: fxData, error: fxError } = useApi<{ from: string; to: string; rate: number }>(
+    [...queryKeys.fxRate("SGD", "AUD")],
+    () => AetherClient.getFxRate("SGD", "AUD"),
+  );
+  const fxRate = fxData?.rate ?? null;
   const [supplierId, setSupplierId] = useState("");
   const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);
-  const [fulfillmentType, setFulfillmentType] = useState("warehouse");
+  const [fulfillmentType, setFulfillmentType] = useState(initialFulfillmentType ?? "warehouse");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length ? initialItems : [{ product_id: "", quantity_ordered: "1", unit_cost: "" }]);
@@ -52,7 +63,13 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
 
   const suppliers = fetchedSuppliers ?? [];
   const products = fetchedProducts ?? [];
-  const saleOrders = (fetchedSaleOrders ?? []).filter((so) => so.status === "open" || so.status === "shipped");
+  const existingCategories = useMemo(() => Array.from(new Set(products.map((p) => p.category))).sort(), [products]);
+  const saleOrders = (fetchedSaleOrders ?? []).filter((so) => (
+    (so.status === "open" || so.status === "shipped")
+    && (fulfillmentType === "direct_delivery"
+      ? so.fulfillment_type === "direct_to_customer"
+      : so.fulfillment_type !== "direct_to_customer")
+  ));
   const [soSearch, setSoSearch] = useState("");
 
   function updateLine(index: number, changes: Partial<PurchaseLine>) {
@@ -112,9 +129,13 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
     try {
       setSaving(true);
       setError(null);
-      const purchaseOrder = await AetherClient.createPurchaseOrder({ supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), items: normalizedLines });
+      const purchaseOrder = await AetherClient.createPurchaseOrder({ supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), source_currency: "SGD", items: normalizedLines });
       try {
-        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => AetherClient.linkPurchaseOrder(saleOrderId, purchaseOrder.id)));
+        await Promise.all(linkedSaleOrderIds.map((saleOrderId) => (
+          fulfillmentType === "direct_delivery"
+            ? AetherClient.linkDtcPurchaseOrder(saleOrderId, purchaseOrder.id)
+            : AetherClient.linkPurchaseOrder(saleOrderId, purchaseOrder.id)
+        )));
       } catch (linkError) {
         onCreated();
         setError(`PO ${purchaseOrder.po_number} was created, but its Sales Order links could not be saved: ${linkError instanceof Error ? linkError.message : "Unknown error"}`);
@@ -145,16 +166,17 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4" onMouseDown={() => !saving && onClose()}>
-      <form onSubmit={createOrder} onMouseDown={(event) => event.stopPropagation()} className="mx-auto my-8 w-full max-w-3xl rounded-xl border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="create-po-title">
-        <div className="flex items-start justify-between gap-4"><div><h2 id="create-po-title" className="text-lg font-semibold">New Purchase Order</h2><p className="mt-1 text-sm text-muted-foreground">The PO number is assigned automatically; new orders start as drafts.</p></div><button type="button" onClick={onClose} disabled={saving} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">Close</button></div>
-        {error && <p role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium">Supplier<select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className={inputClass}><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</select></label>
+    <Dialog description="The PO number is assigned automatically; new orders start as drafts." loading={saving} onClose={onClose} title="New Purchase Order" width={960}>
+      <form onSubmit={createOrder}>
+        {error && <p role="alert" className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-1 text-sm font-medium">Supplier<Select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className={inputClass}><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</Select></label>
           <div className="flex items-end"><button type="button" onClick={() => setShowSupplierForm((value) => !value)} className="h-10 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">{showSupplierForm ? "Cancel new supplier" : "Add supplier"}</button></div>
-          {showSupplierForm && <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_1fr_6rem_auto]"><input placeholder="Supplier name" value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input type="email" placeholder="Email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className={inputClass} /><input placeholder="Phone" value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className={inputClass} /><input type="number" min="1" step="1" placeholder="Lead days" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className={inputClass} /><button type="button" onClick={addSupplier} disabled={creatingSupplier} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingSupplier ? "…" : "Add"}</button></div>}
-          <label className="grid gap-1 text-sm font-medium">Type<select value={fulfillmentType} onChange={(event) => setFulfillmentType(event.target.value)} className={inputClass}>{(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Warehouse", value: "warehouse" }, { label: "Direct delivery", value: "direct_delivery" }]).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</select></label>
+          {showSupplierForm && <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_1fr_6rem_auto]"><Input placeholder="Supplier name" value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><Input type="email" placeholder="Email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className={inputClass} /><Input placeholder="Phone" value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className={inputClass} /><input type="number" min="1" step="1" placeholder="Lead days" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className={inputClass} /><button type="button" onClick={addSupplier} disabled={creatingSupplier} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingSupplier ? "…" : "Add"}</button></div>}
+          <label className="grid gap-1 text-sm font-medium">Type<Select value={fulfillmentType} onChange={(event) => { setFulfillmentType(event.target.value); setLinkedSaleOrderIds([]); }} disabled={lockFulfillmentType} className={inputClass}>{(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Warehouse", value: "warehouse" }, { label: "Direct delivery", value: "direct_delivery" }]).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</Select></label>
           <label className="grid gap-1 text-sm font-medium">Order date<input required type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} className={inputClass} /></label>
+          {lockFulfillmentType && <p className="text-xs text-muted-foreground sm:col-span-2">Direct-to-customer orders use direct delivery and never affect warehouse inventory.</p>}
+          <div className="flex items-end"><p className="text-xs text-muted-foreground">{fxRate ? `Costs are entered in SGD · 1 SGD = ${fxRate.toFixed(4)} AUD` : fxError ? "Costs are entered in SGD; the current rate is fetched when you save." : "Loading SGD→AUD rate…"}</p></div>
           <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2">
             <legend className="px-1 text-sm font-medium">Link open sales orders</legend>
             {linkedSaleOrderIds.length > 0 && (
@@ -170,7 +192,7 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
                 })}
               </div>
             )}
-            <input placeholder="Search sales orders..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className={inputClass} />
+            <Input placeholder="Search sales orders..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className={inputClass} />
             {soSearch && (
               <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2">
                 {saleOrders
@@ -214,8 +236,31 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
             )}
           </fieldset>
         </div>
-        <div className="mt-6"><div className="mb-2 flex items-center justify-between"><h3 className="font-semibold">Items</h3><div className="flex gap-2"><button type="button" onClick={() => setShowProductForm((value) => !value)} className="text-sm font-medium text-primary hover:underline">Add product</button><button type="button" onClick={() => setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="text-sm font-medium text-primary hover:underline">Add line</button></div></div>{showProductForm && <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><input placeholder="Product name" value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><input placeholder="Category" value={newProduct.category} onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))} className={inputClass} /><input placeholder="SKU" value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} className={inputClass} /><button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button></div>}<div className="space-y-2">{lines.map((line, index) => <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_auto]"><select value={line.product_id} onChange={(event) => updateLine(index, { product_id: event.target.value })} className={inputClass}><option value="">Select product</option>{products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select><input type="number" min="1" step="1" value={line.quantity_ordered} onChange={(event) => updateLine(index, { quantity_ordered: event.target.value })} className={inputClass} placeholder="Qty" /><input type="number" min="0" step="0.01" value={line.unit_cost} onChange={(event) => updateLine(index, { unit_cost: event.target.value })} className={inputClass} placeholder="Unit cost" /><button type="button" onClick={() => setLines((current) => current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button></div>)}</div></div>
-        <label className="mt-5 grid gap-1 text-sm font-medium">Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="rounded-md border border-input bg-background px-3 py-2 font-normal" /></label>
+        <div className="mt-6">
+          <div className="mb-2 flex items-center justify-between">
+            <h3 className="font-semibold">Items</h3>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setShowProductForm((value) => !value)} className="text-sm font-medium text-primary hover:underline">Add product</button>
+              <button type="button" onClick={() => setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="text-sm font-medium text-primary hover:underline">Add line</button>
+            </div>
+          </div>
+          {showProductForm && <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><Input placeholder="Product name" value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><CategoryComboBox value={newProduct.category} onChange={(v) => setNewProduct((current) => ({ ...current, category: v }))} categories={existingCategories} className={inputClass} /><Input placeholder="SKU" value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} className={inputClass} /><button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button></div>}
+          <div className="space-y-2">
+            {lines.map((line, index) => (
+              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_6rem_auto]">
+                <Select value={line.product_id} onChange={(event) => updateLine(index, { product_id: event.target.value })} className={inputClass}>
+                  <option value="">Select product</option>
+                  {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+                </Select>
+                <input type="number" min="1" step="1" value={line.quantity_ordered} onChange={(event) => updateLine(index, { quantity_ordered: event.target.value })} className={inputClass} placeholder="Qty" />
+                <input type="number" min="0" step="0.01" value={line.unit_cost} onChange={(event) => updateLine(index, { unit_cost: event.target.value })} className={inputClass} placeholder="Cost (SGD)" />
+                <span className="flex items-center text-xs text-muted-foreground">{fxRate && line.unit_cost ? `≈ $${(Number(line.unit_cost) * fxRate).toFixed(2)} AUD` : "—"}</span>
+                <button type="button" onClick={() => setLines((current) => current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button>
+              </div>
+            ))}
+          </div>
+        </div>
+        <label className="mt-5 grid gap-1 text-sm font-medium">Notes<TextArea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></label>
         {!createdOrder && (
           <div className="mt-6 flex justify-end gap-2">
             <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button>
@@ -233,6 +278,6 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
           </div>
         )}
       </form>
-    </div>
+    </Dialog>
   );
 }

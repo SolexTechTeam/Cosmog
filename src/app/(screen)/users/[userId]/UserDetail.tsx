@@ -9,6 +9,7 @@ import StatusBadge from "@/components/common/StatusBadge";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select } from "@/components/ui/select";
 import { Pencil } from "lucide-react";
 import type { Profile } from "@/types";
 
@@ -163,7 +164,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
         </div>
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">
               {profile.name}
             </h1>
             <StatusBadge status={profile.role} />
@@ -244,7 +245,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                 <dt className="text-xs text-muted-foreground">Role</dt>
                 {editingRole ? (
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={roleValue}
                       onChange={(e) => {
                         setRoleValue(e.target.value);
@@ -256,7 +257,7 @@ export default function UserDetail({ userId }: UserDetailProps) {
                     >
                       <option value="staff">Staff</option>
                       <option value="admin">Admin</option>
-                    </select>
+                    </Select>
                     <button
                       type="button"
                       onClick={() => setEditingRole(false)}

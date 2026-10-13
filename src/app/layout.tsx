@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans } from "next/font/google";
+import { AntdRegistry } from "@ant-design/nextjs-registry";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -16,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${dmSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">{children}</body>
+      <body className="min-h-full flex flex-col font-sans"><AntdRegistry>{children}</AntdRegistry></body>
     </html>
   );
 }

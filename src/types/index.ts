@@ -5,8 +5,18 @@ export interface Product {
   sku: string | null;
   image_url: string | null;
   is_active: boolean;
+  low_stock_threshold?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface CustomerAddress {
+  line1?: string;
+  line2?: string;
+  city?: string;
+  state?: string;
+  postcode?: string;
+  country?: string;
 }
 
 export interface Customer {
@@ -17,6 +27,8 @@ export interface Customer {
   customer_type: "b2b" | "b2c" | "special";
   contact_info: Record<string, unknown>;
   payment_terms: string | null;
+  notes: string | null;
+  address?: CustomerAddress;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +48,15 @@ export interface Profile {
   email: string;
   role: "admin" | "staff";
   is_active: boolean;
+}
+
+export interface DashboardNote {
+  id: string;
+  content: string;
+  created_by: string | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PurchaseOrder {
@@ -65,7 +86,19 @@ export interface PurchaseOrderItem {
   quantity_ordered: number;
   quantity_received: number;
   unit_cost: number;
+  source_currency?: string;
+  source_unit_cost?: number;
+  fx_rate?: number;
+  landed_unit_cost?: number;
   product?: Pick<Product, "id" | "name" | "category">;
+}
+
+export interface PricingConfig {
+  id: string;
+  margin_multiplier: number;
+  gst_rate: number;
+  updated_at: string;
+  updated_by: string | null;
 }
 
 export interface SaleOrder {
@@ -132,6 +165,7 @@ export interface StockStatus {
   qty_incoming: number;
   qty_demand: number;
   avg_cost: number;
+  low_stock_threshold: number;
   stock_status: "In Stock" | "Low Stock" | "Out of Stock" | "Incoming";
 }
 
@@ -148,7 +182,7 @@ export interface DemandPriority {
 export interface InventoryLot {
   id: string;
   product_id: string;
-  purchase_order_item_id: string;
+  purchase_order_item_id: string | null;
   quantity_total: number;
   quantity_on_hand: number;
   quantity_reserved: number;
@@ -224,6 +258,7 @@ export interface SuggestedAllocationItem {
   quantity_needed: number;
   already_allocated: number;
   allocations: { lot_id: string; lot_status: string; quantity: number; unit_cost: number }[];
+  available_lots?: { lot_id: string; lot_status: string; available_quantity: number; unit_cost: number }[];
   shortfall: number;
 }
 
@@ -268,6 +303,13 @@ export interface ReassignResponse {
   to_so_item: string;
   lot_id: string;
   quantity: number;
+}
+
+export interface TransformInventoryResponse {
+  target_lot_id: string;
+  source_quantity: number;
+  output_quantity: number;
+  target_unit_cost: number;
 }
 
 export interface PoAllocationRecord {

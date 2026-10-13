@@ -265,7 +265,10 @@ export default function DemandPriorityTable() {
   const highCount = lines.filter((line) => line.priority_label === "High Attention").length;
   const medCount = lines.filter((line) => line.priority_label === "Med Attention").length;
   const lowCount = lines.filter((line) => line.priority_label === "Low Attention").length;
-  const totalDemand = lines.reduce((sum, line) => sum + line.quantity, 0);
+  const totalDemandValue = lines.reduce((sum, line) => {
+    const items = line.items ?? [];
+    return sum + items.reduce((s, item) => s + item.quantity * item.unit_price, 0);
+  }, 0);
 
   const filtered = useMemo(() => {
     let rows = lines;
@@ -368,7 +371,7 @@ export default function DemandPriorityTable() {
           value={lowCount}
           accent="success"
         />
-        <MetricCard label="Total Qty Demanded" loading={loading} value={totalDemand.toLocaleString()} />
+        <MetricCard label="Total Demand Value" loading={loading} value={`$${totalDemandValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
       </MetricCardRow>
       <div className="flex flex-col gap-4">
         <SearchFilterBar

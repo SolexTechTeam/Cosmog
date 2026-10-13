@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, type ColDef } from "ag-grid-community";
+import { Select } from "@/components/ui/select";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -502,7 +503,7 @@ export default function DataGrid<T extends object>({
                                 className="mt-1 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring"
                               />
                             ) : type === "select" ? (
-                              <select
+                              <Select
                                 value={String(value ?? "")}
                                 onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
                                 className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
@@ -510,7 +511,7 @@ export default function DataGrid<T extends object>({
                                 {field.options?.map((option) => (
                                   <option key={option.value} value={option.value}>{option.label}</option>
                                 ))}
-                              </select>
+                              </Select>
                             ) : (
                               <input
                                 type={type}

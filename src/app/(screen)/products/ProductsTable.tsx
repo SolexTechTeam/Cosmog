@@ -12,6 +12,9 @@ import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
+import { CategoryComboBox } from "@/components/ui/category-combobox";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -126,7 +129,7 @@ export default function ProductsTable() {
     <>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Products</h1>
+          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Products</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">Product catalog and SKU management</p>
         </div>
         <div className="min-w-0 flex-1 lg:max-w-3xl">
@@ -186,9 +189,10 @@ export default function ProductsTable() {
           editConfig={{
             fields: [
               { key: "name", label: "Product Name" },
-              { key: "category", label: "Category" },
+              { key: "category", label: "Category", type: "select", options: categories },
               { key: "sku", label: "SKU" },
               { key: "image_url", label: "Image URL" },
+              { key: "low_stock_threshold", label: "Low Stock Threshold", type: "number" },
               { key: "is_active", label: "Active", type: "checkbox" },
             ],
             onSave: async (product, changes) => {
@@ -210,54 +214,45 @@ export default function ProductsTable() {
       </div>
 
       {isAdding && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="presentation"
-          onMouseDown={() => !adding && setIsAdding(false)}
-        >
-          <form
-            onSubmit={addProduct}
-            onMouseDown={(event) => event.stopPropagation()}
-            className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-product-title"
-          >
-            <h2 id="add-product-title" className="text-lg font-semibold text-foreground">Add Product</h2>
-            <div className="mt-4 space-y-4">
+        <Dialog loading={adding} onClose={() => setIsAdding(false)} title="Add Product" width={512}>
+          <form onSubmit={addProduct}>
+            <div className="space-y-4">
               <label className="block text-sm font-medium text-foreground">
                 Product Name
-                <input
+                <Input
                   required
                   value={newProduct.name}
                   onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))}
-                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 text-sm font-normal"
                 />
               </label>
               <label className="block text-sm font-medium text-foreground">
                 Category
-                <input
-                  required
-                  value={newProduct.category}
-                  onChange={(event) => setNewProduct((current) => ({ ...current, category: event.target.value }))}
-                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
-                />
+                <div className="mt-1">
+                  <CategoryComboBox
+                    required
+                    value={newProduct.category}
+                    onChange={(v) => setNewProduct((current) => ({ ...current, category: v }))}
+                    categories={categories.map((c) => c.value)}
+                    className="h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
               </label>
               <label className="block text-sm font-medium text-foreground">
                 SKU
-                <input
+                <Input
                   value={newProduct.sku}
                   onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))}
-                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 text-sm font-normal"
                 />
               </label>
               <label className="block text-sm font-medium text-foreground">
                 Image URL
-                <input
+                <Input
                   type="url"
                   value={newProduct.image_url}
                   onChange={(event) => setNewProduct((current) => ({ ...current, image_url: event.target.value }))}
-                  className="mt-1 h-8 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                  className="mt-1 h-8 text-sm font-normal"
                 />
               </label>
               {addError && <p className="text-sm text-destructive">{addError}</p>}
@@ -280,7 +275,7 @@ export default function ProductsTable() {
               </button>
             </div>
           </form>
-        </div>
+        </Dialog>
       )}
     </>
   );

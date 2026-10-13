@@ -5,15 +5,17 @@ import Link from "next/link";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
+import { formatCustomerAddress } from "@/lib/customer-address";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
 import { Pencil } from "lucide-react";
-import type { Customer, SaleOrder } from "@/types";
+import type { Customer, CustomerAddress, SaleOrder } from "@/types";
 
 interface CustomerDetailProps {
   customerId: string;
@@ -45,6 +47,14 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   const [editingTerms, setEditingTerms] = useState(false);
   const [termsValue, setTermsValue] = useState("");
   const [savingTerms, setSavingTerms] = useState(false);
+
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressValue, setAddressValue] = useState<CustomerAddress>({});
+  const [savingAddress, setSavingAddress] = useState(false);
 
   /* ---- loading / error / not-found ---- */
 
@@ -147,6 +157,48 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
     }
   }
 
+  function startEditingNotes() {
+    setNotesValue(c.notes ?? "");
+    setEditingNotes(true);
+  }
+
+  async function saveNotes() {
+    setSavingNotes(true);
+    try {
+      await AetherClient.updateCustomer(c.id, { notes: notesValue.trim() });
+      setEditingNotes(false);
+      toast("Notes updated");
+      refetch();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to update notes", "error");
+    } finally {
+      setSavingNotes(false);
+    }
+  }
+
+  function startEditingAddress() {
+    setAddressValue(c.address ?? {});
+    setEditingAddress(true);
+  }
+
+  async function saveAddress() {
+    const address = Object.fromEntries(
+      Object.entries(addressValue).filter(([, value]) => value?.trim())
+    ) as CustomerAddress;
+
+    setSavingAddress(true);
+    try {
+      await AetherClient.updateCustomer(c.id, { address });
+      setEditingAddress(false);
+      toast("Address updated");
+      refetch();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to update address", "error");
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
   /* ---- render ---- */
 
   return (
@@ -168,7 +220,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
         </div>
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">
               {c.name}
             </h1>
             <StatusBadge status={c.customer_type} />
@@ -262,7 +314,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                 <dt className="text-xs text-muted-foreground">Type</dt>
                 {editingType ? (
                   <div className="flex items-center gap-2">
-                    <select
+                    <Select
                       value={typeValue}
                       onChange={(e) => {
                         setTypeValue(e.target.value);
@@ -279,7 +331,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                       ]).map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
-                    </select>
+                    </Select>
                     <button
                       type="button"
                       onClick={() => setEditingType(false)}
@@ -346,6 +398,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                   </div>
                 )}
               </div>
+
             </dl>
           </section>
 
@@ -416,6 +469,77 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                 <dd className="mt-0.5 font-medium">{contactPhone || "—"}</dd>
               </div>
             </dl>
+          </SidebarCard>
+
+          <SidebarCard title="Address">
+            {editingAddress ? (
+              <div className="flex flex-col gap-2">
+                <input aria-label="Address line 1" placeholder="Address line 1" value={addressValue.line1 ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, line1: e.target.value }))} className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" autoFocus />
+                <input aria-label="Address line 2" placeholder="Address line 2" value={addressValue.line2 ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, line2: e.target.value }))} className="h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" />
+                <div className="grid grid-cols-2 gap-2">
+                  <input aria-label="City" placeholder="City" value={addressValue.city ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, city: e.target.value }))} className="h-8 min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" />
+                  <input aria-label="State" placeholder="State" value={addressValue.state ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, state: e.target.value }))} className="h-8 min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input aria-label="Postcode" placeholder="Postcode" value={addressValue.postcode ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, postcode: e.target.value }))} className="h-8 min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" />
+                  <input aria-label="Country" placeholder="Country" value={addressValue.country ?? ""} onChange={(e) => setAddressValue((address) => ({ ...address, country: e.target.value }))} className="h-8 min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={saveAddress} disabled={savingAddress} className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{savingAddress ? "..." : "Save"}</button>
+                  <button type="button" onClick={() => setEditingAddress(false)} className="text-xs text-muted-foreground/60 hover:text-foreground">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-2">
+                <p className="whitespace-pre-wrap text-sm text-foreground">{formatCustomerAddress(c.address) || "No address"}</p>
+                <button type="button" onClick={startEditingAddress} className="shrink-0 text-muted-foreground/40 hover:text-primary transition-colors"><Pencil size={13} /></button>
+              </div>
+            )}
+          </SidebarCard>
+
+          <SidebarCard title="Notes">
+            {editingNotes ? (
+              <div className="flex flex-col gap-2">
+                <textarea
+                  value={notesValue}
+                  onChange={(e) => setNotesValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setEditingNotes(false);
+                  }}
+                  rows={4}
+                  className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm outline-none focus:ring-1 focus:ring-primary/50 resize-y"
+                  autoFocus
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveNotes}
+                    disabled={savingNotes}
+                    className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {savingNotes ? "..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingNotes(false)}
+                    className="text-xs text-muted-foreground/60 hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{c.notes || "No notes"}</p>
+                <button
+                  type="button"
+                  onClick={startEditingNotes}
+                  className="shrink-0 text-muted-foreground/40 hover:text-primary transition-colors"
+                >
+                  <Pencil size={13} />
+                </button>
+              </div>
+            )}
           </SidebarCard>
         </div>
       </div>

@@ -13,57 +13,10 @@ import StatusBadge from "@/components/common/StatusBadge";
 import InventoryOverviewCards from "./InventoryOverviewCards";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import ErrorBlock from "@/components/ui/error-block";
-import { Info } from "lucide-react";
+import TransformProductDialog from "@/components/common/TransformProductDialog";
+import InventoryLotsTable from "@/components/common/InventoryLotsTable";
 import type { StockStatus, PurchaseOrder, InventoryLot } from "@/types";
 import type { ColDef } from "ag-grid-community";
-
-function InventoryLots({ lots, error, poMap }: { lots: InventoryLot[]; error: string | null; poMap: Map<string, PurchaseOrder> }) {
-  if (error) {
-    return <p className="text-sm text-destructive">Unable to load inventory lots: {error}</p>;
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-md border border-border bg-card">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="bg-muted text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 font-medium">PO #</th>
-            <th className="px-3 py-2 font-medium">Received</th>
-            <th className="px-3 py-2 text-right font-medium">On-Hand</th>
-            <th className="px-3 py-2 text-right font-medium">Reserved</th>
-            <th className="px-3 py-2 text-right font-medium">Available</th>
-            <th className="px-3 py-2 text-right font-medium">Unit Cost</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {lots.map((lot) => {
-            const poId = lot.purchase_order_item?.purchase_order_id;
-            const po = poId ? poMap.get(poId) : undefined;
-            return (
-              <tr key={lot.id}>
-                <td className="px-3 py-2 text-foreground">
-                  {po ? (
-                    <Link href={`/orders/procurement/${po.id}`} className="font-medium text-primary hover:underline">{po.po_number}</Link>
-                  ) : "—"}
-                </td>
-                <td className="px-3 py-2 text-foreground">{lot.received_at?.slice(0, 10) ?? "—"}</td>
-                <td className="px-3 py-2 text-right text-foreground">{lot.quantity_on_hand}</td>
-                <td className="px-3 py-2 text-right text-foreground">{lot.quantity_reserved}</td>
-                <td className="px-3 py-2 text-right text-foreground">{Math.max(0, (lot.lot_status === "incoming" ? lot.quantity_total : lot.quantity_on_hand) - lot.quantity_reserved)}</td>
-                <td className="px-3 py-2 text-right text-foreground">{`$${lot.unit_cost.toFixed(2)}`}</td>
-              </tr>
-            );
-          })}
-          {lots.length === 0 && (
-            <tr>
-              <td colSpan={6} className="px-3 py-4 text-center text-muted-foreground">No inventory lots</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: StockStatus; lots: InventoryLot[]; lotsError: string | null; poMap: Map<string, PurchaseOrder> }) {
   return (
@@ -88,7 +41,7 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
       </dl>
       <div>
         <h3 className="mb-3 text-sm font-semibold text-foreground">Inventory Lots</h3>
-        <InventoryLots lots={lots} error={lotsError} poMap={poMap} />
+        <InventoryLotsTable lots={lots} error={lotsError} poMap={poMap} />
       </div>
     </div>
   );
@@ -105,6 +58,7 @@ export default function InventoryTable() {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [showReallocate, setShowReallocate] = useState(false);
+  const [showTransform, setShowTransform] = useState(false);
   const [reallocating, setReallocating] = useState(false);
 
   const categories = useMemo(() => {
@@ -173,16 +127,6 @@ export default function InventoryTable() {
         minWidth: 100,
         valueFormatter: (p) => `$${(p.value ?? 0).toFixed(2)}`,
       },
-      {
-        headerName: "Sell Price",
-        minWidth: 130,
-        valueGetter: (p) => {
-          const cost = p.data?.avg_cost ?? 0;
-          return cost > 0 ? (cost * 1.25) * 1.14 : 0;
-        },
-        valueFormatter: (p) => p.value > 0 ? `$${p.value.toFixed(2)}` : "—",
-        cellClass: "text-center font-semibold",
-      },
       { field: "sku", headerName: "SKU", minWidth: 110 },
     ],
     []
@@ -198,7 +142,7 @@ export default function InventoryTable() {
     <>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
+          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Inventory</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">Stock levels and product tracking</p>
         </div>
         <div className="min-w-0 flex-1 lg:max-w-3xl">
@@ -236,6 +180,13 @@ export default function InventoryTable() {
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setShowTransform(true)}
+              className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+            >
+              Convert Products
+            </button>
+            <button
+              type="button"
               onClick={() => setShowReallocate(true)}
               className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground hover:bg-muted transition-colors whitespace-nowrap"
             >
@@ -266,11 +217,10 @@ export default function InventoryTable() {
         )}
         renderExpandedRowDetails={(stock) => (
           <div className="p-3">
-            <InventoryLots lots={lotsByProductId.get(stock.product_id) ?? []} error={lotsError} poMap={poMap} />
+            <InventoryLotsTable lots={lotsByProductId.get(stock.product_id) ?? []} error={lotsError} poMap={poMap} />
           </div>
         )}
       />
-      <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground"><Info size={12} /> Sell Price = Avg Cost &times; 1.25 (margin) &times; 1.14 (GST)</p>
       </div>
 
       {showReallocate && (
@@ -296,6 +246,19 @@ export default function InventoryTable() {
             }
           }}
           onCancel={() => setShowReallocate(false)}
+        />
+      )}
+      {showTransform && (
+        <TransformProductDialog
+          items={data ?? []}
+          onClose={() => setShowTransform(false)}
+          onTransformed={() => {
+            invalidate([...queryKeys.stockStatus]);
+            invalidate([...queryKeys.inventoryLots]);
+            invalidate([...queryKeys.inventorySummary]);
+            invalidate([...queryKeys.ledger]);
+            toast("Product conversion recorded");
+          }}
         />
       )}
     </>

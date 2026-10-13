@@ -8,8 +8,12 @@ import StatusBadge from "@/components/common/StatusBadge";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import SidebarCard from "@/components/common/orders/SidebarCard";
+import InventoryLotsTable from "@/components/common/InventoryLotsTable";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/components/ui/toast";
+import { Tabs } from "@/components/ui/tabs";
+import { Pencil } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/types";
 
 /* ------------------------------------------------------------------ */
@@ -65,8 +69,12 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
     () => AetherClient.getLedger(),
   );
 
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>("lots");
   const [historyLimit, setHistoryLimit] = useState(INITIAL_HISTORY_COUNT);
+  const [editingThreshold, setEditingThreshold] = useState(false);
+  const [thresholdValue, setThresholdValue] = useState(0);
+  const [savingThreshold, setSavingThreshold] = useState(false);
 
   /* Derived data */
   const stock = stockItems?.find((item) => item.product_id === productId);
@@ -80,7 +88,24 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
   const productLedger = allProductLedger.slice(0, historyLimit);
   const hasMoreHistory = allProductLedger.length > historyLimit;
 
-  const sellPrice = stock ? stock.avg_cost * 1.25 * 1.14 : 0;
+  function startEditingThreshold() {
+    setThresholdValue(stock?.low_stock_threshold ?? 5);
+    setEditingThreshold(true);
+  }
+
+  async function saveThreshold() {
+    setSavingThreshold(true);
+    try {
+      await AetherClient.updateProduct(productId, { low_stock_threshold: thresholdValue });
+      setEditingThreshold(false);
+      toast("Low stock threshold updated");
+      refetch();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Failed to update threshold", "error");
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   /* ---------------------------------------------------------------- */
   /*  Loading state                                                    */
@@ -132,7 +157,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
         <div className="flex flex-wrap items-center gap-3 mt-2">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">{stock.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">{stock.name}</h1>
               <StatusBadge status={stock.stock_status} />
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
@@ -162,30 +187,11 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
         {/* Main content */}
         <div className="flex flex-col gap-4 min-w-0">
           {/* Tab bar */}
-          <div className="flex items-center border-b border-border">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === tab.key
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Tabs activeKey={activeTab} items={tabs} onChange={setActiveTab} />
 
           {/* Lots tab */}
           {activeTab === "lots" && (
-            <LotsTab
-              productLots={productLots}
-              poMap={poMap}
-              lotsError={lotsError}
-            />
+            <InventoryLotsTable lots={productLots} error={lotsError} poMap={poMap} />
           )}
 
           {/* History tab */}
@@ -199,7 +205,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
 
           {/* Details tab */}
           {activeTab === "details" && (
-            <DetailsTab stock={stock} sellPrice={sellPrice} />
+            <DetailsTab stock={stock} />
           )}
         </div>
 
@@ -219,86 +225,57 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
             <SidebarCard title="Cost">
               <dl className="space-y-1.5 text-sm">
                 <SidebarRow label="Avg Cost" value={fmt(stock.avg_cost)} bold />
-                <SidebarRow label="Est. Sell Price" value={fmt(sellPrice)} bold />
               </dl>
+            </SidebarCard>
+
+            <SidebarCard title="Low Stock Threshold">
+              {editingThreshold ? (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    value={thresholdValue}
+                    onChange={(e) => setThresholdValue(Number(e.target.value))}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveThreshold();
+                      if (e.key === "Escape") setEditingThreshold(false);
+                    }}
+                    className="h-8 w-20 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={saveThreshold}
+                    disabled={savingThreshold}
+                    className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    {savingThreshold ? "..." : "Save"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingThreshold(false)}
+                    className="text-xs text-muted-foreground/60 hover:text-foreground"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-foreground">{stock.low_stock_threshold} units</p>
+                  <button
+                    type="button"
+                    onClick={startEditingThreshold}
+                    className="text-muted-foreground/40 hover:text-primary transition-colors"
+                  >
+                    <Pencil size={13} />
+                  </button>
+                </div>
+              )}
             </SidebarCard>
           </div>
         </div>
       </div>
     </>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  Lots Tab                                                           */
-/* ------------------------------------------------------------------ */
-
-function LotsTab({
-  productLots,
-  poMap,
-  lotsError,
-}: {
-  productLots: InventoryLot[];
-  poMap: Map<string, PurchaseOrder>;
-  lotsError: string | null;
-}) {
-  if (lotsError) {
-    return <ErrorBlock message={`Unable to load inventory lots: ${lotsError}`} />;
-  }
-
-  return (
-    <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
-      <div className="flex-1 overflow-x-auto">
-        <table className="w-full min-w-[680px] text-left text-sm">
-          <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
-            <tr>
-              <th className="px-4 py-2 font-medium">PO #</th>
-              <th className="px-4 py-2 font-medium">Received</th>
-              <th className="px-4 py-2 text-right font-medium">On-Hand</th>
-              <th className="px-4 py-2 text-right font-medium">Reserved</th>
-              <th className="px-4 py-2 text-right font-medium">Available</th>
-              <th className="px-4 py-2 text-right font-medium">Unit Cost</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {productLots.map((lot) => {
-              const poId = lot.purchase_order_item?.purchase_order_id;
-              const po = poId ? poMap.get(poId) : undefined;
-              return (
-                <tr key={lot.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-4 py-2.5">
-                    {po ? (
-                      <Link
-                        href={`/orders/procurement/${po.id}`}
-                        className="font-medium text-primary hover:underline"
-                      >
-                        {po.po_number}
-                      </Link>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">{lot.received_at?.slice(0, 10) ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_on_hand}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{lot.quantity_reserved}</td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">
-                    {Math.max(0, (lot.lot_status === "incoming" ? lot.quantity_total : lot.quantity_on_hand) - lot.quantity_reserved)}
-                  </td>
-                  <td className="px-4 py-2.5 text-right tabular-nums">{fmt(lot.unit_cost)}</td>
-                </tr>
-              );
-            })}
-            {productLots.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                  No inventory lots
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }
 
@@ -390,10 +367,8 @@ function HistoryTab({
 
 function DetailsTab({
   stock,
-  sellPrice,
 }: {
   stock: StockStatus;
-  sellPrice: number;
 }) {
   return (
     <section className="rounded-lg border border-border bg-card p-4">
@@ -402,11 +377,6 @@ function DetailsTab({
         <DetailField label="Category" value={stock.category} />
         <DetailField label="SKU" value={stock.sku ?? "—"} mono />
         <DetailField label="Avg Cost" value={fmt(stock.avg_cost)} />
-        <div>
-          <p className="text-xs text-muted-foreground">Est. Sell Price</p>
-          <p className="text-sm font-medium tabular-nums">{fmt(sellPrice)}</p>
-          <p className="text-[11px] text-muted-foreground/60">Avg Cost &times; 1.25 &times; 1.14</p>
-        </div>
         <DetailField label="Stock Status">
           <div className="mt-0.5">
             <StatusBadge status={stock.stock_status} />

@@ -17,6 +17,7 @@ import ProcurementOverviewCards from "./ProcurementOverviewCards";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
 import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
+import { Select } from "@/components/ui/select";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, ConfirmPoResponse, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -209,20 +210,20 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
           <div className="grid grid-cols-2 gap-2">
             <label className="grid gap-0.5 font-medium text-muted-foreground">
               Status
-              <select defaultValue={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
+              <Select defaultValue={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
                 <option value="draft">Draft</option>
                 <option value="confirmed">Confirmed</option>
                 <option value="in transit">In transit</option>
                 <option value="received">Received</option>
                 <option value="cancelled">Cancelled</option>
-              </select>
+              </Select>
             </label>
             <label className="grid gap-0.5 font-medium text-muted-foreground">
               Fulfillment
-              <select defaultValue={purchaseOrder.fulfillment_type} onChange={(e) => patch({ fulfillment_type: e.target.value })} disabled={saving || isDone} className={poSelectClass}>
+              <Select defaultValue={purchaseOrder.fulfillment_type} onChange={(e) => patch({ fulfillment_type: e.target.value })} disabled={saving || isDone} className={poSelectClass}>
                 <option value="warehouse">Warehouse</option>
                 <option value="direct_delivery">Direct delivery</option>
-              </select>
+              </Select>
             </label>
             <label className="grid gap-0.5 font-medium text-muted-foreground">
               Expected arrival
@@ -335,7 +336,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, saleOrders }: { pur
               )}
 
               {dialogData.data.shortfall_orders.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for the products on this purchase order.</p>
               ) : (
                 dialogData.data.shortfall_orders.map((order) => (
                   <SoAllocationCard
@@ -514,7 +515,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
                 <tr key={item.id}>
                   <td className="px-3 py-2 text-foreground">
                     {isEditing ? (
-                      <select
+                      <Select
                         value={draft.product_id}
                         onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
                         className="h-9 min-w-44 rounded-md border border-input bg-background px-2 outline-none focus:ring-2 focus:ring-ring"
@@ -522,7 +523,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
                         {products.map((product) => (
                           <option key={product.id} value={product.id}>{product.name}</option>
                         ))}
-                      </select>
+                      </Select>
                     ) : item.product?.name ?? "—"}
                   </td>
                   <td className="px-3 py-2 text-foreground">
@@ -600,7 +601,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
         <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_auto] sm:items-end">
           <label className="block text-sm font-medium text-foreground">
             Product
-            <select
+            <Select
               value={draft.product_id}
               onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
               className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring"
@@ -608,7 +609,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
               {products.map((product) => (
                 <option key={product.id} value={product.id}>{product.name} · {product.category}</option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="block text-sm font-medium text-foreground">
             Unit Cost
@@ -1056,7 +1057,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
               )}
 
               {allocateData.shortfall_orders.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for the products on this purchase order.</p>
               ) : (
                 allocateData.shortfall_orders.map((order) => (
                   <SoAllocationCard

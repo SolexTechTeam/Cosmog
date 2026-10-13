@@ -2,6 +2,7 @@ import { getSupabaseBrowser } from "./supabase";
 import type {
   Product,
   Customer,
+  CustomerAddress,
   Supplier,
   Profile,
   PurchaseOrder,
@@ -21,12 +22,15 @@ import type {
   AllocateResponse,
   ReallocateResponse,
   ReassignResponse,
+  TransformInventoryResponse,
   ReallocatePoolResponse,
   PoAllocationRecord,
   PoReallocateResponse,
   PoAllocationPreviewResponse,
   PoApplyAllocationRequest,
   MarginResponse,
+  PricingConfig,
+  DashboardNote,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -52,6 +56,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(body.error || `API error: ${res.status}`);
   }
 
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -93,6 +98,24 @@ export class AetherClient {
     return request(`/api/profiles/${id}`, { method: "PATCH", body: JSON.stringify(data) });
   }
 
+  // ── Dashboard Notes ───────────────────────────────────────────────
+
+  static getDashboardNotes(): Promise<DashboardNote[]> {
+    return request("/api/dashboard-notes");
+  }
+
+  static createDashboardNote(content: string): Promise<DashboardNote> {
+    return request("/api/dashboard-notes", { method: "POST", body: JSON.stringify({ content }) });
+  }
+
+  static updateDashboardNote(id: string, content: string): Promise<DashboardNote> {
+    return request(`/api/dashboard-notes/${id}`, { method: "PATCH", body: JSON.stringify({ content }) });
+  }
+
+  static deleteDashboardNote(id: string): Promise<void> {
+    return request(`/api/dashboard-notes/${id}`, { method: "DELETE" });
+  }
+
   // ── Customers ─────────────────────────────────────────────────────
 
   static getCustomers(params?: { search?: string; type?: string }): Promise<Customer[]> {
@@ -110,6 +133,7 @@ export class AetherClient {
     email?: string;
     contact_info?: Record<string, unknown>;
     payment_terms?: string;
+    address?: CustomerAddress;
   }): Promise<Customer> {
     return request("/api/customers", { method: "POST", body: JSON.stringify(data) });
   }
@@ -179,6 +203,7 @@ export class AetherClient {
     items: { product_id: string; quantity_ordered: number; unit_cost: number }[];
     fulfillment_type?: string;
     notes?: string;
+    source_currency?: string;
   }): Promise<PurchaseOrder> {
     return request("/api/purchase-orders", { method: "POST", body: JSON.stringify(data) });
   }
@@ -234,6 +259,10 @@ export class AetherClient {
     return request(`/api/sale-orders/${saleOrderId}/po-links`, { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
+  static linkDtcPurchaseOrder(saleOrderId: string, purchaseOrderId: string): Promise<SaleOrderPoLink> {
+    return request(`/api/sale-orders/${saleOrderId}/dtc-po-links`, { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
+  }
+
   static unlinkPurchaseOrder(saleOrderId: string, purchaseOrderId: string): Promise<void> {
     return request(`/api/sale-orders/${saleOrderId}/po-links/${purchaseOrderId}`, { method: "DELETE" });
   }
@@ -276,6 +305,17 @@ export class AetherClient {
     notes?: string;
   }): Promise<LedgerEntry> {
     return request("/api/inventory/ledger/adjustment", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static transformInventory(data: {
+    from_product_id: string;
+    to_product_id: string;
+    source_quantity: number;
+    output_quantity: number;
+    target_unit_cost: number;
+    notes?: string;
+  }): Promise<TransformInventoryResponse> {
+    return request("/api/inventory/transform", { method: "POST", body: JSON.stringify(data) });
   }
 
   static confirmPurchaseOrder(purchaseOrderId: string): Promise<ConfirmPoResponse> {
@@ -385,5 +425,19 @@ export class AetherClient {
     role?: string;
   }): Promise<Profile> {
     return request("/api/profiles", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  // ── Pricing config ──────────────────────────────────────────────
+
+  static getPricingConfig(): Promise<PricingConfig> {
+    return request("/api/pricing-config");
+  }
+
+  static updatePricingConfig(data: { margin_multiplier?: number; gst_rate?: number }): Promise<PricingConfig> {
+    return request("/api/pricing-config", { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  static getFxRate(from: string, to: string): Promise<{ from: string; to: string; rate: number }> {
+    return request(`/api/fx-rate?from=${from}&to=${to}`);
   }
 }

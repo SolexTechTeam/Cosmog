@@ -197,7 +197,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
           </span>
         </div>
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">
             {s.name}
           </h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
