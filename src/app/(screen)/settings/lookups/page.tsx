@@ -86,7 +86,7 @@ export default function LookupsScreen() {
   if (profile?.role !== "admin") {
     return (
       <div className="max-w-5xl">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground mb-1">Lookup Values</h1>
+        <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground mb-1">Lookup Values</h1>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-lg border border-border bg-muted px-6 py-12">
           <Lock size={28} className="text-muted-foreground" />
           <p className="text-sm font-medium text-muted-foreground">
@@ -185,7 +185,7 @@ export default function LookupsScreen() {
     <div className="max-w-5xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-1">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Lookup Values</h1>
+        <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Lookup Values</h1>
         <button
           type="button"
           onClick={() => { setShowAddForm(true); setAddForm(emptyAddForm); }}

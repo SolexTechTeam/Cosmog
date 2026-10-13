@@ -30,6 +30,7 @@ import type {
   PoApplyAllocationRequest,
   MarginResponse,
   PricingConfig,
+  DashboardNote,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -55,6 +56,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(body.error || `API error: ${res.status}`);
   }
 
+  if (res.status === 204) return undefined as T;
   return res.json();
 }
 
@@ -94,6 +96,24 @@ export class AetherClient {
 
   static updateProfile(id: string, data: { name?: string; role?: string; is_active?: boolean }): Promise<Profile> {
     return request(`/api/profiles/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  // ── Dashboard Notes ───────────────────────────────────────────────
+
+  static getDashboardNotes(): Promise<DashboardNote[]> {
+    return request("/api/dashboard-notes");
+  }
+
+  static createDashboardNote(content: string): Promise<DashboardNote> {
+    return request("/api/dashboard-notes", { method: "POST", body: JSON.stringify({ content }) });
+  }
+
+  static updateDashboardNote(id: string, content: string): Promise<DashboardNote> {
+    return request(`/api/dashboard-notes/${id}`, { method: "PATCH", body: JSON.stringify({ content }) });
+  }
+
+  static deleteDashboardNote(id: string): Promise<void> {
+    return request(`/api/dashboard-notes/${id}`, { method: "DELETE" });
   }
 
   // ── Customers ─────────────────────────────────────────────────────

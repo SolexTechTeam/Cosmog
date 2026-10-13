@@ -4,8 +4,8 @@ import { useState, useMemo } from "react";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import MetricCard from "@/components/common/MetricCard";
-import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
+import { Divider } from "@/components/ui/divider";
 import { Select } from "@/components/ui/select";
 import type { StockStatus } from "@/types";
 
@@ -36,7 +36,7 @@ export default function InventorySummaryWidget() {
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-row gap-4">
 
         <h1 className="text-s font-semibold uppercase tracking-wider">Warehouse Inventory Overview</h1>
@@ -52,14 +52,21 @@ export default function InventorySummaryWidget() {
         </Select>
 
       </div>
-      <MetricCardRow className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
-        <MetricCard label="On-Hand" loading={loading} value={onHand.toLocaleString()} />
-        <MetricCard label="Incoming" loading={loading} value={incoming.toLocaleString()} accent="primary" />
-        <MetricCard label="Allocated" loading={loading} value={allocated.toLocaleString()} accent="warning" />
-        <MetricCard label="Available" loading={loading} value={available.toLocaleString()} accent="success" />
-        <MetricCard label="Demand" loading={loading} value={demand.toLocaleString()} />
-        <MetricCard label="On-Hand Value" loading={loading} value={fmt(value)} />
-      </MetricCardRow>
-    </div>
+      <div className="overflow-x-auto">
+        <div className="flex min-w-max items-stretch">
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="On-Hand" loading={loading} value={onHand.toLocaleString()} />
+          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Incoming" loading={loading} value={incoming.toLocaleString()} accent="primary" />
+          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Allocated" loading={loading} value={allocated.toLocaleString()} accent="warning" />
+          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Available" loading={loading} value={available.toLocaleString()} accent="success" />
+          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Demand" loading={loading} value={demand.toLocaleString()} />
+          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
+          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="On-Hand Value" loading={loading} value={fmt(value)} />
+        </div>
+      </div>
+    </section>
   );
 }

@@ -50,6 +50,15 @@ export interface Profile {
   is_active: boolean;
 }
 
+export interface DashboardNote {
+  id: string;
+  content: string;
+  created_by: string | null;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PurchaseOrder {
   id: string;
   po_number: string;

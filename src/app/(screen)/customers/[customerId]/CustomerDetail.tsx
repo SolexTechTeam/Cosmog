@@ -220,7 +220,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
         </div>
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+            <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">
               {c.name}
             </h1>
             <StatusBadge status={c.customer_type} />

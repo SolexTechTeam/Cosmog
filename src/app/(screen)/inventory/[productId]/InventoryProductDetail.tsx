@@ -156,7 +156,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
         <div className="flex flex-wrap items-center gap-3 mt-2">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">{stock.name}</h1>
+              <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">{stock.name}</h1>
               <StatusBadge status={stock.stock_status} />
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">

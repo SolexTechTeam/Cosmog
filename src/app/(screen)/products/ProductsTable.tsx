@@ -127,7 +127,7 @@ export default function ProductsTable() {
     <>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Products</h1>
+          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Products</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">Product catalog and SKU management</p>
         </div>
         <div className="min-w-0 flex-1 lg:max-w-3xl">

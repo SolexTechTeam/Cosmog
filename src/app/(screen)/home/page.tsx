@@ -6,6 +6,7 @@ import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import InventorySummaryWidget from "./InventorySummaryWidget";
 import OrderMetricsWidget from "./OrderMetricsWidget";
+import NotesWidget from "./NotesWidget";
 import SalesTable from "@/components/common/orders/SalesTable";
 import { X } from "lucide-react";
 import type { SaleOrder, PurchaseOrder } from "@/types";
@@ -60,21 +61,19 @@ export default function HomeScreen() {
     <>
       <div className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Dashboard</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">Inventory and order overview</p>
         </div>
       </div>
 
       <WelcomeBanner />
 
-      <section>
-        {/* <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Inventory</h2> */}
-        <InventorySummaryWidget />
-      </section>
-
-      <section>
-        {/* <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Orders</h2> */}
-        <OrderMetricsWidget orders={saleOrders ?? []} purchaseOrders={purchaseOrders ?? []} loading={loading} poLoading={poLoading} error={error} />
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="space-y-5">
+          <InventorySummaryWidget />
+          <OrderMetricsWidget orders={saleOrders ?? []} purchaseOrders={purchaseOrders ?? []} loading={loading} poLoading={poLoading} error={error} />
+        </div>
+        <NotesWidget />
       </section>
 
       <section>

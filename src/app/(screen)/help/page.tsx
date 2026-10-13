@@ -128,7 +128,7 @@ export default function HelpScreen() {
   return (
     <>
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">Help &amp; FAQ</h1>
+        <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Help &amp; FAQ</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">Common questions about how Solext works</p>
       </div>
 
