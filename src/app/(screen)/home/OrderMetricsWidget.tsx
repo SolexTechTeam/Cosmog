@@ -10,6 +10,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select } from "@/components/ui/select";
 import type { SaleOrder, PurchaseOrder, Profile } from "@/types";
 
+const dashboardMetricClass = "min-w-[110px] flex-[0_1_180px] rounded-none border-0 bg-transparent text-center";
+const procurementMetricClass = "min-w-[148px] flex-[0_1_240px] rounded-none border-0 bg-transparent text-center";
+
 interface OrderMetricsWidgetProps {
   orders: SaleOrder[];
   purchaseOrders: PurchaseOrder[];
@@ -79,11 +82,11 @@ export default function OrderMetricsWidget({ orders, purchaseOrders, loading, po
       </div>
 
       <div className="overflow-x-auto">
-        <div className="flex min-w-max items-stretch">
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Open Orders" loading={loading} value={openOrders.length} accent="primary" />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[180px] flex-[1.35] rounded-none border-0 bg-transparent" label="Procurement" value="">
-          {loading ? <Skeleton className="h-7 w-32" /> : (
+        <div className="flex items-stretch">
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Open Orders" loading={loading} value={openOrders.length} accent="primary" />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={procurementMetricClass} label="Procurement" value="">
+          {loading ? <Skeleton className="mx-auto h-7 w-32" /> : (
             <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1">
               {([
                 { key: "need", label: "Need", dot: "bg-red-500" },
@@ -91,25 +94,25 @@ export default function OrderMetricsWidget({ orders, purchaseOrders, loading, po
                 { key: "ready_to_ship", label: "Ready", dot: "bg-emerald-500" },
                 { key: "done", label: "Done", dot: "bg-blue-500" },
               ] as const).map(({ key, label, dot }) => (
-                <span key={key} className="flex items-center gap-1.5">
+                <span key={key} className="flex items-center justify-center gap-1.5">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
                   <span className="text-xs text-muted-foreground">{label}</span>
-                  <span className="ml-auto text-sm font-bold tabular-nums">{procurementCounts[key]}</span>
+                  <span className="text-sm font-bold tabular-nums">{procurementCounts[key]}</span>
                 </span>
               ))}
             </div>
           )}
           </MetricCard>
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Awaiting Payment" loading={loading} value={awaitingPayment} accent={awaitingPayment > 0 ? "warning" : "default"} />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Open Value" loading={loading} value={fmt(totalOpenValue)} />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Outstanding" loading={loading} value={fmt(outstanding)} accent={outstanding > 0 ? "danger" : "default"} />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="POs In Transit" loading={poLoading} value={posInTransitCount} accent="primary" />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="In Transit Value" loading={poLoading} value={fmt(posInTransitValue)} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Awaiting Payment" loading={loading} value={awaitingPayment} accent={awaitingPayment > 0 ? "warning" : "default"} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Open Value" loading={loading} value={fmt(totalOpenValue)} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Outstanding" loading={loading} value={fmt(outstanding)} accent={outstanding > 0 ? "danger" : "default"} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="POs In Transit" loading={poLoading} value={posInTransitCount} accent="primary" />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="In Transit Value" loading={poLoading} value={fmt(posInTransitValue)} />
         </div>
       </div>
     </section>

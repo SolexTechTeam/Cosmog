@@ -2,6 +2,8 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { AetherClient } from "@/lib/aether-client";
+import { Dialog } from "@/components/ui/dialog";
+import { TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { StockStatus } from "@/types";
 
@@ -77,17 +79,10 @@ export default function TransformProductDialog({ items, onClose, onTransformed }
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4" onMouseDown={() => !saving && onClose()}>
-      <form onSubmit={submit} onMouseDown={(event) => event.stopPropagation()} className="mx-auto my-8 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Convert Products</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Available source stock becomes a new output lot.</p>
-          </div>
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">Close</button>
-        </div>
-        {error && <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <div className="mt-4 grid gap-3">
+    <Dialog description="Available source stock becomes a new output lot." loading={saving} onClose={onClose} title="Convert Products" width={512}>
+      <form onSubmit={submit}>
+        {error && <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+        <div className="grid gap-3">
           <label className="grid gap-1 text-sm font-medium">
             Source Product
             <Select required value={sourceProductId} onChange={(event) => { setSourceProductId(event.target.value); setTargetProductId(""); setTargetUnitCost(""); }} className={inputClass} disabled={saving || sourceItems.length === 0}>
@@ -119,7 +114,7 @@ export default function TransformProductDialog({ items, onClose, onTransformed }
           </label>
           <label className="grid gap-1 text-sm font-medium">
             Notes
-            <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} placeholder="e.g. Opened two cases into 72 boxes" className="rounded-md border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring" disabled={saving} />
+            <TextArea value={notes} onChange={(event) => setNotes(event.target.value)} rows={2} placeholder="e.g. Opened two cases into 72 boxes" disabled={saving} />
           </label>
         </div>
         <p className="mt-4 text-xs text-muted-foreground">The inventory history will show a negative conversion for the source and a positive conversion for the output.</p>
@@ -128,6 +123,6 @@ export default function TransformProductDialog({ items, onClose, onTransformed }
           <button type="submit" disabled={saving || sourceItems.length === 0} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Converting…" : "Convert Products"}</button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }

@@ -9,6 +9,8 @@ import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import ErrorBlock from "@/components/ui/error-block";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import type { Supplier } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -107,7 +109,20 @@ export default function SuppliersTable() {
           detailsPageHref={(supplier) => `/suppliers/${supplier.id}`}
         />
       </div>
-      {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}><form onSubmit={createSupplier} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-supplier-title"><h2 id="add-supplier-title" className="text-lg font-semibold">Add Supplier</h2><div className="mt-4 grid gap-4 sm:grid-cols-2"><label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Email<input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Phone<input value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label><label className="grid gap-1 text-sm font-medium">Lead days<input required type="number" min="1" step="1" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label></div>{createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add Supplier"}</button></div></form></div>}
+      {showCreate && (
+        <Dialog loading={creating} onClose={() => setShowCreate(false)} title="Add Supplier" width={512}>
+          <form onSubmit={createSupplier}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<Input required value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Email<Input type="email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Phone<Input value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className="h-10 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Lead days<input required type="number" min="1" step="1" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className="h-10 rounded-md border border-input bg-background px-3 font-normal" /></label>
+            </div>
+            {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
+            <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setShowCreate(false)} disabled={creating} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button><button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding…" : "Add Supplier"}</button></div>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 }

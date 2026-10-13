@@ -9,6 +9,8 @@ import { Divider } from "@/components/ui/divider";
 import { Select } from "@/components/ui/select";
 import type { StockStatus } from "@/types";
 
+const dashboardMetricClass = "min-w-[110px] flex-[0_1_180px] rounded-none border-0 bg-transparent text-center";
+
 export default function InventorySummaryWidget() {
   const { data, loading, error, refetch } = useApi<StockStatus[]>([...queryKeys.stockStatus], () => AetherClient.getStockStatus());
   const [selectedProductId, setSelectedProductId] = useState("");
@@ -53,18 +55,18 @@ export default function InventorySummaryWidget() {
 
       </div>
       <div className="overflow-x-auto">
-        <div className="flex min-w-max items-stretch">
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="On-Hand" loading={loading} value={onHand.toLocaleString()} />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Incoming" loading={loading} value={incoming.toLocaleString()} accent="primary" />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Allocated" loading={loading} value={allocated.toLocaleString()} accent="warning" />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Available" loading={loading} value={available.toLocaleString()} accent="success" />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="Demand" loading={loading} value={demand.toLocaleString()} />
-          <Divider orientation="vertical" className="my-auto h-12 self-auto" />
-          <MetricCard showAccent={false} className="min-w-[132px] flex-1 rounded-none border-0 bg-transparent" label="On-Hand Value" loading={loading} value={fmt(value)} />
+        <div className="flex items-stretch">
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="On-Hand" loading={loading} value={onHand.toLocaleString()} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Incoming" loading={loading} value={incoming.toLocaleString()} accent="primary" />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Allocated" loading={loading} value={allocated.toLocaleString()} accent="warning" />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Available" loading={loading} value={available.toLocaleString()} accent="success" />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="Demand" loading={loading} value={demand.toLocaleString()} />
+          <Divider orientation="vertical" className="!my-auto !h-12 self-auto" />
+          <MetricCard showAccent={false} className={dashboardMetricClass} label="On-Hand Value" loading={loading} value={fmt(value)} />
         </div>
       </div>
     </section>

@@ -12,6 +12,7 @@ import InventoryLotsTable from "@/components/common/InventoryLotsTable";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
+import { Tabs } from "@/components/ui/tabs";
 import { Pencil } from "lucide-react";
 import type { StockStatus, PurchaseOrder, InventoryLot, LedgerEntry } from "@/types";
 
@@ -186,22 +187,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
         {/* Main content */}
         <div className="flex flex-col gap-4 min-w-0">
           {/* Tab bar */}
-          <div className="flex items-center border-b border-border">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                  activeTab === tab.key
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <Tabs activeKey={activeTab} items={tabs} onChange={setActiveTab} />
 
           {/* Lots tab */}
           {activeTab === "lots" && (

@@ -1,4 +1,6 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Statistic } from "antd";
+import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 type MetricAccent = "default" | "primary" | "success" | "warning" | "danger";
 
@@ -14,26 +16,32 @@ interface MetricCardProps {
   children?: React.ReactNode;
 }
 
-const accentBar: Record<MetricAccent, string> = {
-  default: "from-border to-transparent",
-  primary: "from-primary/60 to-transparent",
-  success: "from-emerald-500/60 to-transparent",
-  warning: "from-amber-500/60 to-transparent",
-  danger: "from-red-500/60 to-transparent",
-};
+export default function MetricCard({ label, value, loading, className = "", labelClassName = "", valueClassName = "", children }: MetricCardProps) {
+  const flat = className.includes("border-0") && className.includes("bg-transparent");
 
-export default function MetricCard({ label, value, loading, accent = "default", showAccent = true, className = "", labelClassName = "", valueClassName = "", children }: MetricCardProps) {
   return (
-    <div className={`group relative overflow-hidden rounded-lg border border-border bg-card px-3 py-2.5 ${className}`}>
-      {showAccent && <div className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accentBar[accent]}`} />}
-      <p className={`text-xs font-medium uppercase tracking-wider text-muted-foreground truncate ${labelClassName}`}>{label}</p>
-      {loading ? (
-        <Skeleton className="mt-1 h-6 w-16" />
-      ) : children ? (
-        <div className="mt-1">{children}</div>
+    <Card
+      bodyClassName={cn(flat ? "!px-3 !py-2.5" : "!p-4")}
+      className={cn("h-full", flat && "!bg-transparent", className)}
+      variant={flat ? "borderless" : "outlined"}
+    >
+      {children ? (
+        <>
+          <p className={cn("truncate text-xs font-medium uppercase tracking-wider text-muted-foreground", labelClassName)}>{label}</p>
+          <div className="mt-1">{children}</div>
+        </>
       ) : (
-        <p className={`mt-0.5 truncate text-xl font-bold tabular-nums text-foreground ${valueClassName}`}>{value}</p>
+        <Statistic
+          classNames={{
+            content: "!text-xl !font-bold !leading-6 !text-foreground",
+            title: cn("!mb-1 !truncate !text-xs !font-medium !uppercase !tracking-wider !text-muted-foreground", labelClassName),
+            value: cn("!tabular-nums", valueClassName),
+          }}
+          loading={loading}
+          title={label}
+          value={value}
+        />
       )}
-    </div>
+    </Card>
   );
 }

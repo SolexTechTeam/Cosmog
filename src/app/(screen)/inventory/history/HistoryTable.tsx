@@ -10,6 +10,8 @@ import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
+import { Dialog } from "@/components/ui/dialog";
+import { TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { Product, LedgerEntry } from "@/types";
 import type { ColDef } from "ag-grid-community";
@@ -53,14 +55,10 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4" onMouseDown={() => !saving && onClose()}>
-      <form onSubmit={submit} onMouseDown={(e) => e.stopPropagation()} className="mx-auto my-8 w-full max-w-md rounded-xl border border-border bg-card p-5 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold">Manual Adjustment</h2>
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">Close</button>
-        </div>
-        {error && <p className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <div className="mt-4 grid gap-3">
+    <Dialog loading={saving} onClose={onClose} title="Manual Adjustment" width={512}>
+      <form onSubmit={submit}>
+        {error && <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+        <div className="grid gap-3">
           <label className="grid gap-1 text-sm font-medium">
             Product
             <Select required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
@@ -84,7 +82,7 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           </div>
           <label className="grid gap-1 text-sm font-medium">
             Notes
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Reason for adjustment" className="rounded-md border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
+            <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Reason for adjustment" />
           </label>
         </div>
         <div className="mt-5 flex justify-end gap-2">
@@ -92,7 +90,7 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
           <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Add Adjustment"}</button>
         </div>
       </form>
-    </div>
+    </Dialog>
   );
 }
 

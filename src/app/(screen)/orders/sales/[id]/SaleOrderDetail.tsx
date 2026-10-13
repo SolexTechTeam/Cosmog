@@ -8,6 +8,7 @@ import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 import StatusBadge from "@/components/common/StatusBadge";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
@@ -150,27 +151,12 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
       }
 
       mainContent={<>
-        <div className="flex items-center border-b border-border">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                activeTab === tab.key
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-          <div className="ml-auto">
-            {canEdit && !editing && (
-              <button type="button" onClick={startEditing} className="text-xs font-medium text-primary hover:underline">Edit order</button>
-            )}
-          </div>
-        </div>
+        <Tabs
+          activeKey={activeTab}
+          extra={canEdit && !editing && <button type="button" onClick={startEditing} className="text-xs font-medium text-primary hover:underline">Edit order</button>}
+          items={tabs}
+          onChange={setActiveTab}
+        />
 
         {activeTab === "items" && (
           <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">

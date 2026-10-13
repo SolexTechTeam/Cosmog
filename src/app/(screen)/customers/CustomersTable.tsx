@@ -11,6 +11,8 @@ import SearchFilterBar from "@/components/common/SearchFilterBar";
 import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import ErrorBlock from "@/components/ui/error-block";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import type { Customer } from "@/types";
@@ -168,15 +170,14 @@ export default function CustomersTable() {
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onMouseDown={() => !creating && setShowCreate(false)}>
-          <form onSubmit={createCustomer} onMouseDown={(event) => event.stopPropagation()} className="w-full max-w-lg rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="add-customer-title">
-            <h2 id="add-customer-title" className="text-lg font-semibold">Add Customer</h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
-              <label className="grid gap-1 text-sm font-medium">Handle<input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+        <Dialog loading={creating} onClose={() => setShowCreate(false)} title="Add Customer" width={512}>
+          <form onSubmit={createCustomer}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<Input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-9 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium">Handle<Input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-9 font-normal" /></label>
               <label className="grid gap-1 text-sm font-medium">Type<Select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-9 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></Select></label>
-              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
-              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-3 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<Input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-9 font-normal" /></label>
+              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<Input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-9 font-normal" /></label>
             </div>
             {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
             <div className="mt-6 flex justify-end gap-2">
@@ -184,7 +185,7 @@ export default function CustomersTable() {
               <button type="submit" disabled={creating} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{creating ? "Adding..." : "Add Customer"}</button>
             </div>
           </form>
-        </div>
+        </Dialog>
       )}
     </>
   );

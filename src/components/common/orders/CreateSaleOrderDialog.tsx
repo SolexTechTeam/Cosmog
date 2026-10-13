@@ -6,6 +6,8 @@ import { formatCustomerAddress } from "@/lib/customer-address";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { CategoryComboBox } from "@/components/ui/category-combobox";
+import { Dialog } from "@/components/ui/dialog";
+import { Input, TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import CreatePurchaseOrderDialog from "./CreatePurchaseOrderDialog";
 import type { Customer, Product, PricingConfig, Profile, PurchaseOrder, SaleOrder, StockStatus } from "@/types";
@@ -243,17 +245,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4" onMouseDown={() => !saving && onClose()}>
-      <form onSubmit={createOrder} onMouseDown={(event) => event.stopPropagation()} className="mx-auto my-8 w-full max-w-3xl rounded-xl border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-labelledby="create-so-title">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="create-so-title" className="text-lg font-semibold">New Sales Order</h2>
-            <p className="mt-1 text-sm text-muted-foreground">The order number is assigned automatically.</p>
-          </div>
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted">Close</button>
-        </div>
-
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+    <Dialog description="The order number is assigned automatically." loading={saving} onClose={onClose} title="New Sales Order" width={960}>
+      <form onSubmit={createOrder}>
+        <div className="grid gap-4 sm:grid-cols-2">
           {/* Customer */}
           <label className="grid gap-1 text-sm font-medium">
             Customer
@@ -270,9 +264,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
 
           {showCustomerForm && (
             <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-4">
-              <input placeholder="Customer name" value={newCustomer.name} onChange={(e) => setNewCustomer((c) => ({ ...c, name: e.target.value }))} className={inputClass} />
-              <input placeholder="Handle" value={newCustomer.handle} onChange={(e) => setNewCustomer((c) => ({ ...c, handle: e.target.value }))} className={inputClass} />
-              <input type="email" placeholder="Email" value={newCustomer.email} onChange={(e) => setNewCustomer((c) => ({ ...c, email: e.target.value }))} className={inputClass} />
+              <Input placeholder="Customer name" value={newCustomer.name} onChange={(e) => setNewCustomer((c) => ({ ...c, name: e.target.value }))} className={inputClass} />
+              <Input placeholder="Handle" value={newCustomer.handle} onChange={(e) => setNewCustomer((c) => ({ ...c, handle: e.target.value }))} className={inputClass} />
+              <Input type="email" placeholder="Email" value={newCustomer.email} onChange={(e) => setNewCustomer((c) => ({ ...c, email: e.target.value }))} className={inputClass} />
               <div className="flex gap-2">
                 <LookupSelect value={newCustomer.customer_type} onChange={(v) => setNewCustomer((c) => ({ ...c, customer_type: v }))} options={customerTypeOptions.length ? customerTypeOptions : [{ label: "B2B", value: "b2b" }, { label: "B2C", value: "b2c" }, { label: "Special", value: "special" }]} className={inputClass} />
                 <button type="button" onClick={addCustomer} disabled={creatingCustomer} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingCustomer ? "…" : "Add"}</button>
@@ -341,7 +335,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
                 })}
               </div>
             )}
-            <input placeholder="Search purchase orders..." value={poSearch} onChange={(e) => setPoSearch(e.target.value)} className={inputClass} />
+            <Input placeholder="Search purchase orders..." value={poSearch} onChange={(e) => setPoSearch(e.target.value)} className={inputClass} />
             {poSearch && (
               <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2">
                 {purchaseOrders
@@ -375,9 +369,9 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           </div>
           {showProductForm && (
             <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-              <input placeholder="Product name" value={newProduct.name} onChange={(e) => setNewProduct((c) => ({ ...c, name: e.target.value }))} className={inputClass} />
+              <Input placeholder="Product name" value={newProduct.name} onChange={(e) => setNewProduct((c) => ({ ...c, name: e.target.value }))} className={inputClass} />
               <CategoryComboBox value={newProduct.category} onChange={(v) => setNewProduct((c) => ({ ...c, category: v }))} categories={existingCategories} className={inputClass} />
-              <input placeholder="SKU" value={newProduct.sku} onChange={(e) => setNewProduct((c) => ({ ...c, sku: e.target.value }))} className={inputClass} />
+              <Input placeholder="SKU" value={newProduct.sku} onChange={(e) => setNewProduct((c) => ({ ...c, sku: e.target.value }))} className={inputClass} />
               <button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button>
             </div>
           )}
@@ -417,12 +411,12 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         {/* Shipping details + Notes */}
         <label className="mt-5 grid gap-1 text-sm font-medium">
           Shipping details
-          <textarea value={shippingDetails} onChange={(e) => { setShippingDetails(e.target.value); setShippingDetailsPreFilled(false); }} rows={2} placeholder="Shipping address or delivery instructions" className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+          <TextArea value={shippingDetails} onChange={(e) => { setShippingDetails(e.target.value); setShippingDetailsPreFilled(false); }} rows={2} placeholder="Shipping address or delivery instructions" />
           {shippingDetailsPreFilled && <span className="text-xs font-normal text-muted-foreground">Pre-filled from customer address</span>}
         </label>
         <label className="mt-4 grid gap-1 text-sm font-medium">
           Notes
-          <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className="rounded-md border border-input bg-background px-3 py-2 font-normal" />
+          <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
         </label>
 
         {!createdOrder && (
@@ -457,6 +451,6 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
           </div>
         )}
       </form>
-    </div>
+    </Dialog>
   );
 }
