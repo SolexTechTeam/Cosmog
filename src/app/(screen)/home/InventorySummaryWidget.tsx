@@ -11,11 +11,11 @@ import { Select } from "@/components/ui/select";
 import { CircleCheck, PackageCheck, Truck, Warehouse } from "lucide-react";
 import type { PurchaseOrder, StockStatus } from "@/types";
 
-const metricHeightClass = "!h-auto min-h-[5.5rem] min-w-0";
-const dashboardMetricClass = `${metricHeightClass} sm:col-span-2 xl:col-span-2`;
-const onHandMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-3`;
-const incomingMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-5`;
-const inventoryMetricRowClass = "grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-12";
+const metricHeightClass = "!h-auto min-h-[5.75rem] min-w-0";
+const dashboardMetricClass = `${metricHeightClass} sm:col-span-2 xl:col-span-1`;
+const onHandMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-1`;
+const incomingMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-1`;
+const inventoryMetricRowClass = "grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-[minmax(0,3.025fr)_minmax(0,4.99fr)_minmax(0,1.9925fr)_minmax(0,1.9925fr)]";
 
 interface InventorySummaryWidgetProps {
   selectedProductId: string;
@@ -76,9 +76,9 @@ export default function InventorySummaryWidget({
         </Select>
       </div>
       <div className={inventoryMetricRowClass}>
-        <Card className={onHandMetricClass} bodyClassName="grid min-w-0 grid-cols-2 !p-0">
+        <Card className={onHandMetricClass} bodyClassName="grid min-w-0 grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)] !p-0">
           <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="On-Hand" labelClassName="!text-[12px]" loading={loading} value={onHand.toLocaleString()} />
-          <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="OH Value" labelClassName="!text-[12px]" loading={loading} value={fmt(value)} />
+          <MetricCard density="OH value" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="OH Value" labelClassName="!text-[12px]" loading={loading} value={fmt(value)} />
         </Card>
         <MetricCard density="dashboard" className={incomingMetricClass} icon={<Truck size={18} />} iconClassName="text-primary" label="Incoming" value="">
           <IncomingMetrics units={incoming.toLocaleString()} purchaseOrders={String(posInTransitCount)} value={fmt(posInTransitValue)} loading={loading} poLoading={poLoading} />

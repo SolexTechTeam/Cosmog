@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type MetricAccent = "default" | "primary" | "success" | "warning" | "danger";
-type MetricDensity = "dashboard" | "page";
+type MetricDensity = "dashboard" | "page" | "OH value";
 
 function valueFontSize(value: string | number, density: MetricDensity) {
   const length = String(value).length;
@@ -11,6 +11,12 @@ function valueFontSize(value: string | number, density: MetricDensity) {
     if (length >= 13) return 12;
     if (length >= 10) return 14;
     if (length >= 8) return 16;
+    return 18;
+  } else if (density == "OH value") {
+    if (length >= 16) return 9;
+    if (length >= 13) return 11;
+    if (length >= 9) return 14;
+    if (length >= 6) return 16;
     return 18;
   }
 
@@ -31,6 +37,7 @@ interface MetricCardProps {
   valueClassName?: string;
   valueSuffix?: React.ReactNode;
   autoSizeValue?: boolean;
+  valueFontSizeOverride?: number;
   density?: MetricDensity;
   icon?: React.ReactNode;
   iconClassName?: string;
@@ -46,6 +53,7 @@ export default function MetricCard({
   valueClassName = "",
   valueSuffix,
   autoSizeValue = true,
+  valueFontSizeOverride,
   density = "page",
   icon,
   iconClassName = "",
@@ -85,7 +93,7 @@ export default function MetricCard({
           styles={{
             content: { minWidth: 0, maxWidth: "100%" },
             value: autoSizeValue
-              ? { fontSize: valueFontSize(value, density), lineHeight: 1.25, whiteSpace: "normal", overflowWrap: "anywhere" }
+              ? { fontSize: valueFontSizeOverride ?? valueFontSize(value, density), lineHeight: 1.25, whiteSpace: "nowrap" }
               : undefined,
           }}
           loading={loading}
