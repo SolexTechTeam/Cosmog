@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys, invalidatePurchaseOrderInventoryEffects } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useToast } from "@/components/ui/toast";
 import { Tabs } from "@/components/ui/tabs";
@@ -271,9 +271,16 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       statusWidget={
         <OrderStatusWidget
           status={purchaseOrder.status}
-          isComplete={purchaseOrder.status === "received"}
-          completionLabel="received and complete"
-          skipConfirm
+          isComplete={purchaseOrder.status === "received" || purchaseOrder.status === "cancelled"}
+          transitionDescriptionOverrides={{ cancelled: "Reverses unreceived incoming inventory and releases its reservations" }}
+          confirmConfigOverrides={{
+            cancelled: {
+              title: "Cancel this purchase order?",
+              description: "Any unreceived incoming quantity will be reversed and its active reservations released. Received inventory is preserved.",
+              confirmLabel: "Cancel Purchase Order",
+              variant: "destructive",
+            },
+          }}
           options={[
             { label: "Draft", value: "draft" }, { label: "Confirmed", value: "confirmed" },
             { label: "In transit", value: "in transit" }, { label: "Received", value: "received" },
@@ -291,19 +298,21 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               setAllocationEdits(initEditsFromSuggestions(previewResult));
               setDialogData({ type: "po-allocate", data: previewResult });
             } else if (status === "in transit") {
-              // confirmed → in transit: just a status update
-              await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
+              // confirmed → in transit: status-only Aether action
+              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               toast(`${purchaseOrder.po_number} → in transit`);
               invalidate([...queryKeys.purchaseOrders]);
               refetch();
             } else if (status === "received") {
               // in transit → received: receive PO, show results
               await doReceive();
-            } else {
-              await AetherClient.updatePurchaseOrder(purchaseOrder.id, { status });
-              toast(`${purchaseOrder.po_number} → ${status}`);
-              invalidate([...queryKeys.saleOrders]);
+            } else if (status === "cancelled") {
+              const result = await AetherClient.cancelPurchaseOrder(purchaseOrder.id);
+              await invalidatePurchaseOrderInventoryEffects(invalidate);
+              toast(result.already_cancelled ? `PO ${purchaseOrder.po_number} is already cancelled` : `PO ${purchaseOrder.po_number} cancelled; ${result.quantity_reversed} incoming units reversed`);
               refetch();
+            } else {
+              throw new Error(`Unsupported purchase-order transition: ${current} → ${status}`);
             }
           }}
         />
@@ -320,7 +329,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         />
 
         {activeTab === "items" && (
-          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
+          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[320px]">
             <div className="flex-1 overflow-x-auto">
               <PaginatedTable className="border-0 rounded-none"><table className={`w-full ${hasForeignSourceCost ? "min-w-[680px]" : "min-w-[520px]"} text-left text-sm`}>
                 <thead className="border-b border-border bg-muted text-xs text-muted-foreground">

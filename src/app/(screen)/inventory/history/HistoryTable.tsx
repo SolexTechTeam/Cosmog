@@ -155,7 +155,10 @@ export default function HistoryTable() {
         field: "movement_type",
         headerName: "Type",
         minWidth: 130,
-        cellRenderer: (p: { value: string }) => StatusBadge({ status: p.value }),
+        cellRenderer: (p: { value: string; data?: LedgerEntry }) => {
+          const isCancellation = p.value === "po_incoming" && (p.data?.quantity_change ?? 0) < 0 && p.data?.notes?.includes("Cancelled purchase order");
+          return StatusBadge({ status: isCancellation ? "po_incoming_reversed" : p.value });
+        },
       },
       {
         field: "quantity_change",
@@ -164,12 +167,14 @@ export default function HistoryTable() {
         valueFormatter: (p) => {
           const val = p.value ?? 0;
           const type = (p.data as LedgerEntry)?.movement_type;
-          if (type === "po_incoming" || type === "reserved") return `(${Math.abs(val)})`;
+          if (type === "po_incoming") return `${val > 0 ? "+" : val < 0 ? "−" : ""}${Math.abs(val)}`;
+          if (type === "reserved") return `(${Math.abs(val)})`;
           return `${val > 0 ? "+" : ""}${val}`;
         },
         cellStyle: (p) => {
           const val = p.value as number;
           const type = (p.data as LedgerEntry)?.movement_type;
+          if (type === "po_incoming" && val < 0) return { color: "var(--destructive)", fontWeight: 500 } as const;
           if (type === "po_incoming" || type === "reserved") return { color: "var(--muted-foreground)", fontWeight: 500 } as const;
           if (val > 0) return { color: "var(--chart-3)", fontWeight: 500 } as const;
           if (val < 0) return { color: "var(--destructive)", fontWeight: 500 } as const;

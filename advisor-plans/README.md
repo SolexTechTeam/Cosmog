@@ -9,5 +9,6 @@ Plans based on Cosmog `b87453d` and Aether `33a2cdb`, audited 2026-10-14. The Co
 | P2 | [003 — Align inventory Available metrics](003-align-inventory-available-metrics.md) | Home and inventory metric definitions | TODO | — |
 | P3 | [004 — Label PO creation as draft](004-label-po-creation-as-draft.md) | Purchase-order wizard copy | TODO | — |
 | P3 | [005 — Analysis page for business insights](005-analysis-business-insights.md) | Period-based business analysis, order mix, cash-position proxy, and profitability | TODO | — |
+| P1 | [006 — Cancel purchase orders without leaving inventory or metrics behind](006-cancel-purchase-orders-consistently.md) | Atomic PO cancellation, inventory/ledger reversal, UI refresh, and procurement metrics | DONE | — |
 
-Recommended order: 001 first because stale inventory can affect operational decisions; 002 and 003 can proceed independently; 004 is a small copy correction. Aether plan `../Aether/advisor-plans/001-honor-po-confirm-allocation-edits.md` is a separate cross-repository P1 and can proceed independently of these UI-only plans.
+Recommended order for remaining plans: 001 first because stale inventory can affect operational decisions; 002 and 003 can proceed independently; 004 is a small copy correction. Aether plan `../Aether/advisor-plans/001-honor-po-confirm-allocation-edits.md` is a separate cross-repository P1.

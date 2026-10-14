@@ -318,7 +318,7 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
               )}
 
               {previewData.shortfall_orders.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO&apos;s products.</p>
               ) : (
                 previewData.shortfall_orders.map((order) => (
                   <SoAllocationCard

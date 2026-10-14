@@ -1,36 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQueries } from "@tanstack/react-query";
+import { queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 
 export function useAllocationStatuses(saleOrderIds: string[]) {
-  const [statuses, setStatuses] = useState<Map<string, string>>(new Map());
-  const [loading, setLoading] = useState(false);
+  const allocationQueries = useQueries({
+    queries: saleOrderIds.map((saleOrderId) => ({
+      queryKey: [...queryKeys.allocation(saleOrderId)],
+      queryFn: async () => (await AetherClient.getSaleOrderAllocation(saleOrderId)).allocation_status,
+    })),
+  });
 
-  const fetch = useCallback(async () => {
-    if (!saleOrderIds.length) {
-      setStatuses(new Map());
-      return;
-    }
-    setLoading(true);
-    const results = await Promise.allSettled(
-      saleOrderIds.map((id) =>
-        AetherClient.getSaleOrderAllocation(id).then((r) => [id, r.allocation_status] as const)
-      )
-    );
-    const map = new Map<string, string>();
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        map.set(result.value[0], result.value[1]);
-      }
-    }
-    setStatuses(map);
-    setLoading(false);
-  }, [saleOrderIds.join(",")]);
+  const statuses = new Map<string, string>();
+  allocationQueries.forEach((query, index) => {
+    if (query.data !== undefined) statuses.set(saleOrderIds[index], query.data);
+  });
 
-  useEffect(() => {
-    fetch();
-  }, [fetch]);
-
-  return { statuses, loading, refetch: fetch };
+  return {
+    statuses,
+    loading: allocationQueries.some((query) => query.isLoading),
+    refetch: () => Promise.all(allocationQueries.map((query) => query.refetch())),
+  };
 }

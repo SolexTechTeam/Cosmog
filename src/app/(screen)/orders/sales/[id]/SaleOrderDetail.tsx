@@ -216,7 +216,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
         />
 
         {activeTab === "items" && (
-          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
+          <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[320px]">
             <div className="flex-1 overflow-x-auto">
               <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[480px] text-left text-sm">
                 <thead className="border-b border-border bg-muted text-xs text-muted-foreground">

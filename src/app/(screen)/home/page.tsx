@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
@@ -11,17 +11,28 @@ import SalesTable from "@/components/common/orders/SalesTable";
 import { ClipboardList, X } from "lucide-react";
 import type { SaleOrder, PurchaseOrder } from "@/types";
 
-function WelcomeBanner() {
-  const [visible, setVisible] = useState(false);
+const ONBOARDED_KEY = "solext_onboarded";
+const ONBOARDING_CHANGE_EVENT = "solext-onboarding-change";
 
-  useEffect(() => {
-    const dismissed = localStorage.getItem("solext_onboarded");
-    if (!dismissed) setVisible(true);
-  }, []);
+function subscribeToOnboarding(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(ONBOARDING_CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(ONBOARDING_CHANGE_EVENT, onChange);
+  };
+}
+
+function getOnboardingVisibility() {
+  return localStorage.getItem(ONBOARDED_KEY) !== "true";
+}
+
+function WelcomeBanner() {
+  const visible = useSyncExternalStore(subscribeToOnboarding, getOnboardingVisibility, () => false);
 
   function dismiss() {
-    localStorage.setItem("solext_onboarded", "true");
-    setVisible(false);
+    localStorage.setItem(ONBOARDED_KEY, "true");
+    window.dispatchEvent(new Event(ONBOARDING_CHANGE_EVENT));
   }
 
   if (!visible) return null;

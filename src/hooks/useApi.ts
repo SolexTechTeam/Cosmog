@@ -53,3 +53,17 @@ export const queryKeys = {
   reassignCandidates: (itemId: string) => ["reassign-candidates", itemId] as const,
   margin: (soId: string) => ["margin", soId] as const,
 };
+
+export async function invalidatePurchaseOrderInventoryEffects(invalidate: ReturnType<typeof useInvalidate>) {
+  await Promise.all([
+    invalidate([...queryKeys.purchaseOrders]),
+    invalidate([...queryKeys.saleOrders]),
+    invalidate([...queryKeys.allocationRoot]),
+    invalidate([...queryKeys.inventoryAllocationsRoot]),
+    invalidate([...queryKeys.demandPriority]),
+    invalidate([...queryKeys.stockStatus]),
+    invalidate([...queryKeys.inventorySummary]),
+    invalidate([...queryKeys.inventoryLots]),
+    invalidate([...queryKeys.ledger]),
+  ]);
+}

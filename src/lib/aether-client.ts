@@ -347,6 +347,16 @@ export class AetherClient {
     return request("/api/inventory/receive-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
+  static cancelPurchaseOrder(purchaseOrderId: string): Promise<{
+    purchase_order_id: string;
+    status: "cancelled";
+    already_cancelled: boolean;
+    lots_cancelled: number;
+    quantity_reversed: number;
+  }> {
+    return request("/api/inventory/cancel-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
+  }
+
   static getCurrentPoAllocation(purchaseOrderId: string): Promise<PoAllocationRecord[]> {
     return request(`/api/purchase-orders/${purchaseOrderId}/allocations`);
   }
