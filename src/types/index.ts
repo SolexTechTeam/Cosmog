@@ -70,6 +70,10 @@ export interface PurchaseOrder {
   shipped_date: string | null;
   expected_arrival: string | null;
   received_date: string | null;
+  tracking_reference?: string | null;
+  shipping_details: string | null;
+  shipping_cost: number;
+  tax_amount: number;
   notes: string | null;
   created_by: string | null;
   created_by_profile?: { id: string; name: string } | null;
@@ -116,9 +120,11 @@ export interface SaleOrder {
   delivered_date: string | null;
   shipping_details: string | null;
   shipping_cost: number;
+  tax_amount: number;
   amount_paid: number;
   tracking_reference: string | null;
   priority: "low" | "normal" | "high" | "urgent";
+  payment_notes: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -198,6 +204,7 @@ export interface LedgerEntry {
   id: number;
   product_id: string;
   product_name: string | null;
+  product_category: string | null;
   inventory_lot_id: string | null;
   movement_type: string;
   quantity_change: number;
@@ -205,9 +212,19 @@ export interface LedgerEntry {
   unit_price: number | null;
   reference_type: string | null;
   reference_id: string | null;
+  reference_number: string | null;
+  reference_order_id: string | null;
+  reference_order_type: "purchase_order" | "sale_order" | null;
   performed_by: string | null;
+  performed_by_name: string | null;
   notes: string | null;
   created_at: string;
+}
+
+export interface LedgerPage {
+  items: LedgerEntry[];
+  next_cursor: string | null;
+  page_size: number;
 }
 
 export interface LookupValue {
@@ -250,6 +267,40 @@ export interface AllocationResponse {
   priority_points: number;
   channel: "warehouse" | "direct_to_customer";
   items: AllocationItemBreakdown[];
+}
+
+export interface ReassignCandidate {
+  from_sale_order_item_id: string;
+  sale_order_id: string;
+  so_number: string;
+  inventory_lot_id: string;
+  lot_status: "on_hand" | "incoming";
+  allocated_quantity: number;
+  maximum_transferable: number;
+}
+
+export interface ReassignCandidatesResponse {
+  target_sale_order_item_id: string;
+  quantity_needed: number;
+  quantity_allocated: number;
+  quantity_remaining: number;
+  candidates: ReassignCandidate[];
+}
+
+export interface InventoryAllocationRecord {
+  allocation_id: string;
+  quantity_allocated: number;
+  created_at: string;
+  inventory_lot_id: string;
+  lot_status: string | null;
+  purchase_order_id: string | null;
+  po_number: string | null;
+  sale_order_item_id: string | null;
+  quantity_ordered: number | null;
+  sale_order_id: string | null;
+  so_number: string | null;
+  so_status: string | null;
+  customer_name: string | null;
 }
 
 export interface SuggestedAllocationItem {
@@ -394,9 +445,26 @@ export interface PoCurrentAllocationItem {
   allocations: PoCurrentAllocationLot[];
 }
 
-export interface PoApplyAllocationRequest {
-  releases: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
-  allocation_so_ids: string[];
+export type PoApplyAllocationRequest =
+  | { allocations: { sale_order_id: string; sale_order_item_id: string; quantity: number }[] }
+  | {
+      releases: { sale_order_item_id: string; inventory_lot_id: string; quantity: number }[];
+      allocation_so_ids: string[];
+    };
+
+export interface ExactPoApplyAllocationResponse {
+  allocations: {
+    sale_order_id: string;
+    sale_order_item_id: string;
+    product_id: string;
+    quantity_allocated: number;
+    remaining_shortfall: number;
+  }[];
+}
+
+export interface LegacyPoApplyAllocationResponse {
+  releases: unknown[];
+  allocations: { sale_order_id: string; items?: AllocationItemBreakdown[]; error?: string }[];
 }
 
 export interface PoCurrentAllocationOrder {

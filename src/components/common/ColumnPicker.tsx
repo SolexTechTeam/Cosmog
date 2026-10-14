@@ -25,12 +25,12 @@ export default function ColumnPicker({ columns, hiddenColumns, onToggle }: Colum
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="h-8 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 bg-background transition-colors whitespace-nowrap"
+        className="h-8 text-xs text-muted-foreground hover:text-foreground border border-border rounded-md px-2.5 bg-white transition-colors whitespace-nowrap"
       >
         Columns ({visibleCount}/{columns.length})
       </button>
       {open && (
-        <div className="absolute top-11 right-0 z-50 bg-card border border-border rounded-lg shadow-lg p-3 min-w-[180px] max-h-[300px] overflow-y-auto">
+        <div className="absolute top-11 right-0 z-50 bg-white border border-border rounded-lg shadow-lg p-3 min-w-[180px] max-h-[300px] overflow-y-auto">
           {columns.map((col) => (
             <label
               key={col.key}

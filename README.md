@@ -61,6 +61,10 @@ src/
 - **Screen-specific sections** live next to their `page.tsx`. If reused across screens, they move to `components/common/`.
 - **Server components by default** — only add `"use client"` when the component needs interactivity.
 
+### UI workflows
+
+- [Legacy dialog redesign playbook](docs/legacy-dialog-redesign.md) — process for turning dense dialogs into clear, componentized flows while preserving data and lifecycle behavior.
+
 ## Pages
 
 | Route | What it does |

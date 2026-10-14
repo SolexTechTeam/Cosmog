@@ -8,10 +8,11 @@ import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
 import SidebarCard from "@/components/common/orders/SidebarCard";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/components/ui/toast";
-import { Pencil } from "lucide-react";
+import { CircleDollarSign, ClipboardList, PackageCheck, Pencil, Truck } from "lucide-react";
 import type { PurchaseOrder, Supplier } from "@/types";
 
 interface SupplierDetailProps {
@@ -19,7 +20,7 @@ interface SupplierDetailProps {
 }
 
 const inputClass =
-  "h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
+  "h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
 
 export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
   const { toast } = useToast();
@@ -207,11 +208,11 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
       </div>
 
       {/* Metric cards */}
-      <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        <MetricCard label="Total POs" value={orders.length} />
-        <MetricCard label="Active POs" value={activeOrders.length} accent="primary" />
-        <MetricCard label="Received" value={receivedOrders.length} accent="success" />
-        <MetricCard label="Total Spend" value={fmt(totalCost)} />
+      <MetricCardRow>
+        <MetricCard density="dashboard" autoSizeValue icon={<ClipboardList size={18} />} iconClassName="text-primary" label="Total POs" value={orders.length} />
+        <MetricCard density="dashboard" autoSizeValue icon={<Truck size={18} />} iconClassName="text-primary" label="Active POs" value={activeOrders.length} />
+        <MetricCard density="dashboard" autoSizeValue icon={<PackageCheck size={18} />} iconClassName="text-emerald-600" label="Received" value={receivedOrders.length} />
+        <MetricCard density="dashboard" autoSizeValue icon={<CircleDollarSign size={18} />} label="Total Spend" value={fmt(totalCost)} />
       </MetricCardRow>
 
       {/* Charcoal divider */}
@@ -221,17 +222,54 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {/* Main content */}
         <div className="flex flex-col gap-4">
-          {/* Account section card */}
-          <section className="rounded-lg border border-border bg-muted px-5 py-4">
+          {/* Purchase Orders section */}
+          <section className="rounded-lg border border-border bg-card px-5 py-4">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
-              Account
+              Purchase Orders
             </h2>
+            <div className="overflow-x-auto rounded-md border border-border">
+              <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[600px] text-left text-sm">
+                <thead className="bg-muted text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-xs font-medium">PO #</th>
+                    <th className="px-3 py-2 text-xs font-medium">Date</th>
+                    <th className="px-3 py-2 text-xs font-medium">Status</th>
+                    <th className="px-3 py-2 text-xs font-medium">Type</th>
+                    <th className="px-3 py-2 text-xs font-medium text-right">Items</th>
+                    <th className="px-3 py-2 text-xs font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {orders.map((order) => (
+                      <tr key={order.id} className="hover:bg-muted/50">
+                        <td className="px-3 py-2">
+                          <Link href={`/orders/procurement/${order.id}`} className="font-medium text-primary hover:underline">{order.po_number}</Link>
+                        </td>
+                        <td className="px-3 py-2">{order.order_date}</td>
+                        <td className="px-3 py-2"><StatusBadge status={order.status} /></td>
+                        <td className="px-3 py-2 capitalize">{order.fulfillment_type.replace(/_/g, " ")}</td>
+                        <td className="px-3 py-2 text-right">{(order.items ?? []).length}</td>
+                        <td className="px-3 py-2 text-right">{fmt(order.order_total)}</td>
+                      </tr>
+                    ))}
+                  {orders.length === 0 && (
+                    <tr><td colSpan={6} className="px-3 py-5 text-center text-muted-foreground">No purchase orders</td></tr>
+                  )}
+                </tbody>
+              </table></PaginatedTable>
+            </div>
+          </section>
+        </div>
+
+        {/* Supplier details sidebar */}
+        <div className="flex flex-col gap-3">
+          <SidebarCard title="Account details">
             <dl className="space-y-3 text-sm">
               {/* Name - inline editable */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1.5">
                 <dt className="text-xs text-muted-foreground">Name</dt>
                 {editingName ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-stretch gap-2">
                     <input
                       value={nameValue}
                       onChange={(e) => setNameValue(e.target.value)}
@@ -259,7 +297,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <dd className="font-medium">{s.name}</dd>
                     <button
                       type="button"
@@ -273,10 +311,10 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
               </div>
 
               {/* Default Lead Days - inline editable */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1.5">
                 <dt className="text-xs text-muted-foreground">Default Lead Days</dt>
                 {editingLeadDays ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-stretch gap-2">
                     <input
                       type="number"
                       min="1"
@@ -307,7 +345,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <dd className="font-medium">{s.default_lead_days} day{s.default_lead_days !== 1 ? "s" : ""}</dd>
                     <button
                       type="button"
@@ -321,10 +359,10 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
               </div>
 
               {/* Email - inline editable */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1.5">
                 <dt className="text-xs text-muted-foreground">Email</dt>
                 {editingEmail ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-stretch gap-2">
                     <input
                       type="email"
                       value={emailValue}
@@ -353,7 +391,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <dd className="font-medium">{contactEmail || "—"}</dd>
                     <button
                       type="button"
@@ -367,10 +405,10 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
               </div>
 
               {/* Phone - inline editable */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1.5">
                 <dt className="text-xs text-muted-foreground">Phone</dt>
                 {editingPhone ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-stretch gap-2">
                     <input
                       value={phoneValue}
                       onChange={(e) => setPhoneValue(e.target.value)}
@@ -398,7 +436,7 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
                     <dd className="font-medium">{contactPhone || "—"}</dd>
                     <button
                       type="button"
@@ -411,71 +449,13 @@ export default function SupplierDetail({ supplierId }: SupplierDetailProps) {
                 )}
               </div>
             </dl>
-          </section>
-
-          {/* Purchase Orders section */}
-          <section className="rounded-lg border border-border bg-card px-5 py-4">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
-              Purchase Orders
-            </h2>
-            <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full min-w-[600px] text-left text-sm">
-                <thead className="bg-muted text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-xs font-medium">PO #</th>
-                    <th className="px-3 py-2 text-xs font-medium">Date</th>
-                    <th className="px-3 py-2 text-xs font-medium">Status</th>
-                    <th className="px-3 py-2 text-xs font-medium">Type</th>
-                    <th className="px-3 py-2 text-xs font-medium text-right">Items</th>
-                    <th className="px-3 py-2 text-xs font-medium text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {orders.map((order) => (
-                      <tr key={order.id} className="hover:bg-muted/50">
-                        <td className="px-3 py-2">
-                          <Link href={`/orders/procurement/${order.id}`} className="font-medium text-primary hover:underline">{order.po_number}</Link>
-                        </td>
-                        <td className="px-3 py-2">{order.order_date}</td>
-                        <td className="px-3 py-2"><StatusBadge status={order.status} /></td>
-                        <td className="px-3 py-2 capitalize">{order.fulfillment_type.replace(/_/g, " ")}</td>
-                        <td className="px-3 py-2 text-right">{(order.items ?? []).length}</td>
-                        <td className="px-3 py-2 text-right">{fmt(order.order_total)}</td>
-                      </tr>
-                    ))}
-                  {orders.length === 0 && (
-                    <tr><td colSpan={6} className="px-3 py-5 text-center text-muted-foreground">No purchase orders</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        </div>
-
-        {/* Sidebar */}
-        <div className="flex flex-col gap-3">
-          <SidebarCard title="Details">
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground">Lead Time</dt>
-                <dd className="mt-0.5 font-medium">{s.default_lead_days} day{s.default_lead_days !== 1 ? "s" : ""}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Created</dt>
-                <dd className="mt-0.5 font-medium">{new Date(s.created_at).toLocaleDateString()}</dd>
-              </div>
-            </dl>
           </SidebarCard>
 
-          <SidebarCard title="Contact">
+          <SidebarCard title="Created">
             <dl className="space-y-2 text-sm">
               <div>
-                <dt className="text-xs text-muted-foreground">Email</dt>
-                <dd className="mt-0.5 font-medium">{contactEmail || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Phone</dt>
-                <dd className="mt-0.5 font-medium">{contactPhone || "—"}</dd>
+                <dt className="text-xs text-muted-foreground">Supplier since</dt>
+                <dd className="mt-0.5 font-medium">{new Date(s.created_at).toLocaleDateString()}</dd>
               </div>
             </dl>
           </SidebarCard>

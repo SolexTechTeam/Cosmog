@@ -1,4 +1,5 @@
 import Link from "next/link";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import type { InventoryLot, PurchaseOrder } from "@/types";
 
 interface InventoryLotsTableProps {
@@ -16,7 +17,7 @@ export default function InventoryLotsTable({ error, lots, poMap }: InventoryLots
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-[640px] text-left text-sm">
+      <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[640px] text-left text-sm">
         <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
           <tr>
             <th className="px-3 py-2 font-medium">PO #</th>
@@ -50,7 +51,7 @@ export default function InventoryLotsTable({ error, lots, poMap }: InventoryLots
             </tr>
           )}
         </tbody>
-      </table>
+      </table></PaginatedTable>
     </div>
   );
 }

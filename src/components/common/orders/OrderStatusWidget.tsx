@@ -22,8 +22,9 @@ interface OrderStatusWidgetProps {
   options: OrderStatusOption[];
   onUpdate: (status: string) => Promise<void>;
   isComplete?: boolean;
-  completionLabel?: string;
   skipConfirm?: boolean;
+  transitionDescriptionOverrides?: Record<string, string>;
+  confirmConfigOverrides?: Partial<Record<string, { title: string; description: string; confirmLabel: string; variant: "destructive" | "primary" }>>;
 }
 
 const statusColors: Record<string, string> = {
@@ -70,8 +71,9 @@ export default function OrderStatusWidget({
   options,
   onUpdate,
   isComplete = false,
-  completionLabel = "completed",
   skipConfirm = false,
+  transitionDescriptionOverrides,
+  confirmConfigOverrides,
 }: OrderStatusWidgetProps) {
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
@@ -126,7 +128,7 @@ export default function OrderStatusWidget({
 
   const currentLabel = options.find((o) => o.value === status)?.label ?? status;
   const btnColors = statusColors[status] ?? "bg-gray-100 text-gray-700 border-gray-200";
-  const dialogConfig = pendingStatus ? confirmConfig[pendingStatus] : null;
+  const dialogConfig = pendingStatus ? confirmConfigOverrides?.[pendingStatus] ?? confirmConfig[pendingStatus] : null;
 
   return (
     <div ref={ref} className="relative">
@@ -145,7 +147,7 @@ export default function OrderStatusWidget({
           {options
             .filter((o) => o.value !== status)
             .map((option) => {
-              const description = transitionDescriptions[option.value];
+              const description = transitionDescriptionOverrides?.[option.value] ?? transitionDescriptions[option.value];
               return (
                 <button
                   key={option.value}

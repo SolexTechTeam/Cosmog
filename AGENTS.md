@@ -1,9 +1,157 @@
-<!-- BEGIN:nextjs-agent-rules -->
+@AGENTS.md
 
-# This is NOT the Next.js you know
+# Cosmog — Project Instructions
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+## Workflow
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+### Implementation workflow
+Before implementing significant work:
+1. **Plan** — create a plan and align with the user on approach
+2. **Survey** — run `/improve` to generate a prioritized implementation plan for the work
+3. **Implement** — execute the plan, one task at a time
 
-<!-- END:nextjs-agent-rules -->
+### API work
+When any task involves API connectivity, endpoints, request/response shapes, or building/modifying AetherClient methods:
+1. **Check endpoint docs** — read the relevant file in `../Aether/docs/api/` (e.g., `sale-orders.md`, `inventory.md`, `ENDPOINTS.md`)
+2. **Check schemas** — read the corresponding schema in `../Aether/src/schemas/` to understand request validation and response shapes
+3. **Check the route** — if behavior is unclear, read `../Aether/src/routes/` for the actual handler logic
+
+Do not guess at endpoint paths, query params, or response shapes — Aether is the source of truth.
+
+### Pre-PR checklist
+Before creating any PR, run both of these in order:
+1. `/simplify` — review for reuse, simplification, and efficiency cleanups
+2. `/code-review` — review for standards compliance and spec correctness
+
+Do not skip these steps. Fix anything they surface before opening the PR.
+
+---
+
+## Purchase Order Status Flow
+
+PO statuses follow a strict linear progression: **draft → confirmed → in transit → received**
+
+Each transition has distinct behavior — do NOT conflate them:
+
+### draft → confirmed
+- Creates inventory lots via `confirmPurchaseOrder` (incoming lots, qty_on_hand = 0). Incoming inventory is incremented at this step.
+- Shows an **Allocation Preview dialog**: fetches suggested allocations from BE (`poReallocateResources`), lets the user edit quantities or accept, then allocates
+- This is the ONLY transition that creates lots and shows the allocation preview
+
+### confirmed → in transit
+- Just a status update. No special logic, no dialog, no inventory changes.
+
+### in transit → received
+- Receives the PO via `receivePurchaseOrder` (lots become on_hand)
+- Shows a **Receive Results dialog**: displays what was re-allocated on receive (read-only review, not editable)
+- This is a completely different dialog from the confirm allocation preview
+
+**The confirm allocation dialog and the receive results dialog are two entirely separate flows.** Never treat them as the same thing or route them through the same code path.
+
+---
+
+## Coding Style & Architecture
+
+### Component hierarchy (SLAP — Single Level of Abstraction Principle)
+Frontend code follows a strict top-down decomposition. Each level should only talk to the level directly below it:
+
+1. **Layout** — shared structural UI (navbars, sidebars, page shells). Lives in Next.js route group `layout.tsx` files and `src/components/layout/`.
+2. **Screen** — the full page a user sees. This is the `page.tsx` file in the route. Screens compose screen-sections; they do not contain raw markup or business logic.
+3. **Screen-section** — a major visual block of a screen (e.g., `HomeInventorySummary`, `OrderStatusPanel`). These are groups of widgets/components that form a logical section.
+4. **Widget / Component** — the smallest reusable pieces (cards, tables, badges, form fields).
+
+### File organization
+```
+src/
+  components/
+    ui/            # primitives (button, input, dialog) — fully reusable
+    common/        # shared composite components (DataGrid, MetricCard, SearchFilterBar)
+    layout/        # structural layout components (SideNav, TopNavBar)
+  app/
+    (screen)/
+      orders/
+        sales/
+          page.tsx                # SalesScreen — the screen
+          SalesOverviewCards.tsx   # screen-section, colocated
+          SalesTable.tsx          # screen-section, colocated
+        procurement/
+          page.tsx
+          ProcurementOverviewCards.tsx
+          ProcurementTable.tsx
+```
+
+**Rule:** Reusable components live in `src/components/`. Screen-specific sections and groupings are **colocated** next to the `page.tsx` that uses them. If a screen-section is used by more than one screen, promote it to `src/components/common/`.
+
+### Naming conventions
+- Screens: component name matches the route purpose — e.g., the `page.tsx` at `/orders/sales` exports a component like `SalesScreen`
+- Screen-sections: descriptive of what they show — `InventorySummaryCards`, `OrderStatusPanel`
+- Widgets: descriptive + suffix hinting at type — `MetricCard`, `StatusBadge`, `SearchFilterBar`
+
+### API architecture — AetherClient
+**All** API communication goes through a single class: **`AetherClient`** (`src/lib/aether-client.ts`). This is a hard rule, not a suggestion.
+
+- **No `fetch`, `api.get`, `api.post`, or raw HTTP calls in any page, screen, component, or hook.** If you need data from the backend, add or call a method on AetherClient.
+- UI components call AetherClient methods: `AetherClient.getOrders()`, `AetherClient.createSaleOrder(data)`, etc.
+- AetherClient handles auth headers, base URL, error normalization internally
+- Every backend endpoint gets a corresponding typed method on AetherClient — this is the single source of truth for "what endpoints exist and how to call them"
+- Hooks wrap AetherClient methods, not raw fetch calls
+- When adding a new API connection: add the method to AetherClient first, then call it from the component
+
+### Data fetching — TanStack Query
+All client-side data fetching uses **TanStack Query** via the `useApi` wrapper hook (`src/hooks/useApi.ts`). Do not use raw `useEffect` + `useState` for API calls.
+
+**Reading data:**
+```tsx
+import { useApi, queryKeys } from "@/hooks/useApi";
+import { AetherClient } from "@/lib/aether-client";
+
+const { data, loading, error, refetch } = useApi<SaleOrder[]>(
+  [...queryKeys.saleOrders],
+  () => AetherClient.getSaleOrders()
+);
+```
+
+- First argument is the **query key** — an array that uniquely identifies the data. Use `queryKeys` from `useApi.ts`.
+- Second argument is the **fetcher** — an AetherClient method call.
+- Optional third argument is TanStack Query options (e.g., `{ enabled: false }` to skip fetching).
+
+**Query keys** are defined in `src/hooks/useApi.ts` as `queryKeys`. When adding a new endpoint, add its key there. Use spread (`[...queryKeys.x]`) to create fresh arrays. For parameterized queries, append the param: `["sale-orders", id]`.
+
+**Invalidating after mutations:**
+```tsx
+import { useInvalidate } from "@/hooks/useApi";
+
+const invalidate = useInvalidate();
+await AetherClient.updateSaleOrder(id, changes);
+invalidate([...queryKeys.saleOrders]); // refetches all sale-order queries
+```
+
+**Rules:**
+- Never call `AetherClient.get*` outside of `useApi` or `useQuery` in components
+- Use `enabled: false` (not a skip flag) to conditionally prevent fetching
+- Use `queryKeys` constants — never hardcode key strings
+- Multiple components using the same query key share one network request (deduplication)
+- `staleTime` is 30s by default — data is served from cache for 30s before refetching
+- Lookups use `useLookup` hook which is already TanStack Query-based
+
+### Next.js practices
+- Follow Next.js best practices for the installed version. Before writing Next.js code, check `node_modules/next/dist/docs/` for current API guidance.
+- Use route groups for shared layouts (e.g., `(screen)` group for authenticated pages with nav)
+- Keep `page.tsx` files thin — they import and compose screen-sections, they don't contain implementation
+- Use server components by default; add `"use client"` only when the component needs interactivity or browser APIs
+
+### Performance — avoid unnecessary re-fetches and re-renders
+TanStack Query handles request deduplication, caching, and Strict Mode safety. Follow these rules for the rest:
+
+- **Use `useApi` / `useQuery` for all reads.** Never raw `useEffect` + `fetch`. TanStack Query deduplicates, caches, and manages stale data automatically.
+- **Invalidate after mutations.** Call `invalidate([...queryKeys.x])` after a successful create/update/delete to refetch affected queries.
+- **Push state down.** Keep state in the lowest component that needs it. A search input's text belongs in the search bar, not the screen.
+- **Memoize expensive derived data.** If you're filtering, sorting, or transforming a large list on every render, wrap it in `useMemo` with the correct dependency array.
+- **Stable callbacks.** Functions passed as props should be wrapped in `useCallback` to prevent child re-renders.
+
+### General style
+- Componentize aggressively — if a block of JSX has a clear name, extract it
+- Prefer composition over props-sprawl; a component with 10+ props probably needs to be split
+- TypeScript strict mode; define shared types in `src/types/`
+- No inline styles — use Tailwind classes or CSS modules
+- Keep functions short and at a single level of abstraction (SLAP)

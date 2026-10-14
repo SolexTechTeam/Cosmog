@@ -12,3 +12,13 @@ export function formatCustomerAddress(address?: CustomerAddress | null): string 
     .map((part) => part.trim())
     .join("\n");
 }
+
+export function cleanCustomerAddress(address: CustomerAddress): CustomerAddress | undefined {
+  const cleaned = Object.fromEntries(
+    Object.entries(address)
+      .map(([key, value]) => [key, value?.trim()])
+      .filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ) as CustomerAddress;
+
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}

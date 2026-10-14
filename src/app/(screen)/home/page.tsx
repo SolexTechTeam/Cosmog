@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
@@ -8,26 +8,37 @@ import InventorySummaryWidget from "./InventorySummaryWidget";
 import OrderMetricsWidget from "./OrderMetricsWidget";
 import NotesWidget from "./NotesWidget";
 import SalesTable from "@/components/common/orders/SalesTable";
-import { X } from "lucide-react";
+import { ClipboardList, X } from "lucide-react";
 import type { SaleOrder, PurchaseOrder } from "@/types";
 
-function WelcomeBanner() {
-  const [visible, setVisible] = useState(false);
+const ONBOARDED_KEY = "solext_onboarded";
+const ONBOARDING_CHANGE_EVENT = "solext-onboarding-change";
 
-  useEffect(() => {
-    const dismissed = localStorage.getItem("solext_onboarded");
-    if (!dismissed) setVisible(true);
-  }, []);
+function subscribeToOnboarding(onChange: () => void) {
+  window.addEventListener("storage", onChange);
+  window.addEventListener(ONBOARDING_CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener("storage", onChange);
+    window.removeEventListener(ONBOARDING_CHANGE_EVENT, onChange);
+  };
+}
+
+function getOnboardingVisibility() {
+  return localStorage.getItem(ONBOARDED_KEY) !== "true";
+}
+
+function WelcomeBanner() {
+  const visible = useSyncExternalStore(subscribeToOnboarding, getOnboardingVisibility, () => false);
 
   function dismiss() {
-    localStorage.setItem("solext_onboarded", "true");
-    setVisible(false);
+    localStorage.setItem(ONBOARDED_KEY, "true");
+    window.dispatchEvent(new Event(ONBOARDING_CHANGE_EVENT));
   }
 
   if (!visible) return null;
 
   return (
-    <div className="relative rounded-lg border border-primary/20 bg-primary/5 px-5 py-4">
+    <div className="relative rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
       <button
         type="button"
         onClick={dismiss}
@@ -56,29 +67,42 @@ function WelcomeBanner() {
 export default function HomeScreen() {
   const { data: saleOrders, loading, error } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { data: purchaseOrders, loading: poLoading } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
+  const [selectedProductId, setSelectedProductId] = useState("");
 
   return (
     <>
       <div className="flex items-baseline justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Dashboard</h1>
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Dashboard</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">Inventory and order overview</p>
         </div>
       </div>
 
       <WelcomeBanner />
 
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-5">
-          <InventorySummaryWidget />
-          <OrderMetricsWidget orders={saleOrders ?? []} purchaseOrders={purchaseOrders ?? []} loading={loading} poLoading={poLoading} error={error} />
+      <section className="relative grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="xl:col-start-1 xl:row-start-1">
+          <InventorySummaryWidget
+            selectedProductId={selectedProductId}
+            onSelectedProductIdChange={setSelectedProductId}
+            purchaseOrders={purchaseOrders ?? []}
+            poLoading={poLoading}
+          />
         </div>
-        <NotesWidget />
+        <div className="xl:col-start-1 xl:row-start-2">
+          <OrderMetricsWidget orders={saleOrders ?? []} selectedProductId={selectedProductId} loading={loading} error={error} />
+        </div>
+        <aside className="min-h-0 xl:absolute xl:inset-y-0 xl:right-0 xl:w-80">
+          <NotesWidget />
+        </aside>
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Active Sale Orders</h2>
-        <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact pageSize={10} hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
+        <h2 className="mb-2 flex items-center gap-2 text-l font-semibold tracking-wider text-black">
+          <ClipboardList aria-hidden="true" className="size-4 text-primary" />
+          Active Sale Orders
+        </h2>
+        <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
       </section>
     </>
   );
