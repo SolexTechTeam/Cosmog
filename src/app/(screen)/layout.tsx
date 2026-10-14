@@ -9,10 +9,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <QueryProvider>
       <AntdProvider>
         <ToastProvider>
-          <div className="flex h-screen">
+          <div className="flex h-screen min-w-[320px]">
             <SideNav />
-            <main className="flex-1 overflow-y-auto px-6 py-5 bg-background lg:px-8">
-              <div className="flex flex-col gap-5">
+            <main className="min-w-0 flex-1 overflow-y-auto bg-background px-4 py-5 sm:px-6 lg:px-8">
+              <div className="flex min-w-0 flex-col gap-5">
                 <PageBreadcrumb />
                 {children}
               </div>

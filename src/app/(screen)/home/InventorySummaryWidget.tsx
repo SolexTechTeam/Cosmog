@@ -11,11 +11,11 @@ import { Select } from "@/components/ui/select";
 import { CircleCheck, PackageCheck, Truck, Warehouse } from "lucide-react";
 import type { PurchaseOrder, StockStatus } from "@/types";
 
-const metricHeightClass = "!h-[5rem]";
-const dashboardMetricClass = `${metricHeightClass} w-[var(--metric-card-width)] shrink-0`;
-const onHandMetricClass = `${metricHeightClass} w-[calc(var(--metric-card-width)_*_1.5_+1.5rem)] shrink-0`;
-const incomingMetricClass = `${metricHeightClass} w-[calc(var(--metric-card-width)_*_2.15_+_1.5rem)] shrink-0`;
-const inventoryMetricRowClass = `${metricHeightClass} flex flex-wrap gap-3 [--metric-card-width:calc((102%_-_4rem)_/_6)]`;
+const metricHeightClass = "!h-auto min-h-[5.5rem] min-w-0";
+const dashboardMetricClass = `${metricHeightClass} sm:col-span-2 xl:col-span-2`;
+const onHandMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-3`;
+const incomingMetricClass = `col-span-2 ${metricHeightClass} xl:col-span-5`;
+const inventoryMetricRowClass = "grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-12";
 
 interface InventorySummaryWidgetProps {
   selectedProductId: string;
@@ -58,7 +58,7 @@ export default function InventorySummaryWidget({
 
   return (
     <section className="space-y-2">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
         <h2 className="flex items-center gap-2 font-heading text-L font-semibold tracking-wider">
           <Warehouse aria-hidden="true" className="size-4 text-primary" />
           Warehouse Inventory Overview
@@ -76,7 +76,7 @@ export default function InventorySummaryWidget({
         </Select>
       </div>
       <div className={inventoryMetricRowClass}>
-        <Card className={onHandMetricClass} bodyClassName="!p-0 grid grid-cols-[minmax(0,2.25fr)_minmax(0,3fr)]">
+        <Card className={onHandMetricClass} bodyClassName="grid min-w-0 grid-cols-2 !p-0">
           <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="On-Hand" labelClassName="!text-[12px]" loading={loading} value={onHand.toLocaleString()} />
           <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="OH Value" labelClassName="!text-[12px]" loading={loading} value={fmt(value)} />
         </Card>

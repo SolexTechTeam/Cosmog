@@ -10,10 +10,10 @@ import { Select } from "@/components/ui/select";
 import { CircleDollarSign, ClipboardList, PackageSearch, ShoppingCart, WalletCards } from "lucide-react";
 import type { Profile, SaleOrder, StockStatus } from "@/types";
 
-const metricHeightClass = "!h-[6rem]";
-const dashboardMetricClass = `${metricHeightClass} w-[var(--metric-card-width)] shrink-0`;
-const procurementMetricClass = `${metricHeightClass} w-[calc(var(--metric-card-width)_*_1.5_+_0.75rem)] shrink-0`;
-const orderMetricRowClass = "flex flex-wrap gap-3 [--metric-card-width:16.75%]";
+const metricHeightClass = "!h-auto min-h-[6rem] min-w-0";
+const dashboardMetricClass = metricHeightClass;
+const procurementMetricClass = `col-span-2 ${metricHeightClass} sm:col-span-3 xl:col-span-2`;
+const orderMetricRowClass = "grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6";
 interface OrderMetricsWidgetProps {
   orders: SaleOrder[];
   selectedProductId: string;
@@ -64,7 +64,7 @@ export default function OrderMetricsWidget({ orders, selectedProductId, loading,
 
   return (
     <section className="space-y-2">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 sm:gap-4">
         <h2 className="flex items-center gap-2 font-heading text-l font-semibold tracking-wider">
           <ShoppingCart aria-hidden="true" className="size-4 text-primary" />
           Order Metrics

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -76,6 +76,14 @@ export default function SideNav() {
   const [collapsed, setCollapsed] = useState(false);
   const { data: profile } = useApi<Profile>([...queryKeys.myProfile], () => AetherClient.getMyProfile());
 
+  useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 639px)");
+    const updateCollapsed = () => setCollapsed(mobile.matches);
+    updateCollapsed();
+    mobile.addEventListener("change", updateCollapsed);
+    return () => mobile.removeEventListener("change", updateCollapsed);
+  }, []);
+
   async function handleSignOut() {
     const supabase = getSupabaseBrowser();
     await supabase.auth.signOut();
@@ -89,7 +97,7 @@ export default function SideNav() {
     <aside
       className={`${
         collapsed ? "w-16" : "w-56"
-      } relative bg-sidebar flex flex-col transition-all duration-200`}
+      } relative shrink-0 bg-sidebar flex flex-col transition-all duration-200`}
     >
       <button
         onClick={() => setCollapsed(!collapsed)}

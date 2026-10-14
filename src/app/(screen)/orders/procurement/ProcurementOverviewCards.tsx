@@ -27,14 +27,12 @@ export default function ProcurementOverviewCards({ orders, loading, error }: Pro
   const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <MetricCardRow className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-7">
+    <MetricCardRow className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
       <MetricCard autoSizeValue icon={<FileText size={18} />} label="Draft" loading={loading} value={draft} />
       <MetricCard autoSizeValue icon={<FileText size={18} />} label="Confirmed" loading={loading} value={confirmed} />
       <MetricCard autoSizeValue icon={<Truck size={18} />} iconClassName="text-primary" label="In-Transit" loading={loading} value={inTransit} />
       <MetricCard autoSizeValue icon={<ShoppingCart size={18} />} iconClassName="text-primary" label="Direct Delivery POs" loading={loading} value={directToConsumer} />
-      <MetricCard autoSizeValue icon={<PackageCheck size={18} />} iconClassName="text-emerald-600" label="Received" loading={loading} value={received} />
-      <MetricCard autoSizeValue icon={<Ban size={18} />} iconClassName="text-muted-foreground" label="Cancelled" loading={loading} value={cancelled} />
-      <MetricCard autoSizeValue icon={<CircleDollarSign size={18} />} label="Non-cancelled PO Value" loading={loading} value={fmt(nonCancelledPoValue)} />
+      <MetricCard autoSizeValue icon={<CircleDollarSign size={18} />} label="Total PO Value" loading={loading} value={fmt(nonCancelledPoValue)} />
     </MetricCardRow>
   );
 }

@@ -13,13 +13,14 @@ interface SalesOverviewCardsProps {
 
 export default function SalesOverviewCards({ orders, loading, error }: SalesOverviewCardsProps) {
   const openCount = orders.filter((o) => o.status === "open").length;
-  const totalCount = orders.length;
+  const nonCancelledOrders = orders.filter((o) => o.status !== "cancelled");
+  const totalCount = nonCancelledOrders.length;
 
   const openValue = orders
     .filter((o) => o.status === "open")
     .reduce((sum, o) => sum + o.order_total, 0);
 
-  const totalValue = orders.reduce((sum, o) => sum + o.order_total, 0);
+  const totalValue = nonCancelledOrders.reduce((sum, o) => sum + o.order_total, 0);
 
   if (error) {
     return <p className="text-sm text-destructive">Failed to load sales data: {error}</p>;

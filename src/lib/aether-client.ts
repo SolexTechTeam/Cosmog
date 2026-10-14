@@ -38,7 +38,7 @@ import type {
   DashboardNote,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://aether-jbtk.onrender.com";
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await getSupabaseBrowser().auth.getSession();

@@ -5,19 +5,19 @@ import { cn } from "@/lib/utils";
 type MetricAccent = "default" | "primary" | "success" | "warning" | "danger";
 type MetricDensity = "dashboard" | "page";
 
-function valueSizeClass(value: string | number, density: MetricDensity) {
+function valueFontSize(value: string | number, density: MetricDensity) {
   const length = String(value).length;
   if (density === "dashboard") {
-    if (length >= 13) return "!text-[12px]";
-    if (length >= 10) return "!text-[14px]";
-    if (length >= 8) return "!text-[16px]";
-    return "!text-[18px]";
+    if (length >= 13) return 12;
+    if (length >= 10) return 14;
+    if (length >= 8) return 16;
+    return 18;
   }
 
-  if (length >= 13) return "!text-base";
-  if (length >= 10) return "!text-lg";
-  if (length >= 8) return "!text-xl";
-  return "!text-2xl";
+  if (length >= 13) return 16;
+  if (length >= 10) return 18;
+  if (length >= 8) return 20;
+  return 24;
 }
 
 interface MetricCardProps {
@@ -62,8 +62,8 @@ export default function MetricCard({
 
   return (
     <Card
-      bodyClassName={cn(flat ? "!px-3 !py-2.5" : "!p-4")}
-      className={cn("h-full", minHeightClass, flat && "!bg-transparent", className)}
+      bodyClassName={cn("min-w-0", flat ? "!px-3 !py-2.5" : "!p-4")}
+      className={cn("h-full min-w-0", minHeightClass, flat && "!bg-transparent", className)}
       variant={flat ? "borderless" : "outlined"}
     >
       {children ? (
@@ -77,10 +77,16 @@ export default function MetricCard({
       ) : (
         <Statistic
           classNames={{
-            content: "!text-xl !font-bold !leading-6 !text-foreground",
+            content: "!min-w-0 !max-w-full !text-xl !font-bold !leading-6 !text-foreground",
             title: cn("!mb-1 !text-xs !font-medium !uppercase !tracking-wider !text-muted-foreground", labelClassName),
-            value: cn("!font-metric !font-semibold !tabular-nums [font-stretch:semi-expanded]", autoSizeValue && valueSizeClass(value, density), valueClassName),
+            value: cn("!max-w-full !font-metric !font-semibold !tabular-nums [font-stretch:semi-expanded]", valueClassName),
             suffix: "!font-sans !text-lg !font-normal !text-muted-foreground",
+          }}
+          styles={{
+            content: { minWidth: 0, maxWidth: "100%" },
+            value: autoSizeValue
+              ? { fontSize: valueFontSize(value, density), lineHeight: 1.25, whiteSpace: "normal", overflowWrap: "anywhere" }
+              : undefined,
           }}
           loading={loading}
           suffix={valueSuffix}

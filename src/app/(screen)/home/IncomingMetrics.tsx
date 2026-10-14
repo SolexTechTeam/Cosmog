@@ -50,7 +50,7 @@ export default function IncomingMetrics({ units, purchaseOrders, value, loading,
   }, [units, purchaseOrders, value, loading, poLoading]);
 
   return (
-    <div ref={rowRef} className="mt-2 flex flex-wrap items-baseline justify-between gap-3 overflow-x-auto text-left text-[18px] data-[size=16]:text-[16px] data-[size=14]:text-[14px] data-[size=12]:text-[12px]">
+    <div ref={rowRef} className="mt-2 flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-left text-[18px] data-[size=16]:text-[16px] data-[size=14]:text-[14px] data-[size=12]:text-[12px]">
       {[
         { value: units, suffix: "Units", loading },
         { value: purchaseOrders, suffix: "PO's", loading: poLoading },
