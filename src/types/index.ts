@@ -354,6 +354,32 @@ export interface PoReallocateResponse {
   shortfall_orders: PoReallocateShortfallOrder[];
 }
 
+export interface ShortfallOrderItem {
+  sale_order_item_id: string;
+  product_id: string;
+  product_name: string;
+  quantity_ordered: number;
+  qty_from_warehouse: number;
+  qty_from_incoming: number;
+  qty_shortfall: number;
+}
+
+export interface ShortfallOrder {
+  sale_order_id: string;
+  so_number: string;
+  so_status: string;
+  customer_name: string | null;
+  items: ShortfallOrderItem[];
+}
+
+export interface PoShortfallResponse {
+  po_products: {
+    product_id: string;
+    lots: { lot_id: string; available: number; lot_status: string }[];
+  }[];
+  shortfall_orders: ShortfallOrder[];
+}
+
 export interface PoAllocationPreviewItem {
   sale_order_item_id: string;
   product_id: string;
