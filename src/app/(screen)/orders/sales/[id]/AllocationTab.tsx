@@ -5,7 +5,9 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/toast";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
+import TakeAllocationPanel from "./TakeAllocationPanel";
 import type {
   AllocationResponse,
   AllocationItemBreakdown,
@@ -36,6 +38,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
   const [allocatingManual, setAllocatingManual] = useState(false);
   const [showPoolConfirm, setShowPoolConfirm] = useState(false);
   const [poolLoading, setPoolLoading] = useState(false);
+  const [takeItemId, setTakeItemId] = useState<string | null>(null);
 
   function toggleRow(itemId: string) {
     setExpandedRows((prev) => {
@@ -151,6 +154,15 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
     }
   }
 
+  function handleTakeComplete(donorSaleOrderId: string) {
+    toast("Allocation transferred from the other sales order");
+    setTakeItemId(null);
+    invalidate([...queryKeys.allocation(saleOrderId)]);
+    invalidate([...queryKeys.allocation(donorSaleOrderId)]);
+    invalidate([...queryKeys.saleOrders]);
+    invalidate([...queryKeys.reassignCandidates(takeItemId!)]);
+  }
+
   const fmt = (n: number) =>
     `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
@@ -181,7 +193,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
   }
 
   const isWarehouse = data.channel === "warehouse";
-  const canAct = status === "open" && isWarehouse;
+  const canAct = status === "open" && isWarehouse && fulfillmentType !== "direct_to_customer";
 
   return (
     <section className="flex flex-col gap-4">
@@ -211,7 +223,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
       {/* Table */}
       <div className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[200px]">
         <div className="flex-1 overflow-x-auto">
-          <table className="w-full min-w-[480px] text-left text-sm">
+          <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[480px] text-left text-sm">
             <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
               <tr>
                 {isWarehouse && <th className="w-8 px-2 py-2" />}
@@ -226,6 +238,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
                   <th className="px-4 py-2 text-right font-medium">Covered by POs</th>
                 )}
                 <th className="px-4 py-2 text-right font-medium">Shortfall</th>
+                {canAct && <th className="px-4 py-2 text-right font-medium">Action</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -240,21 +253,34 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
                     isExpanded={isExpanded}
                     hasLots={!!hasLots}
                     onToggle={() => toggleRow(item.sale_order_item_id)}
+                    canTake={canAct && item.qty_shortfall > 0}
+                    onTake={() => setTakeItemId(item.sale_order_item_id)}
+                    showActions={canAct}
                     fmt={fmt}
                   />
                 );
               })}
               {data.items.length === 0 && (
                 <tr>
-                  <td colSpan={isWarehouse ? 6 : 4} className="px-4 py-6 text-center text-muted-foreground">
+                  <td colSpan={isWarehouse ? (canAct ? 7 : 6) : 4} className="px-4 py-6 text-center text-muted-foreground">
                     No allocation items
                   </td>
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></PaginatedTable>
         </div>
       </div>
+
+      {canAct && takeItemId && data.items.some((item) => item.sale_order_item_id === takeItemId && item.qty_shortfall > 0) && (
+        <TakeAllocationPanel
+          key={takeItemId}
+          targetItemId={takeItemId}
+          productName={data.items.find((item) => item.sale_order_item_id === takeItemId)!.product_name}
+          onComplete={handleTakeComplete}
+          onClose={() => setTakeItemId(null)}
+        />
+      )}
 
       {/* Action buttons */}
       {canAct && (
@@ -292,7 +318,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
             Allocation Preview
           </h3>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] text-left text-sm">
+            <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[400px] text-left text-sm">
               <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2 font-medium">Product</th>
@@ -331,7 +357,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></PaginatedTable>
           </div>
           <div className="mt-3 flex gap-2">
             <button
@@ -374,7 +400,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
                     <span className="text-xs text-muted-foreground">{selected} selected / {remaining} remaining</span>
                   </div>
                   {lots.length ? (
-                    <table className="w-full min-w-[480px] text-xs">
+                    <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[480px] text-xs">
                       <thead className="bg-muted text-muted-foreground"><tr><th className="px-3 py-2 text-left font-medium">Lot</th><th className="px-3 py-2 text-left font-medium">Status</th><th className="px-3 py-2 text-right font-medium">Available</th><th className="px-3 py-2 text-right font-medium">Unit Cost</th><th className="px-3 py-2 text-right font-medium">Allocate</th></tr></thead>
                       <tbody className="divide-y divide-border">
                         {lots.map((lot) => {
@@ -382,7 +408,7 @@ export default function AllocationTab({ saleOrderId, fulfillmentType, status }: 
                           return <tr key={lot.lot_id}><td className="px-3 py-2 font-mono text-muted-foreground">{lot.lot_id.slice(0, 8)}</td><td className="px-3 py-2"><StatusBadge status={lot.lot_status} /></td><td className="px-3 py-2 text-right tabular-nums">{lot.available_quantity}</td><td className="px-3 py-2 text-right tabular-nums">{fmt(lot.unit_cost)}</td><td className="px-3 py-2 text-right"><input type="number" min="0" max={lot.available_quantity} step="1" value={manualQuantities[key] ?? ""} onChange={(e) => setManualQuantities((current) => ({ ...current, [key]: e.target.value }))} className="h-8 w-20 rounded-md border border-input bg-background px-2 text-right tabular-nums outline-none focus:ring-1 focus:ring-ring" aria-label={`Allocate from lot ${lot.lot_id}`} /></td></tr>;
                         })}
                       </tbody>
-                    </table>
+                    </table></PaginatedTable>
                   ) : <p className="px-3 py-4 text-xs text-muted-foreground">No available lots for this product.</p>}
                 </div>
               );
@@ -420,6 +446,9 @@ function AllocationRow({
   isExpanded,
   hasLots,
   onToggle,
+  canTake,
+  onTake,
+  showActions,
   fmt,
 }: {
   item: AllocationItemBreakdown;
@@ -427,9 +456,12 @@ function AllocationRow({
   isExpanded: boolean;
   hasLots: boolean;
   onToggle: () => void;
+  canTake: boolean;
+  onTake: () => void;
+  showActions: boolean;
   fmt: (n: number) => string;
 }) {
-  const colSpan = isWarehouse ? 6 : 4;
+  const colSpan = isWarehouse ? (showActions ? 7 : 6) : 4;
 
   return (
     <>
@@ -461,11 +493,14 @@ function AllocationRow({
         <td className={`px-4 py-2.5 text-right tabular-nums font-medium ${item.qty_shortfall > 0 ? "text-destructive" : ""}`}>
           {item.qty_shortfall}
         </td>
+        {showActions && <td className="px-4 py-2.5 text-right">
+          {canTake && <button type="button" onClick={onTake} className="whitespace-nowrap text-xs font-semibold text-primary hover:underline">Take from another SO</button>}
+        </td>}
       </tr>
       {isWarehouse && isExpanded && hasLots && (
         <tr>
           <td colSpan={colSpan} className="bg-muted/30 px-4 py-2">
-            <table className="w-full text-xs">
+            <PaginatedTable className="border-0 rounded-none"><table className="w-full text-xs">
               <thead>
                 <tr className="text-muted-foreground">
                   <th className="px-2 py-1 text-left font-medium">Lot ID</th>
@@ -484,7 +519,7 @@ function AllocationRow({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></PaginatedTable>
           </td>
         </tr>
       )}

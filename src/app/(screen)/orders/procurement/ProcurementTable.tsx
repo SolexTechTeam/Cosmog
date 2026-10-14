@@ -516,12 +516,13 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
                   <td className="px-3 py-2 text-foreground">
                     {isEditing ? (
                       <Select
+                        searchable
                         value={draft.product_id}
                         onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
                         className="h-9 min-w-44 rounded-md border border-input bg-background px-2 outline-none focus:ring-2 focus:ring-ring"
                       >
                         {products.map((product) => (
-                          <option key={product.id} value={product.id}>{product.name}</option>
+                          <option key={product.id} value={product.id}>{product.name} ({product.category})</option>
                         ))}
                       </Select>
                     ) : item.product?.name ?? "—"}
@@ -602,12 +603,13 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
           <label className="block text-sm font-medium text-foreground">
             Product
             <Select
+              searchable
               value={draft.product_id}
               onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
               className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring"
             >
               {products.map((product) => (
-                <option key={product.id} value={product.id}>{product.name} · {product.category}</option>
+                <option key={product.id} value={product.id}>{product.name} ({product.category})</option>
               ))}
             </Select>
           </label>

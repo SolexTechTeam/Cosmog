@@ -13,6 +13,7 @@ import type {
   StockStatus,
   DemandPriority,
   InventoryLot,
+  InventoryAllocationRecord,
   LedgerEntry,
   LookupValue,
   AllocationResponse,
@@ -22,12 +23,15 @@ import type {
   AllocateResponse,
   ReallocateResponse,
   ReassignResponse,
+  ReassignCandidatesResponse,
   TransformInventoryResponse,
   ReallocatePoolResponse,
   PoAllocationRecord,
   PoReallocateResponse,
   PoAllocationPreviewResponse,
   PoApplyAllocationRequest,
+  ExactPoApplyAllocationResponse,
+  LegacyPoApplyAllocationResponse,
   MarginResponse,
   PricingConfig,
   DashboardNote,
@@ -39,7 +43,6 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await getSupabaseBrowser().auth.getSession();
   const token = data.session?.access_token;
   return {
-    "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 }
@@ -48,7 +51,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
-    headers: { ...headers, ...options?.headers },
+    headers: {
+      ...(options?.body != null ? { "Content-Type": "application/json" } : {}),
+      ...headers,
+      ...options?.headers,
+    },
   });
 
   if (!res.ok) {
@@ -179,6 +186,7 @@ export class AetherClient {
     category: string;
     sku?: string;
     image_url?: string;
+    low_stock_threshold?: number;
   }): Promise<Product> {
     return request("/api/products", { method: "POST", body: JSON.stringify(data) });
   }
@@ -204,6 +212,9 @@ export class AetherClient {
     fulfillment_type?: string;
     notes?: string;
     source_currency?: string;
+    shipping_details?: string;
+    shipping_cost?: number;
+    tax_amount?: number;
   }): Promise<PurchaseOrder> {
     return request("/api/purchase-orders", { method: "POST", body: JSON.stringify(data) });
   }
@@ -245,7 +256,9 @@ export class AetherClient {
     owner_id?: string;
     linked_po_ids?: string[];
     shipping_cost?: number;
+    tax_amount?: number;
     shipping_details?: string;
+    payment_notes?: string;
     notes?: string;
   }): Promise<SaleOrder & { stock_warnings?: unknown[] }> {
     return request("/api/sale-orders", { method: "POST", body: JSON.stringify(data) });
@@ -287,6 +300,10 @@ export class AetherClient {
 
   static getInventoryLots(params?: { product_id?: string; status?: string }): Promise<InventoryLot[]> {
     return request(`/api/inventory/lots${buildQuery({ product_id: params?.product_id, status: params?.status })}`);
+  }
+
+  static getCurrentProductAllocations(productId: string): Promise<InventoryAllocationRecord[]> {
+    return request(`/api/inventory/allocations${buildQuery({ product_id: productId })}`);
   }
 
   static getInventorySummary(): Promise<InventorySummary[]> {
@@ -342,8 +359,8 @@ export class AetherClient {
     return request(`/api/purchase-orders/${purchaseOrderId}/preview-allocation`);
   }
 
-  static applyPoAllocation(purchaseOrderId: string, data: PoApplyAllocationRequest): Promise<any> {
-    return request(`/api/purchase-orders/${purchaseOrderId}/apply-allocation`, { method: "POST", body: JSON.stringify(data) });
+  static applyPoAllocation(purchaseOrderId: string, data: PoApplyAllocationRequest): Promise<ExactPoApplyAllocationResponse | LegacyPoApplyAllocationResponse> {
+    return request<ExactPoApplyAllocationResponse | LegacyPoApplyAllocationResponse>(`/api/purchase-orders/${purchaseOrderId}/apply-allocation`, { method: "POST", body: JSON.stringify(data) });
   }
 
   static previewAllocation(saleOrderId: string): Promise<AllocationPreviewResponse> {
@@ -374,6 +391,10 @@ export class AetherClient {
     quantity: number;
   }): Promise<ReassignResponse> {
     return request("/api/inventory/reassign", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static getReassignCandidates(toSaleOrderItemId: string): Promise<ReassignCandidatesResponse> {
+    return request(`/api/inventory/reassign/candidates${buildQuery({ to_sale_order_item_id: toSaleOrderItemId })}`);
   }
 
   static reallocatePool(): Promise<ReallocatePoolResponse> {

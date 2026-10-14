@@ -17,7 +17,7 @@ import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
 import SalesOverviewCards from "./SalesOverviewCards";
 import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
 import { useToast } from "@/components/ui/toast";
-import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import { allocationLabel } from "@/lib/utils";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -51,9 +51,6 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
   const [viewMode, setViewMode] = useState<"total" | "open">("total");
   const [isCreating, setIsCreating] = useState(false);
 
-  const today = new Date();
-  const currentMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-
   const sources = useMemo(() => {
     const set = new Set((data ?? []).map((o) => o.source).filter(Boolean) as string[]);
     return Array.from(set).sort().map((s) => ({ label: s, value: s }));
@@ -66,9 +63,13 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     const values = new Set((data ?? []).map((order) => order.order_date?.slice(0, 7)).filter(Boolean) as string[]);
     return Array.from(values).sort().reverse();
   }, [data]);
+  const monthFiltered = useMemo(() => {
+    const rows = data ?? [];
+    return monthFilter ? rows.filter((order) => order.order_date?.startsWith(monthFilter)) : rows;
+  }, [data, monthFilter]);
   const filtered = useMemo(() => {
-    let rows = data ?? [];
-    if (activeOnly) rows = rows.filter((r) => r.status === "open" || r.status === "shipped");
+    let rows = monthFiltered;
+    if (activeOnly) rows = rows.filter((r) => r.status === "open");
     if (search) {
       const q = search.toLowerCase();
       rows = rows.filter(
@@ -86,10 +87,9 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     if (procurementFilter) rows = rows.filter((r) => allocationLabel(r.allocation_status) === procurementFilter);
     if (ownerFilter === "__unassigned__") rows = rows.filter((r) => !r.owner_id);
     else if (ownerFilter) rows = rows.filter((r) => r.owner_id === ownerFilter);
-    if (monthFilter) rows = rows.filter((r) => isActiveSaleOrderStatus(r.status) || r.order_date?.startsWith(monthFilter));
-    if (viewMode === "open") rows = rows.filter((r) => isActiveSaleOrderStatus(r.status));
+    if (viewMode === "open") rows = rows.filter((r) => r.status === "open");
     return rows;
-  }, [data, activeOnly, search, statusFilter, paymentFilter, sourceFilter, orderTypeFilter, procurementFilter, ownerFilter, monthFilter, viewMode]);
+  }, [monthFiltered, activeOnly, search, statusFilter, paymentFilter, sourceFilter, orderTypeFilter, procurementFilter, ownerFilter, viewMode]);
 
   const allColumns: ColDef<SaleOrder>[] = useMemo(
     () => [
@@ -187,20 +187,14 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
     <OrderScreenLayout
       title="Sales Orders"
       subtitle="Manage customer orders and fulfillment"
-      overview={<SalesOverviewCards orders={filtered} loading={loading} error={error} />}
+      overview={<SalesOverviewCards orders={monthFiltered} loading={loading} error={error} />}
       filters={<SearchFilterBar
         searchPlaceholder="Search orders, customers..."
         searchValue={search}
         onSearchChange={setSearch}
         trailing={<>
-          <SegmentedToggle
-            ariaLabel="Sales month filter"
-            value={monthFilter === currentMonth ? "current" : monthFilter ? null : "all"}
-            onValueChange={(value) => setMonthFilter(value === "current" ? currentMonth : "")}
-            options={[{ label: "All", value: "all" }, { label: "This Month", value: "current" }]}
-          />
-          <Select value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="h-8 w-32 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30">
-            <option value="">Select month</option>
+          <Select aria-label="Filter by month" value={monthFilter} onChange={(event) => setMonthFilter(event.target.value)} className="h-8 w-40 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30">
+            <option value="">All months</option>
             {months.map((month) => <option key={month} value={month}>{new Date(`${month}-01T00:00:00`).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</option>)}
           </Select>
           <SegmentedToggle

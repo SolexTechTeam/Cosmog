@@ -24,7 +24,7 @@ export default function OrderDetailLayout({
 }: OrderDetailLayoutProps) {
   return (
     <>
-      <div className="-mx-6 bg-card px-6 pt-1">
+      <div className="-mx-6 bg-background px-6 pt-1">
         <div className="flex items-center justify-between">
           <Link href={backHref} className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors">
             <span>&larr;</span> {backLabel}

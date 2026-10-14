@@ -17,6 +17,7 @@ type SelectProps = Omit<
   children: ReactNode;
   defaultValue?: string;
   onChange?: ChangeEventHandler<HTMLSelectElement>;
+  searchable?: boolean;
   value?: string;
 };
 
@@ -48,6 +49,7 @@ export function Select({
   id,
   onChange,
   required,
+  searchable = false,
   value,
 }: SelectProps) {
   const options = getOptions(children);
@@ -70,9 +72,10 @@ export function Select({
       disabled={disabled}
       id={id}
       onChange={handleValueChange}
+      optionFilterProp="label"
       options={options}
       listHeight={256}
-      showSearch={false}
+      showSearch={searchable}
       size={getSize(className)}
       value={value}
     />

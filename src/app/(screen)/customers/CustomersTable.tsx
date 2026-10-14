@@ -8,15 +8,26 @@ import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
-import MetricCard from "@/components/common/MetricCard";
-import MetricCardRow from "@/components/common/MetricCardRow";
+import DirectoryPageHeader from "@/components/common/DirectoryPageHeader";
+import CustomerAddressFields from "@/components/common/CustomerAddressFields";
 import ErrorBlock from "@/components/ui/error-block";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
-import type { Customer } from "@/types";
+import { cleanCustomerAddress } from "@/lib/customer-address";
+import { Building2, Star, UserRound, UsersRound } from "lucide-react";
+import type { Customer, CustomerAddress } from "@/types";
 import type { ColDef } from "ag-grid-community";
+
+const emptyAddress: CustomerAddress = {
+  line1: "",
+  line2: "",
+  city: "",
+  state: "",
+  postcode: "",
+  country: "",
+};
 
 export default function CustomersTable() {
   const { data, loading, error, refetch } = useApi<Customer[]>([...queryKeys.customers], () => AetherClient.getCustomers());
@@ -26,7 +37,7 @@ export default function CustomersTable() {
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
-  const [newCustomer, setNewCustomer] = useState({ name: "", handle: "", email: "", customer_type: "b2b", payment_terms: "" });
+  const [newCustomer, setNewCustomer] = useState({ name: "", handle: "", email: "", customer_type: "b2b", address: emptyAddress });
 
   const customers = useMemo(() => data ?? [], [data]);
   const b2bCount = customers.filter((c) => c.customer_type === "b2b").length;
@@ -66,7 +77,6 @@ export default function CustomersTable() {
         minWidth: 100,
         valueFormatter: (p) => (p.value ?? "").toUpperCase(),
       },
-      { field: "payment_terms", headerName: "Payment Terms", minWidth: 130 },
       {
         field: "created_at",
         headerName: "Created",
@@ -93,10 +103,10 @@ export default function CustomersTable() {
         handle: newCustomer.handle.trim() || "",
         email: newCustomer.email.trim() || "",
         customer_type: newCustomer.customer_type,
-        payment_terms: newCustomer.payment_terms.trim() || "",
         contact_info: {},
+        address: cleanCustomerAddress(newCustomer.address),
       });
-      setNewCustomer({ name: "", handle: "", email: "", customer_type: "b2b", payment_terms: "" });
+      setNewCustomer({ name: "", handle: "", email: "", customer_type: "b2b", address: emptyAddress });
       setShowCreate(false);
       toast("Customer created");
       refetch();
@@ -113,22 +123,28 @@ export default function CustomersTable() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Customers</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">Manage your customer accounts</p>
-        </div>
-        <div className="min-w-0 flex-1 lg:max-w-3xl">
-          <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            <MetricCard label="Total" loading={loading} value={customers.length} />
-            <MetricCard label="B2B" loading={loading} value={b2bCount} accent="primary" />
-            <MetricCard label="B2C" loading={loading} value={b2cCount} />
-            {specialCount > 0 && <MetricCard label="Special" loading={loading} value={specialCount} accent="warning" />}
-          </MetricCardRow>
-        </div>
-      </div>
+      <DirectoryPageHeader
+        title="Customers"
+        description="Customer accounts, contact details, and sales history."
+        loading={loading}
+        summary={[
+          { label: "Customers", value: customers.length, icon: <UsersRound size={18} /> },
+          { label: "B2B", value: b2bCount, icon: <Building2 size={18} /> },
+          { label: "B2C", value: b2cCount, icon: <UserRound size={18} /> },
+          { label: "Special", value: specialCount, icon: <Star size={18} /> },
+        ]}
+        actions={
+          <button
+            type="button"
+            onClick={() => { setCreateError(null); setShowCreate(true); }}
+            className="h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-auto"
+          >
+            Add customer
+          </button>
+        }
+      />
 
-      <div className="flex flex-col gap-3">
+      <section aria-label="Customer directory" className="flex min-w-0 flex-col gap-2">
         <SearchFilterBar
           searchPlaceholder="Search name, handle, email..."
           searchValue={search}
@@ -146,19 +162,12 @@ export default function CustomersTable() {
               onChange: setTypeFilter,
             },
           ]}
-          trailing={
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { setCreateError(null); setShowCreate(true); }}
-                className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
-              >
-                Add Customer
-              </button>
-              <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
-            </div>
-          }
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
+        <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+          {loading ? "Loading customer records…" : `Showing ${filtered.length} of ${customers.length} customers`}
+          {(search || typeFilter) && !loading && <button type="button" onClick={() => { setSearch(""); setTypeFilter(""); }} className="ml-2 font-medium text-primary hover:underline">Clear filters</button>}
+        </p>
         <DataGrid<Customer>
           rows={filtered}
           columns={visibleColumns}
@@ -167,17 +176,22 @@ export default function CustomersTable() {
           showDetailsMenu
           detailsPageHref={(customer) => `/customers/${customer.id}`}
         />
-      </div>
+      </section>
 
       {showCreate && (
-        <Dialog loading={creating} onClose={() => setShowCreate(false)} title="Add Customer" width={512}>
+        <Dialog loading={creating} onClose={() => setShowCreate(false)} title="Add Customer" width={640}>
           <form onSubmit={createCustomer}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1 text-sm font-medium sm:col-span-2">Name<Input required value={newCustomer.name} onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))} className="h-9 font-normal" /></label>
               <label className="grid gap-1 text-sm font-medium">Handle<Input value={newCustomer.handle} onChange={(event) => setNewCustomer((current) => ({ ...current, handle: event.target.value }))} className="h-9 font-normal" /></label>
               <label className="grid gap-1 text-sm font-medium">Type<Select value={newCustomer.customer_type} onChange={(event) => setNewCustomer((current) => ({ ...current, customer_type: event.target.value }))} className="h-9 font-normal"><option value="b2b">B2B</option><option value="b2c">B2C</option><option value="special">Special</option></Select></label>
               <label className="grid gap-1 text-sm font-medium sm:col-span-2">Email<Input type="email" value={newCustomer.email} onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))} className="h-9 font-normal" /></label>
-              <label className="grid gap-1 text-sm font-medium sm:col-span-2">Payment terms<Input value={newCustomer.payment_terms} onChange={(event) => setNewCustomer((current) => ({ ...current, payment_terms: event.target.value }))} className="h-9 font-normal" /></label>
+              <div className="border-t border-border pt-4 sm:col-span-2">
+                <CustomerAddressFields
+                  value={newCustomer.address}
+                  onChange={(address) => setNewCustomer((current) => ({ ...current, address }))}
+                />
+              </div>
             </div>
             {createError && <p className="mt-3 text-sm text-destructive">{createError}</p>}
             <div className="mt-6 flex justify-end gap-2">

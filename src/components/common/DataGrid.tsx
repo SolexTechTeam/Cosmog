@@ -9,6 +9,8 @@ import { Select } from "@/components/ui/select";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
+const PAGE_SIZE_OPTIONS = [25, 50];
+
 type EditableFieldType = "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "json";
 type DraftValue = string | boolean;
 
@@ -166,7 +168,7 @@ export default function DataGrid<T extends object>({
   columns,
   loading = false,
   onRowClick,
-  pageSize = 30,
+  pageSize = 25,
   detailsTitle = "Entry details",
   detailsRowId,
   renderRowDetails,
@@ -349,6 +351,7 @@ export default function DataGrid<T extends object>({
           domLayout="autoHeight"
           pagination
           paginationPageSize={pageSize}
+          paginationPageSizeSelector={PAGE_SIZE_OPTIONS}
           rowSelection="single"
           onRowClicked={onRowClick ? (e) => e.data && onRowClick(e.data) : undefined}
           onCellDoubleClicked={(e) => {

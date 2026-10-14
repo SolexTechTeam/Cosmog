@@ -2,6 +2,7 @@
 
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import type { MarginResponse, WarehouseMarginResponse, DtcMarginResponse } from "@/types";
 
 interface MarginTabProps {
@@ -83,7 +84,7 @@ export default function MarginTab({ saleOrderId }: MarginTabProps) {
     return (
       <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[200px]">
         <div className="flex-1 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
+          <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[640px] text-left text-sm">
             <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 font-medium">Product</th>
@@ -121,7 +122,7 @@ export default function MarginTab({ saleOrderId }: MarginTabProps) {
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></PaginatedTable>
         </div>
         {data.items.length > 0 && (
           <div className="border-t border-border bg-muted/30 px-4 py-2">

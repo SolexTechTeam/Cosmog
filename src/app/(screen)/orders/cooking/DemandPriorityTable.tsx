@@ -15,7 +15,7 @@ import MetricCardRow from "@/components/common/MetricCardRow";
 import { Tooltip } from "@/components/ui/tooltip";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import ErrorBlock from "@/components/ui/error-block";
-import { Info } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDollarSign, Info, TriangleAlert } from "lucide-react";
 import type { SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -346,32 +346,31 @@ export default function DemandPriorityTable() {
     <div className="flex flex-col gap-6">
       <MetricCardRow>
         <MetricCard
+          autoSizeValue
           label="High Attention"
           loading={loading}
           value={highCount}
-          accent="danger"
-          labelClassName="inline-flex items-center gap-1"
-        >
-          <div className="flex items-center gap-1.5">
-            <p className="mt-0.5 truncate text-xl font-bold tabular-nums text-foreground">{highCount}</p>
-            <Tooltip content="High = 4+ points. Based on payment status, EOI qty, and days open.">
-              <Info size={12} className="text-muted-foreground cursor-help" />
-            </Tooltip>
-          </div>
-        </MetricCard>
+          icon={<TriangleAlert size={18} />}
+          iconClassName="text-destructive"
+          valueSuffix={<Tooltip content="High = 4+ points. Based on payment status, EOI qty, and days open."><Info size={12} className="cursor-help text-muted-foreground" /></Tooltip>}
+        />
         <MetricCard
+          autoSizeValue
           label="Med Attention"
           loading={loading}
           value={medCount}
-          accent="warning"
+          icon={<CircleAlert size={18} />}
+          iconClassName="text-amber-600"
         />
         <MetricCard
+          autoSizeValue
           label="Low Attention"
           loading={loading}
           value={lowCount}
-          accent="success"
+          icon={<CircleCheck size={18} />}
+          iconClassName="text-emerald-600"
         />
-        <MetricCard label="Total Demand Value" loading={loading} value={`$${totalDemandValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
+        <MetricCard autoSizeValue icon={<CircleDollarSign size={18} />} label="Total Demand Value" loading={loading} value={`$${totalDemandValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
       </MetricCardRow>
       <div className="flex flex-col gap-4">
         <SearchFilterBar

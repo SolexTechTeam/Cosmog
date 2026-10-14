@@ -6,6 +6,7 @@ import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
+import { getLedgerReference } from "@/lib/ledger-reference";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -61,9 +62,9 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         <div className="grid gap-3">
           <label className="grid gap-1 text-sm font-medium">
             Product
-            <Select required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
+            <Select searchable required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
               <option value="">Select product</option>
-              {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
             </Select>
           </label>
           <label className="grid gap-1 text-sm font-medium">
@@ -110,8 +111,11 @@ export default function HistoryTable() {
         (r) =>
           r.movement_type.toLowerCase().includes(q) ||
           (r.product_name ?? "").toLowerCase().includes(q) ||
+          (r.product_category ?? "").toLowerCase().includes(q) ||
           (r.notes ?? "").toLowerCase().includes(q) ||
-          (r.reference_type ?? "").toLowerCase().includes(q)
+          (r.reference_type ?? "").toLowerCase().includes(q) ||
+          (r.reference_number ?? "").toLowerCase().includes(q) ||
+          (r.performed_by_name ?? "").toLowerCase().includes(q)
       );
     }
     if (typeFilter) rows = rows.filter((r) => r.movement_type === typeFilter);
@@ -142,6 +146,12 @@ export default function HistoryTable() {
         valueFormatter: (p) => p.value ?? "—",
       },
       {
+        field: "product_category",
+        headerName: "Category",
+        minWidth: 150,
+        valueFormatter: (p) => p.value ?? "—",
+      },
+      {
         field: "movement_type",
         headerName: "Type",
         minWidth: 130,
@@ -154,13 +164,13 @@ export default function HistoryTable() {
         valueFormatter: (p) => {
           const val = p.value ?? 0;
           const type = (p.data as LedgerEntry)?.movement_type;
-          if (type === "po_in_transit" || type === "reserved") return `(${Math.abs(val)})`;
+          if (type === "po_incoming" || type === "reserved") return `(${Math.abs(val)})`;
           return `${val > 0 ? "+" : ""}${val}`;
         },
         cellStyle: (p) => {
           const val = p.value as number;
           const type = (p.data as LedgerEntry)?.movement_type;
-          if (type === "po_in_transit" || type === "reserved") return { color: "var(--muted-foreground)", fontWeight: 500 } as const;
+          if (type === "po_incoming" || type === "reserved") return { color: "var(--muted-foreground)", fontWeight: 500 } as const;
           if (val > 0) return { color: "var(--chart-3)", fontWeight: 500 } as const;
           if (val < 0) return { color: "var(--destructive)", fontWeight: 500 } as const;
           return null;
@@ -185,31 +195,24 @@ export default function HistoryTable() {
       {
         colId: "reference",
         headerName: "Reference",
-        minWidth: 200,
-        valueGetter: (p) => p.data?.reference_type ?? "",
+        minWidth: 145,
+        valueGetter: (p) => p.data ? getLedgerReference(p.data).label : "",
         cellRenderer: (p: { data?: LedgerEntry }) => {
           const entry = p.data;
-          if (!entry?.reference_type || !entry?.reference_id) return "—";
-          const label = entry.reference_type.replace(/_/g, " ");
-          const shortId = entry.reference_id.slice(0, 8);
-          const hrefMap: Record<string, string> = {
-            sale_order: `/orders/sales/${entry.reference_id}`,
-            purchase_order: `/orders/procurement/${entry.reference_id}`,
-          };
-          const href = hrefMap[entry.reference_type];
-          return (
-            <span className="flex items-center gap-1.5">
-              <span className="text-muted-foreground text-xs">{label}</span>
-              {href ? (
-                <Link href={href} className="text-primary hover:underline text-xs" onClick={(e) => e.stopPropagation()}>
-                  {shortId}
-                </Link>
-              ) : (
-                <span className="text-xs">{shortId}</span>
-              )}
-            </span>
-          );
+          if (!entry) return "—";
+          const { label, href } = getLedgerReference(entry);
+          return href ? (
+            <Link href={href} className="text-primary hover:underline" onClick={(event) => event.stopPropagation()}>
+              {label}
+            </Link>
+          ) : <span className="text-muted-foreground">{label}</span>;
         },
+      },
+      {
+        field: "performed_by_name",
+        headerName: "Initiated By",
+        minWidth: 150,
+        valueFormatter: (p) => p.value ?? "—",
       },
       { field: "notes", headerName: "Notes", minWidth: 180 },
     ],
@@ -236,7 +239,7 @@ export default function HistoryTable() {
             key: "type",
             label: "Movement Type",
             options: [
-              { label: "Lot Created", value: "lot_created" },
+              { label: "PO Incoming", value: "po_incoming" },
               { label: "Received", value: "received" },
               { label: "Allocated", value: "reserved" },
               { label: "Released", value: "released" },

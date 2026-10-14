@@ -2,17 +2,20 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
 import { useToast } from "@/components/ui/toast";
+import { TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import StatusBadge from "@/components/common/StatusBadge";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
 import SidebarCard from "@/components/common/orders/SidebarCard";
+import PaginatedTable from "@/components/common/PaginatedTable";
+import ShippingDetailsEditor from "@/components/common/orders/ShippingDetailsEditor";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
 import AllocationTab from "./AllocationTab";
 import MarginTab from "./MarginTab";
@@ -28,6 +31,7 @@ type Tab = "items" | "allocation" | "details" | "margin" | "notes";
 
 export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const { toast } = useToast();
+  const invalidate = useInvalidate();
   const { data: orders, loading, error, refetch } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { data: profiles } = useApi<Profile[]>([...queryKeys.profiles], () => AetherClient.getProfiles());
   const { data: purchaseOrders } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
@@ -46,6 +50,12 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   const [poSearch, setPoSearch] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [showCreatePo, setShowCreatePo] = useState(false);
+  const [editingAmountPaid, setEditingAmountPaid] = useState(false);
+  const [amountPaidDraft, setAmountPaidDraft] = useState("");
+  const [editingPaymentNotes, setEditingPaymentNotes] = useState(false);
+  const [paymentNotesDraft, setPaymentNotesDraft] = useState("");
+  const [paymentSaving, setPaymentSaving] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading sales order...</p>;
   if (error) return <p className="text-sm text-destructive">Failed to load sales order: {error}</p>;
@@ -63,7 +73,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   function startEditing() {
     setEditValues({
       priority: so.priority, owner_id: so.owner_id ?? "", fulfillment_type: so.fulfillment_type,
-      payment_status: so.payment_status, shipping_cost: String(so.shipping_cost), amount_paid: String(so.amount_paid),
+      shipping_cost: String(so.shipping_cost), tax_amount: String(so.tax_amount),
       shipped_date: so.shipped_date ?? "", delivered_date: so.delivered_date ?? "",
       tracking_reference: so.tracking_reference ?? "", shipping_details: so.shipping_details ?? "", notes: so.notes ?? "",
     });
@@ -77,8 +87,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     try {
       const payload: Record<string, unknown> = {
         priority: editValues.priority, fulfillment_type: editValues.fulfillment_type,
-        payment_status: editValues.payment_status, shipping_cost: Number(editValues.shipping_cost) || 0,
-        amount_paid: Number(editValues.amount_paid) || 0,
+        shipping_cost: Number(editValues.shipping_cost) || 0, tax_amount: Number(editValues.tax_amount) || 0,
       };
       if (editValues.owner_id) payload.owner_id = editValues.owner_id;
       if (editValues.shipped_date) payload.shipped_date = editValues.shipped_date;
@@ -98,6 +107,35 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     catch (e) { setInlineError(e instanceof Error ? e.message : "Failed to save."); }
   }
 
+  async function updatePayment(changes: Record<string, unknown>) {
+    setPaymentSaving(true);
+    setPaymentError(null);
+    try {
+      await AetherClient.updateSaleOrder(so.id, changes);
+      toast("Payment details updated");
+      refetch();
+      return true;
+    } catch (e) {
+      setPaymentError(e instanceof Error ? e.message : "Failed to update payment details.");
+      return false;
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
+  async function saveAmountPaid() {
+    const amount = Number(amountPaidDraft);
+    if (!Number.isFinite(amount) || amount < 0) {
+      setPaymentError("Enter a valid amount paid.");
+      return;
+    }
+    if (await updatePayment({ amount_paid: amount })) setEditingAmountPaid(false);
+  }
+
+  async function savePaymentNotes() {
+    if (await updatePayment({ payment_notes: paymentNotesDraft.trim() })) setEditingPaymentNotes(false);
+  }
+
   async function linkPo(poId: string) {
     setInlineError(null);
     try { await AetherClient.linkPurchaseOrder(so.id, poId); toast("Purchase order linked"); refetch(); }
@@ -110,7 +148,12 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     catch (e) { setInlineError(e instanceof Error ? e.message : "Failed to unlink PO."); }
   }
 
-  const fmt = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const safeAmount = (value: number | null | undefined) => {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? amount : 0;
+  };
+  const fmt = (value: number | null | undefined) => `$${safeAmount(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fixed = (value: number | null | undefined) => safeAmount(value).toFixed(2);
 
   const tabs: { key: Tab; label: string }[] = [
     { key: "items", label: `Items (${items.length})` },
@@ -145,6 +188,20 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             else if (status === "cancelled") await AetherClient.releaseSaleOrder(saleOrder.id);
             else if (status === "returned") await AetherClient.returnSaleOrder(saleOrder.id);
             else await AetherClient.updateSaleOrder(saleOrder.id, { status });
+            if (["shipped", "cancelled", "returned"].includes(status)) {
+              await Promise.all([
+                invalidate([...queryKeys.saleOrders], "all"),
+                invalidate([...queryKeys.stockStatus], "all"),
+                invalidate([...queryKeys.inventorySummary], "all"),
+                invalidate([...queryKeys.inventoryLots], "all"),
+                invalidate([...queryKeys.ledger], "all"),
+                invalidate([...queryKeys.demandPriority], "all"),
+                invalidate([...queryKeys.allocationRoot], "all"),
+                invalidate([...queryKeys.inventoryAllocationsRoot], "all"),
+              ]);
+            } else {
+              await invalidate([...queryKeys.saleOrders]);
+            }
             toast(`${saleOrder.so_number} → ${status}`); refetch();
           }}
         />
@@ -161,7 +218,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
         {activeTab === "items" && (
           <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
             <div className="flex-1 overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
+              <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[480px] text-left text-sm">
                 <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 font-medium">Product</th>
@@ -178,23 +235,22 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                         {item.product?.category && <span className="ml-2 text-xs text-muted-foreground">{item.product.category}</span>}
                       </td>
                       <td className="px-4 py-2.5 text-right tabular-nums">{item.quantity}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">${item.unit_price.toFixed(2)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">${(item.quantity * item.unit_price).toFixed(2)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">${fixed(item.unit_price)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums font-medium">${fixed(item.quantity * item.unit_price)}</td>
                     </tr>
                   ))}
                   {items.length === 0 && <tr><td colSpan={4} className="px-4 py-6 text-center text-muted-foreground">No items</td></tr>}
                 </tbody>
-              </table>
+              </table></PaginatedTable>
             </div>
             <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Subtotal</dt><dd className="tabular-nums font-medium">${itemTotal.toFixed(2)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">GST</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">$0.00</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipping</dt><dd className="tabular-nums">${saleOrder.shipping_cost.toFixed(2)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Subtotal</dt><dd className="tabular-nums font-medium">${fixed(itemTotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">${fixed(saleOrder.tax_amount)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipping</dt><dd className="tabular-nums">${fixed(saleOrder.shipping_cost)}</dd></div>
                 <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
-                  <dd className="tabular-nums text-base font-bold text-primary">${orderTotal.toFixed(2)}</dd>
+                  <dd className="tabular-nums text-base font-bold text-primary">${fixed(orderTotal)}</dd>
                 </div>
               </dl>
             </div>
@@ -229,18 +285,11 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                     {(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Shipping", value: "shipping" }]).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </Select>
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Payment
-                  <Select value={editValues.payment_status} onChange={(e) => setEditValues((v) => ({ ...v, payment_status: e.target.value }))} className={inputClass}>
-                    <option value="not_requested">Not requested</option><option value="awaiting_payment">Awaiting payment</option>
-                    <option value="part_paid">Part paid</option><option value="paid">Paid</option>
-                    <option value="refunded">Refunded</option><option value="cancelled">Cancelled</option>
-                  </Select>
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipping cost
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipping cost (AUD)
                   <input type="number" min="0" step="0.01" value={editValues.shipping_cost} onChange={(e) => setEditValues((v) => ({ ...v, shipping_cost: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Amount paid
-                  <input type="number" min="0" step="0.01" value={editValues.amount_paid} onChange={(e) => setEditValues((v) => ({ ...v, amount_paid: e.target.value }))} className={inputClass} />
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Tax (AUD)
+                  <input type="number" min="0" step="0.01" value={editValues.tax_amount} onChange={(e) => setEditValues((v) => ({ ...v, tax_amount: e.target.value }))} className={inputClass} />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipped
                   <input type="date" value={editValues.shipped_date} onChange={(e) => setEditValues((v) => ({ ...v, shipped_date: e.target.value }))} className={inputClass} />
@@ -276,9 +325,8 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                 <div><p className="text-xs text-muted-foreground">Shipped Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.shipped_date || "—"}</p></div>
                 <div><p className="text-xs text-muted-foreground">Delivered Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.delivered_date || "—"}</p></div>
                 <div><p className="text-xs text-muted-foreground">Tracking Reference</p><p className="text-sm font-medium font-mono">{saleOrder.tracking_reference || "—"}</p></div>
-                <div><p className="text-xs text-muted-foreground">Shipping Cost</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.shipping_cost)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Amount Paid</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.amount_paid)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Balance</p><p className={`text-sm font-semibold tabular-nums ${balance > 0 ? "text-primary" : "text-emerald-600"}`}>{fmt(balance)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Shipping Cost</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.shipping_cost)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Tax</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.tax_amount)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Created</p><p className="text-sm font-medium tabular-nums">{saleOrder.created_at?.slice(0, 10)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Updated</p><p className="text-sm font-medium tabular-nums">{saleOrder.updated_at?.slice(0, 10)}</p></div>
               </div>
@@ -362,24 +410,73 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           {inlineError && <p className="mt-2 text-xs text-destructive">{inlineError}</p>}
         </SidebarCard>
         
+
         <SidebarCard title="Payment">
           <dl className="space-y-1.5 text-sm">
             <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Total</dt><dd className="font-bold tabular-nums text-primary">{fmt(orderTotal)}</dd></div>
             <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Paid</dt><dd className="font-bold tabular-nums">{fmt(saleOrder.amount_paid)}</dd></div>
-            {balance > 0 && <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Balance</dt><dd className="font-semibold tabular-nums text-primary">{fmt(balance)}</dd></div>}
+            <div className="flex justify-between items-baseline"><dt className="text-xs text-muted-foreground">Balance</dt><dd className={`font-semibold tabular-nums ${balance > 0 ? "text-primary" : "text-emerald-600"}`}>{fmt(balance)}</dd></div>
           </dl>
-          <Select
-            defaultValue={saleOrder.payment_status}
-            onChange={(e) => inlinePatch({ payment_status: e.target.value })}
-            className="mt-2 h-7 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-xs font-medium capitalize text-foreground outline-none transition hover:bg-muted focus:ring-1 focus:ring-primary/50"
-          >
-            <option value="not_requested">Not requested</option>
-            <option value="awaiting_payment">Awaiting payment</option>
-            <option value="part_paid">Part paid</option>
-            <option value="paid">Paid</option>
-            <option value="refunded">Refunded</option>
-            <option value="cancelled">Cancelled</option>
-          </Select>
+
+          <div className="mt-3 border-t border-border pt-3">
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">
+              Payment status
+              <Select
+                value={saleOrder.payment_status}
+                disabled={paymentSaving}
+                onChange={(e) => { void updatePayment({ payment_status: e.target.value }); }}
+                className="h-7 w-full cursor-pointer bg-background text-xs font-medium capitalize"
+              >
+                <option value="not_requested">Not requested</option>
+                <option value="awaiting_payment">Awaiting payment</option>
+                <option value="part_paid">Part paid</option>
+                <option value="paid">Paid</option>
+                <option value="refunded">Refunded</option>
+                <option value="cancelled">Cancelled</option>
+              </Select>
+            </label>
+          </div>
+
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Amount paid</p>
+              {!editingAmountPaid && (
+                <button type="button" onClick={() => { setAmountPaidDraft(String(safeAmount(saleOrder.amount_paid))); setEditingAmountPaid(true); setPaymentError(null); }} className="text-xs font-medium text-primary hover:underline">Update</button>
+              )}
+            </div>
+            {editingAmountPaid && (
+              <div className="mt-2 space-y-2">
+                <input type="number" min="0" step="0.01" value={amountPaidDraft} onChange={(e) => setAmountPaidDraft(e.target.value)} className={inputClass} autoFocus />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setEditingAmountPaid(false)} disabled={paymentSaving} className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+                  <button type="button" onClick={() => { void saveAmountPaid(); }} disabled={paymentSaving} className="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground disabled:opacity-50">{paymentSaving ? "Saving…" : "Save amount"}</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 border-t border-border pt-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium text-muted-foreground">Payment notes</p>
+              {!editingPaymentNotes && (
+                <button type="button" onClick={() => { setPaymentNotesDraft(saleOrder.payment_notes ?? ""); setEditingPaymentNotes(true); setPaymentError(null); }} className="text-xs font-medium text-primary hover:underline">{saleOrder.payment_notes ? "Edit note" : "Add note"}</button>
+              )}
+            </div>
+            {editingPaymentNotes ? (
+              <div className="mt-2 space-y-2">
+                <TextArea value={paymentNotesDraft} onChange={(e) => setPaymentNotesDraft(e.target.value)} rows={4} maxLength={2000} placeholder="Invoice, deposit, payment method, or follow-up details" autoFocus />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setEditingPaymentNotes(false)} disabled={paymentSaving} className="h-7 px-2 text-xs font-medium text-muted-foreground hover:text-foreground">Cancel</button>
+                  <button type="button" onClick={() => { void savePaymentNotes(); }} disabled={paymentSaving} className="h-7 rounded-md bg-primary px-2.5 text-xs font-medium text-primary-foreground disabled:opacity-50">{paymentSaving ? "Saving…" : "Save note"}</button>
+                </div>
+              </div>
+            ) : saleOrder.payment_notes ? (
+              <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-xs leading-relaxed text-foreground">{saleOrder.payment_notes}</p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">No payment notes yet.</p>
+            )}
+          </div>
+          {paymentError && <p className="mt-2 text-xs text-destructive" role="alert">{paymentError}</p>}
         </SidebarCard>
       </>}
 
@@ -389,6 +486,8 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
           onCreated={() => { setShowCreatePo(false); toast("Purchase order created"); refetch(); }}
           initialItems={items.map((i) => ({ product_id: i.product_id, quantity_ordered: String(i.quantity), unit_cost: "" }))}
           linkedSaleOrderId={saleOrder.id}
+          initialFulfillmentType={saleOrder.fulfillment_type === "direct_to_customer" ? "direct_delivery" : undefined}
+          lockFulfillmentType={saleOrder.fulfillment_type === "direct_to_customer"}
         />
       ) : undefined}
     />

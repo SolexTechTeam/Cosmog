@@ -1,6 +1,7 @@
 "use client";
 
 import StatusBadge from "@/components/common/StatusBadge";
+import PaginatedTable from "@/components/common/PaginatedTable";
 
 interface SoAllocationCardItem {
   sale_order_item_id: string;
@@ -34,7 +35,7 @@ export default function SoAllocationCard({ soNumber, soStatus, customerName, pri
         )}
         {customerName && <span className="text-xs text-muted-foreground">{customerName}</span>}
       </div>
-      <table className="w-full text-left text-sm">
+      <PaginatedTable className="border-0 rounded-none"><table className="w-full text-left text-sm">
         <thead className="border-b border-border text-xs text-muted-foreground">
           <tr>
             <th className="px-4 py-2 font-medium">Product</th>
@@ -74,7 +75,7 @@ export default function SoAllocationCard({ soNumber, soStatus, customerName, pri
             );
           })}
         </tbody>
-      </table>
+      </table></PaginatedTable>
     </div>
   );
 }

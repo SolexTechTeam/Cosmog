@@ -6,7 +6,6 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useToast } from "@/components/ui/toast";
 import StatusBadge from "@/components/common/StatusBadge";
-import SidebarCard from "@/components/common/orders/SidebarCard";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select } from "@/components/ui/select";
@@ -18,7 +17,7 @@ interface UserDetailProps {
 }
 
 const inputClass =
-  "h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
+  "h-8 w-48 max-w-[50vw] rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
 
 export default function UserDetail({ userId }: UserDetailProps) {
   const { toast } = useToast();
@@ -176,18 +175,12 @@ export default function UserDetail({ userId }: UserDetailProps) {
         </div>
       </div>
 
-      {/* Charcoal divider */}
-      <div className="h-0.5 bg-sidebar" />
-
-      {/* Two-column layout */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        {/* Main content */}
-        <div className="flex flex-col gap-4">
-          {/* Account section card */}
-          <section className="rounded-lg border border-border bg-muted px-5 py-4">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
-              Account
-            </h2>
+      <section className="max-w-3xl rounded-lg border border-border bg-card">
+        <header className="border-b border-border px-5 py-4">
+          <h2 className="text-base font-semibold text-foreground">Account access</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Profile identity, role, and sign-in status.</p>
+        </header>
+        <div className="px-5 py-4">
             <dl className="space-y-3 text-sm">
               {/* Name - inline editable */}
               <div className="flex items-center justify-between">
@@ -305,24 +298,14 @@ export default function UserDetail({ userId }: UserDetailProps) {
                   </button>
                 </div>
               </div>
-            </dl>
-          </section>
-        </div>
 
-        {/* Sidebar */}
-        <div className="flex flex-col gap-3">
-          <SidebarCard title="Details">
-            <dl className="space-y-2 text-sm">
-              <div>
+              <div className="border-t border-border pt-3">
                 <dt className="text-xs text-muted-foreground">User ID</dt>
-                <dd className="mt-0.5 font-mono text-xs text-foreground/70 break-all">
-                  {profile.id}
-                </dd>
+                <dd className="mt-1 break-all font-mono text-xs text-muted-foreground">{profile.id}</dd>
               </div>
             </dl>
-          </SidebarCard>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
