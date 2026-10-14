@@ -15,6 +15,7 @@ import type {
   InventoryLot,
   InventoryAllocationRecord,
   LedgerEntry,
+  LedgerPage,
   LookupValue,
   AllocationResponse,
   ConfirmPoResponse,
@@ -310,8 +311,8 @@ export class AetherClient {
     return request("/api/inventory/summary");
   }
 
-  static getLedger(params?: { product_id?: string; movement_type?: string; limit?: number }): Promise<LedgerEntry[]> {
-    return request(`/api/inventory/ledger${buildQuery({ product_id: params?.product_id, movement_type: params?.movement_type, limit: params?.limit })}`);
+  static getLedger(params?: { product_id?: string; movement_type?: string; date_from?: string; date_to?: string; q?: string; limit?: number; cursor?: string }): Promise<LedgerPage> {
+    return request(`/api/inventory/ledger${buildQuery({ ...params })}`);
   }
 
   static createLedgerAdjustment(data: {

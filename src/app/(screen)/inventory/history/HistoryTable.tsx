@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, type FormEvent } from "react";
+import { useState, useMemo, useEffect, type FormEvent } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
@@ -96,39 +97,51 @@ function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 export default function HistoryTable() {
-  const { data, loading, error, refetch } = useApi<LedgerEntry[]>([...queryKeys.ledger], () => AetherClient.getLedger());
+  const [pageSize, setPageSize] = useState(50);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [dateRangeError, setDateRangeError] = useState("");
   const [showAdjustment, setShowAdjustment] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+  // Ledger date filters use UTC calendar dates in the API contract.
+  const today = new Date().toISOString().slice(0, 10);
+  const fromMax = dateTo && dateTo < today ? dateTo : today;
+  const filters = { movement_type: typeFilter || undefined, date_from: dateFrom || undefined, date_to: dateTo || undefined, q: debouncedSearch || undefined, limit: pageSize };
 
-  const filtered = useMemo(() => {
-    let rows = data ?? [];
-    if (search) {
-      const q = search.toLowerCase();
-      rows = rows.filter(
-        (r) =>
-          r.movement_type.toLowerCase().includes(q) ||
-          (r.product_name ?? "").toLowerCase().includes(q) ||
-          (r.product_category ?? "").toLowerCase().includes(q) ||
-          (r.notes ?? "").toLowerCase().includes(q) ||
-          (r.reference_type ?? "").toLowerCase().includes(q) ||
-          (r.reference_number ?? "").toLowerCase().includes(q) ||
-          (r.performed_by_name ?? "").toLowerCase().includes(q)
-      );
+  function changeDateFrom(value: string) {
+    if (value && (value > today || (dateTo && value > dateTo))) {
+      setDateRangeError(value > today ? "Dates cannot be after today." : "From date must be on or before To date.");
+      return;
     }
-    if (typeFilter) rows = rows.filter((r) => r.movement_type === typeFilter);
-    if (dateFrom) {
-      const from = new Date(dateFrom);
-      rows = rows.filter((r) => new Date(r.created_at) >= from);
+    setDateRangeError("");
+    setDateFrom(value);
+  }
+
+  function changeDateTo(value: string) {
+    if (value && value > today) {
+      setDateRangeError("Dates cannot be after today.");
+      return;
     }
-    if (dateTo) {
-      const to = new Date(dateTo + "T23:59:59");
-      rows = rows.filter((r) => new Date(r.created_at) <= to);
+    if (value && dateFrom && value < dateFrom) {
+      setDateRangeError("From date must be on or before To date.");
+      return;
     }
-    return rows;
-  }, [data, search, typeFilter, dateFrom, dateTo]);
+    setDateRangeError("");
+    setDateTo(value);
+  }
+  const ledgerQuery = useInfiniteQuery({
+    queryKey: [...queryKeys.ledger, "history", filters],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => AetherClient.getLedger({ ...filters, cursor: pageParam ?? undefined }),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+  });
+  const rows = useMemo(() => ledgerQuery.data?.pages.flatMap((page) => page.items) ?? [], [ledgerQuery.data]);
 
   const allColumns: ColDef<LedgerEntry>[] = useMemo(
     () => [
@@ -229,8 +242,8 @@ export default function HistoryTable() {
     new Set(["notes"])
   );
 
-  if (error) {
-    return <ErrorBlock message={`Failed to load ledger: ${error}`} onRetry={refetch} />;
+  if (ledgerQuery.isError && rows.length === 0) {
+    return <ErrorBlock message={`Failed to load ledger: ${ledgerQuery.error.message}`} onRetry={() => void ledgerQuery.refetch()} />;
   }
 
   return (
@@ -259,15 +272,23 @@ export default function HistoryTable() {
         ]}
         trailing={
           <div className="flex items-center gap-2">
-            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="From date" />
-            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="To date" />
+            <input type="date" value={dateFrom} max={fromMax} onChange={(e) => changeDateFrom(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="From date" aria-describedby="ledger-date-range-help" />
+            <input type="date" value={dateTo} min={dateFrom || undefined} max={today} onChange={(e) => changeDateTo(e.target.value)} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30" aria-label="To date" aria-describedby="ledger-date-range-help" />
+            <select aria-label="Rows per page" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground">
+              {[25, 50, 100].map((size) => <option key={size} value={size}>{size} per page</option>)}
+            </select>
             <button type="button" onClick={() => setShowAdjustment(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Adjustment</button>
             <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
           </div>
         }
       />
-      <DataGrid<LedgerEntry> rows={filtered} columns={visibleColumns} loading={loading} pageSize={25} />
-      {showAdjustment && <AdjustmentDialog onClose={() => setShowAdjustment(false)} onCreated={refetch} />}
+      <p id="ledger-date-range-help" className="-mt-3 text-xs text-muted-foreground">Dates must be today or earlier, and From must be on or before To.{dateRangeError ? ` ${dateRangeError}` : ""}</p>
+      <DataGrid<LedgerEntry> rows={rows} columns={visibleColumns} loading={ledgerQuery.isLoading} pageSize={pageSize} />
+      {ledgerQuery.isError && rows.length > 0 && <ErrorBlock message={`Failed to load older entries: ${ledgerQuery.error.message}`} onRetry={() => void ledgerQuery.fetchNextPage()} />}
+      {ledgerQuery.hasNextPage ? (
+        <button type="button" disabled={ledgerQuery.isFetchingNextPage} onClick={() => void ledgerQuery.fetchNextPage()} className="mx-auto rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60">{ledgerQuery.isFetchingNextPage ? "Loading…" : "Load more"}</button>
+      ) : <p className="text-center text-xs text-muted-foreground">End of history · {rows.length} entries loaded</p>}
+      {showAdjustment && <AdjustmentDialog onClose={() => setShowAdjustment(false)} onCreated={() => void ledgerQuery.refetch()} />}
     </div>
   );
 }

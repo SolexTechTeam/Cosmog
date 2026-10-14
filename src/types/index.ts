@@ -221,6 +221,12 @@ export interface LedgerEntry {
   created_at: string;
 }
 
+export interface LedgerPage {
+  items: LedgerEntry[];
+  next_cursor: string | null;
+  page_size: number;
+}
+
 export interface LookupValue {
   id: string;
   category: string;

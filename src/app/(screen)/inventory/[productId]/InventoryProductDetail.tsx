@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
@@ -63,10 +64,13 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
     () => AetherClient.getPurchaseOrders(),
   );
 
-  const { data: ledger } = useApi<LedgerEntry[]>(
-    [...queryKeys.ledger],
-    () => AetherClient.getLedger(),
-  );
+  const ledgerQuery = useInfiniteQuery({
+    queryKey: [...queryKeys.ledger, "product", productId, 50],
+    initialPageParam: null as string | null,
+    queryFn: ({ pageParam }) => AetherClient.getLedger({ product_id: productId, limit: 50, cursor: pageParam ?? undefined }),
+    getNextPageParam: (lastPage) => lastPage.next_cursor ?? undefined,
+    enabled: activeTab === "history",
+  });
 
   const {
     data: currentAllocations,
@@ -95,7 +99,7 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
   const poMap = new Map<string, PurchaseOrder>();
   for (const po of purchaseOrders ?? []) poMap.set(po.id, po);
 
-  const allProductLedger = (ledger ?? []).filter((entry) => entry.product_id === productId);
+  const allProductLedger = ledgerQuery.data?.pages.flatMap((page) => page.items) ?? [];
 
   function startEditingThreshold() {
     setThresholdValue(stock?.low_stock_threshold ?? 5);
@@ -235,6 +239,12 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
           {activeTab === "history" && (
             <HistoryTab
               productLedger={allProductLedger}
+              loading={ledgerQuery.isLoading}
+              error={ledgerQuery.isError ? ledgerQuery.error.message : null}
+              hasMore={Boolean(ledgerQuery.hasNextPage)}
+              loadingMore={ledgerQuery.isFetchingNextPage}
+              onLoadMore={() => void ledgerQuery.fetchNextPage()}
+              onRetry={() => void (allProductLedger.length ? ledgerQuery.fetchNextPage() : ledgerQuery.refetch())}
             />
           )}
 
@@ -338,8 +348,20 @@ export default function InventoryProductDetail({ productId }: InventoryProductDe
 
 function HistoryTab({
   productLedger,
+  loading,
+  error,
+  hasMore,
+  loadingMore,
+  onLoadMore,
+  onRetry,
 }: {
   productLedger: LedgerEntry[];
+  loading: boolean;
+  error: string | null;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
+  onRetry: () => void;
 }) {
   return (
     <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[300px]">
@@ -386,7 +408,10 @@ function HistoryTab({
                 <td className="px-4 py-2.5">{entry.performed_by_name ?? "—"}</td>
               </tr>
             ))}
-            {productLedger.length === 0 && (
+            {loading && productLedger.length === 0 && (
+              <tr><td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">Loading history…</td></tr>
+            )}
+            {!loading && !error && productLedger.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
                   No inventory history
@@ -396,7 +421,9 @@ function HistoryTab({
           </tbody>
         </table></PaginatedTable>
       </div>
-
+      {error && <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm"><span className="text-destructive">Failed to load history: {error}</span><button type="button" onClick={onRetry} className="rounded border border-border px-3 py-1.5 hover:bg-muted">Retry</button></div>}
+      {!error && hasMore && <button type="button" disabled={loadingMore} onClick={onLoadMore} className="mx-auto my-3 rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60">{loadingMore ? "Loading…" : "Load more"}</button>}
+      {!error && !hasMore && !loading && <p className="py-3 text-center text-xs text-muted-foreground">End of history · {productLedger.length} entries loaded</p>}
     </section>
   );
 }
