@@ -8,6 +8,7 @@ import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import DirectoryPageHeader from "@/components/common/DirectoryPageHeader";
 import ErrorBlock from "@/components/ui/error-block";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,13 @@ export default function SuppliersTable() {
   const [newSupplier, setNewSupplier] = useState({ name: "", email: "", phone: "", default_lead_days: "1" });
 
   const suppliers = useMemo(() => data ?? [], [data]);
+  const suppliersWithContact = suppliers.filter((supplier) => {
+    const info = supplier.contact_info as Record<string, unknown> | undefined;
+    return Boolean(info?.email || info?.phone);
+  }).length;
+  const averageLeadDays = suppliers.length
+    ? (suppliers.reduce((sum, supplier) => sum + supplier.default_lead_days, 0) / suppliers.length).toFixed(1)
+    : null;
 
   const filtered = useMemo(() => {
     if (!search) return suppliers;
@@ -92,14 +100,29 @@ export default function SuppliersTable() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <DirectoryPageHeader
+        title="Suppliers"
+        description="Supplier contacts and default lead times for procurement."
+        loading={loading}
+        summary={[
+          { label: "suppliers", value: suppliers.length },
+          { label: "with contact details", value: suppliers.length ? `${suppliersWithContact} / ${suppliers.length}` : "—" },
+          { label: "average lead time", value: averageLeadDays ? `${averageLeadDays} days` : "—" },
+        ]}
+        actions={<button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-auto">Add supplier</button>}
+      />
+      <section aria-label="Supplier directory" className="flex min-w-0 flex-col gap-2">
         <SearchFilterBar
           searchPlaceholder="Search suppliers..."
           searchValue={search}
           onSearchChange={setSearch}
-          trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Supplier</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
+        <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+          {loading ? "Loading supplier records…" : `Showing ${filtered.length} of ${suppliers.length} suppliers`}
+          {search && !loading && <button type="button" onClick={() => setSearch("")} className="ml-2 font-medium text-primary hover:underline">Clear search</button>}
+        </p>
         <DataGrid<Supplier>
           rows={filtered}
           columns={visibleColumns}
@@ -108,7 +131,7 @@ export default function SuppliersTable() {
           showDetailsMenu
           detailsPageHref={(supplier) => `/suppliers/${supplier.id}`}
         />
-      </div>
+      </section>
       {showCreate && (
         <Dialog loading={creating} onClose={() => setShowCreate(false)} title="Add Supplier" width={512}>
           <form onSubmit={createSupplier}>

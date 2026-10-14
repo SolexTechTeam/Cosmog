@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 interface DialogProps {
   children: ReactNode;
+  compact?: boolean;
   description?: ReactNode;
   loading?: boolean;
   onClose: () => void;
@@ -12,11 +13,13 @@ interface DialogProps {
   width?: number;
 }
 
-export function Dialog({ children, description, loading = false, onClose, title, width = 768 }: DialogProps) {
+export function Dialog({ children, compact = false, description, loading = false, onClose, title, width = 768 }: DialogProps) {
+  const bodyHeight = compact ? "max-h-[calc(90dvh-180px)]" : "max-h-[calc(100dvh-200px)]";
+
   return (
     <Modal
       centered
-      classNames={{ body: "max-h-[calc(100vh-180px)] overflow-y-auto" }}
+      classNames={{ body: `${bodyHeight} overflow-y-auto px-[18px] pt-6 pb-5 sm:px-[22px]` }}
       closable={!loading}
       destroyOnHidden
       footer={null}
@@ -27,7 +30,7 @@ export function Dialog({ children, description, loading = false, onClose, title,
       title={title}
       width={width}
     >
-      {description && <p className="-mt-2 mb-5 text-sm text-muted-foreground">{description}</p>}
+      {description && <p className="mb-4 text-sm text-muted-foreground">{description}</p>}
       {children}
     </Modal>
   );

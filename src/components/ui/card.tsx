@@ -9,7 +9,7 @@ export function Card({ bodyClassName, className, ...props }: CardProps) {
   return (
     <AntCard
       {...props}
-      className={cn("!shadow-none", className)}
+      className={cn("!rounded-[24px] !border-gray-400 !shadow-none", className)}
       classNames={{ body: cn("!p-3", bodyClassName) }}
       size="small"
     />

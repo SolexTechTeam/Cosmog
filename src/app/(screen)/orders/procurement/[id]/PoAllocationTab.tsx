@@ -5,6 +5,7 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useToast } from "@/components/ui/toast";
 import { AetherClient } from "@/lib/aether-client";
 import StatusBadge from "@/components/common/StatusBadge";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import SoAllocationCard from "./SoAllocationCard";
 import type { PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
 
@@ -227,7 +228,7 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
                   )}
                 </div>
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[480px] text-left text-sm">
+                  <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[480px] text-left text-sm">
                     <thead className="border-b border-border text-xs text-muted-foreground">
                       <tr>
                         <th className="px-4 py-2 font-medium">Product</th>
@@ -244,7 +245,7 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </table></PaginatedTable>
                 </div>
               </div>
             ))}
@@ -317,7 +318,7 @@ export default function PoAllocationTab({ purchaseOrderId }: PoAllocationTabProp
               )}
 
               {previewData.shortfall_orders.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO's products.</p>
+                <p className="py-4 text-center text-sm text-muted-foreground">No orders with shortfalls for this PO&apos;s products.</p>
               ) : (
                 previewData.shortfall_orders.map((order) => (
                   <SoAllocationCard

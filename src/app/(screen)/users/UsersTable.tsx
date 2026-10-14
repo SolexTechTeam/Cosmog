@@ -8,6 +8,7 @@ import { useApi, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
+import DirectoryPageHeader from "@/components/common/DirectoryPageHeader";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
 import { Dialog } from "@/components/ui/dialog";
@@ -28,6 +29,9 @@ export default function UsersTable() {
   const [newUser, setNewUser] = useState({ name: "", email: "", password: "", role: "staff" });
 
   const users = useMemo(() => data ?? [], [data]);
+  const activeCount = users.filter((user) => user.is_active).length;
+  const inactiveCount = users.length - activeCount;
+  const adminCount = users.filter((user) => user.role === "admin").length;
 
   const filtered = useMemo(() => {
     let rows = users;
@@ -99,8 +103,20 @@ export default function UsersTable() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
+      <DirectoryPageHeader
+        title="Users"
+        description="Staff access, roles, and account status."
+        loading={loading}
+        summary={[
+          { label: "accounts", value: users.length },
+          { label: "active", value: activeCount },
+          { label: "inactive", value: inactiveCount },
+          { label: "admins", value: adminCount },
+        ]}
+        actions={<button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-auto">Add user</button>}
+      />
+      <section aria-label="User directory" className="flex min-w-0 flex-col gap-2">
         <SearchFilterBar
           searchPlaceholder="Search name, email..."
           searchValue={search}
@@ -117,8 +133,12 @@ export default function UsersTable() {
               onChange: setRoleFilter,
             },
           ]}
-          trailing={<div className="flex items-center gap-2"><button type="button" onClick={() => { setCreateError(null); setShowCreate(true); }} className="h-10 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:opacity-90">Add User</button><ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} /></div>}
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
+        <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+          {loading ? "Loading user accounts…" : `Showing ${filtered.length} of ${users.length} accounts`}
+          {(search || roleFilter) && !loading && <button type="button" onClick={() => { setSearch(""); setRoleFilter(""); }} className="ml-2 font-medium text-primary hover:underline">Clear filters</button>}
+        </p>
         <DataGrid<Profile>
           rows={filtered}
           columns={visibleColumns}
@@ -151,7 +171,7 @@ export default function UsersTable() {
             },
           }}
         />
-      </div>
+      </section>
       {showCreate && (
         <Dialog description="Admin access is required to create an account." loading={creating} onClose={() => setShowCreate(false)} title="Add User" width={512}>
           <form onSubmit={createUser}>

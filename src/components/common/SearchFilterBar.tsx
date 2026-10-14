@@ -27,20 +27,22 @@ export default function SearchFilterBar({
   trailing,
 }: SearchFilterBarProps) {
   return (
-    <div className="flex items-center gap-2 overflow-x-auto">
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
       <input
         type="text"
+        aria-label={searchPlaceholder}
         placeholder={searchPlaceholder}
         value={searchValue}
         onChange={(e) => onSearchChange(e.target.value)}
-        className="h-8 min-w-[180px] flex-1 rounded-md border border-border bg-background px-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="h-9 w-full rounded-md border border-border bg-white px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 sm:min-w-[220px] sm:flex-1"
       />
       {filters.map((filter) => (
         <Select
           key={filter.key}
           value={filter.value}
+          aria-label={filter.label}
           onChange={(e) => filter.onChange(e.target.value)}
-          className="h-8 w-32 shrink-0 rounded-md border-border pl-2.5 text-xs focus:ring-primary/30"
+          className="h-9 w-full shrink-0 rounded-md border-border pl-3 text-sm focus:ring-primary/30 sm:w-36"
         >
           <option value="">{filter.allLabel ?? filter.label}</option>
           {filter.options.map((opt) => (
@@ -50,7 +52,7 @@ export default function SearchFilterBar({
           ))}
         </Select>
       ))}
-      {trailing && <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>}
+      {trailing && <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:ml-auto sm:w-auto">{trailing}</div>}
     </div>
   );
 }

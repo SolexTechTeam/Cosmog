@@ -35,8 +35,8 @@ function InventoryStockDetails({ stock, lots, lotsError, poMap }: { stock: Stock
           <dd className="mt-1 text-sm text-foreground">{stock.qty_on_hand}</dd>
         </div>
         <div>
-          <dt className="text-sm font-medium text-muted-foreground">Available</dt>
-          <dd className="mt-1 text-sm text-foreground">{stock.qty_available}</dd>
+          <dt className="text-sm font-medium text-muted-foreground">Available (incl. incoming)</dt>
+          <dd className="mt-1 text-sm text-foreground">{stock.qty_on_hand + stock.qty_incoming - stock.qty_reserved}</dd>
         </div>
       </dl>
       <div>
@@ -119,7 +119,14 @@ export default function InventoryTable() {
       { field: "qty_on_hand", headerName: "On-Hand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_incoming", headerName: "Incoming", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       { field: "qty_reserved", headerName: "Allocated", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
-      { field: "qty_available", headerName: "Available", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
+      {
+        colId: "available",
+        headerName: "Available (incl. incoming)",
+        minWidth: 190,
+        valueGetter: (params) => (params.data?.qty_on_hand ?? 0) + (params.data?.qty_incoming ?? 0) - (params.data?.qty_reserved ?? 0),
+        cellClass: "text-center text-base font-semibold",
+        headerClass: "ag-center-header",
+      },
       { field: "qty_demand", headerName: "Demand", minWidth: 150, cellClass: "text-center text-base font-semibold", headerClass: "ag-center-header" },
       {
         field: "avg_cost",
@@ -140,14 +147,12 @@ export default function InventoryTable() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Inventory</h1>
+      <div className="space-y-3">
+        <div>
+          <h1 className="font-heading text-3xl font-bold tracking-tight text-foreground">Inventory</h1>
           <p className="mt-0.5 text-xs text-muted-foreground">Stock levels and product tracking</p>
         </div>
-        <div className="min-w-0 flex-1 lg:max-w-3xl">
-          <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
-        </div>
+        <InventoryOverviewCards items={data ?? []} loading={loading} error={error} />
       </div>
 
       <div className="flex flex-col gap-3">

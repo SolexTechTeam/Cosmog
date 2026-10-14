@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { formatCustomerAddress } from "@/lib/customer-address";
@@ -10,11 +10,12 @@ import MetricCard from "@/components/common/MetricCard";
 import MetricCardRow from "@/components/common/MetricCardRow";
 import StatusBadge from "@/components/common/StatusBadge";
 import SidebarCard from "@/components/common/orders/SidebarCard";
+import PaginatedTable from "@/components/common/PaginatedTable";
 import ErrorBlock from "@/components/ui/error-block";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select } from "@/components/ui/select";
 import { useToast } from "@/components/ui/toast";
-import { Pencil } from "lucide-react";
+import { CircleAlert, CircleDollarSign, ClipboardList, Pencil, ShoppingCart } from "lucide-react";
 import type { Customer, CustomerAddress, SaleOrder } from "@/types";
 
 interface CustomerDetailProps {
@@ -22,10 +23,11 @@ interface CustomerDetailProps {
 }
 
 const inputClass =
-  "h-8 w-48 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
+  "h-8 w-full min-w-0 rounded-md border border-border bg-background px-2 text-sm outline-none focus:ring-1 focus:ring-primary/50";
 
 export default function CustomerDetail({ customerId }: CustomerDetailProps) {
   const { toast } = useToast();
+  const invalidate = useInvalidate();
   const { data: customers, loading, error, refetch } = useApi<Customer[]>([...queryKeys.customers], () => AetherClient.getCustomers());
   const { data: saleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { options: customerTypeOptions } = useLookup("customer_type");
@@ -36,17 +38,11 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
     [saleOrders, customerId]
   );
 
-  const [editingName, setEditingName] = useState(false);
-  const [nameValue, setNameValue] = useState("");
-  const [savingName, setSavingName] = useState(false);
-
-  const [editingType, setEditingType] = useState(false);
-  const [typeValue, setTypeValue] = useState("");
-  const [savingType, setSavingType] = useState(false);
-
-  const [editingTerms, setEditingTerms] = useState(false);
-  const [termsValue, setTermsValue] = useState("");
-  const [savingTerms, setSavingTerms] = useState(false);
+  const [editingDetails, setEditingDetails] = useState(false);
+  const [detailsDraft, setDetailsDraft] = useState({
+    name: "", email: "", handle: "", customerType: "b2b", contactEmail: "", contactPhone: "", paymentTerms: "",
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesValue, setNotesValue] = useState("");
@@ -99,61 +95,45 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
 
   /* ---- inline edit handlers ---- */
 
-  function startEditingName() {
-    setNameValue(c.name);
-    setEditingName(true);
+  function startEditingDetails() {
+    setDetailsDraft({
+      name: c.name,
+      email: c.email ?? "",
+      handle: c.handle ?? "",
+      customerType: c.customer_type,
+      contactEmail,
+      contactPhone,
+      paymentTerms: c.payment_terms ?? "",
+    });
+    setEditingDetails(true);
   }
 
-  async function saveName() {
-    if (!nameValue.trim()) return;
-    setSavingName(true);
+  async function saveDetails(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!detailsDraft.name.trim()) return;
+    setSavingDetails(true);
     try {
-      await AetherClient.updateCustomer(c.id, { name: nameValue.trim() });
-      setEditingName(false);
-      toast("Name updated");
-      refetch();
+      const nextContactInfo = { ...contactInfo };
+      if (detailsDraft.contactEmail.trim()) nextContactInfo.email = detailsDraft.contactEmail.trim();
+      else delete nextContactInfo.email;
+      if (detailsDraft.contactPhone.trim()) nextContactInfo.phone = detailsDraft.contactPhone.trim();
+      else delete nextContactInfo.phone;
+
+      await AetherClient.updateCustomer(c.id, {
+        name: detailsDraft.name.trim(),
+        email: detailsDraft.email.trim(),
+        handle: detailsDraft.handle.trim(),
+        customer_type: detailsDraft.customerType as Customer["customer_type"],
+        contact_info: nextContactInfo,
+        payment_terms: detailsDraft.paymentTerms.trim(),
+      });
+      setEditingDetails(false);
+      toast("Customer details updated");
+      invalidate([...queryKeys.customers]);
     } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to update name", "error");
+      toast(e instanceof Error ? e.message : "Failed to update customer details", "error");
     } finally {
-      setSavingName(false);
-    }
-  }
-
-  function startEditingType() {
-    setTypeValue(c.customer_type);
-    setEditingType(true);
-  }
-
-  async function saveType(value: string) {
-    setSavingType(true);
-    try {
-      await AetherClient.updateCustomer(c.id, { customer_type: value as Customer["customer_type"] });
-      setEditingType(false);
-      toast("Customer type updated");
-      refetch();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to update type", "error");
-    } finally {
-      setSavingType(false);
-    }
-  }
-
-  function startEditingTerms() {
-    setTermsValue(c.payment_terms ?? "");
-    setEditingTerms(true);
-  }
-
-  async function saveTerms() {
-    setSavingTerms(true);
-    try {
-      await AetherClient.updateCustomer(c.id, { payment_terms: termsValue.trim() });
-      setEditingTerms(false);
-      toast("Payment terms updated");
-      refetch();
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Failed to update payment terms", "error");
-    } finally {
-      setSavingTerms(false);
+      setSavingDetails(false);
     }
   }
 
@@ -232,11 +212,11 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       </div>
 
       {/* Metric cards */}
-      <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        <MetricCard label="Total Orders" value={orders.length} accent="primary" />
-        <MetricCard label="Open Orders" value={openOrders.length} accent="warning" />
-        <MetricCard label="Revenue" value={fmt(totalRevenue)} accent="success" />
-        <MetricCard label="Outstanding" value={fmt(outstanding)} accent={outstanding > 0 ? "danger" : "default"} />
+      <MetricCardRow>
+        <MetricCard density="dashboard" autoSizeValue icon={<ClipboardList size={18} />} iconClassName="text-primary" label="Total Orders" value={orders.length} />
+        <MetricCard density="dashboard" autoSizeValue icon={<ShoppingCart size={18} />} iconClassName="text-primary" label="Open Orders" value={openOrders.length} />
+        <MetricCard density="dashboard" autoSizeValue icon={<CircleDollarSign size={18} />} label="Revenue" value={fmt(totalRevenue)} />
+        <MetricCard density="dashboard" autoSizeValue icon={<CircleAlert size={18} />} iconClassName={outstanding > 0 ? "text-destructive" : "text-emerald-600"} label="Outstanding" value={fmt(outstanding)} />
       </MetricCardRow>
 
       {/* Charcoal divider */}
@@ -246,169 +226,13 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
         {/* Main content */}
         <div className="flex flex-col gap-4">
-          {/* Account section card */}
-          <section className="rounded-lg border border-border bg-muted px-5 py-4">
-            <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
-              Account
-            </h2>
-            <dl className="space-y-3 text-sm">
-              {/* Name - inline editable */}
-              <div className="flex items-center justify-between">
-                <dt className="text-xs text-muted-foreground">Name</dt>
-                {editingName ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={nameValue}
-                      onChange={(e) => setNameValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveName();
-                        if (e.key === "Escape") setEditingName(false);
-                      }}
-                      className={inputClass}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={saveName}
-                      disabled={savingName}
-                      className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                    >
-                      {savingName ? "..." : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingName(false)}
-                      className="text-xs text-muted-foreground/60 hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <dd className="font-medium">{c.name}</dd>
-                    <button
-                      type="button"
-                      onClick={startEditingName}
-                      className="text-muted-foreground/40 hover:text-primary transition-colors"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Email - read only */}
-              <div className="flex items-center justify-between">
-                <dt className="text-xs text-muted-foreground">Email</dt>
-                <dd className="font-medium">{c.email ?? "—"}</dd>
-              </div>
-
-              {/* Handle - read only */}
-              <div className="flex items-center justify-between">
-                <dt className="text-xs text-muted-foreground">Handle</dt>
-                <dd className="font-medium">{c.handle ?? "—"}</dd>
-              </div>
-
-              {/* Customer Type - inline editable dropdown */}
-              <div className="flex items-center justify-between">
-                <dt className="text-xs text-muted-foreground">Type</dt>
-                {editingType ? (
-                  <div className="flex items-center gap-2">
-                    <Select
-                      value={typeValue}
-                      onChange={(e) => {
-                        setTypeValue(e.target.value);
-                        saveType(e.target.value);
-                      }}
-                      disabled={savingType}
-                      className={inputClass}
-                      autoFocus
-                    >
-                      {(customerTypeOptions.length ? customerTypeOptions : [
-                        { label: "B2B", value: "b2b" },
-                        { label: "B2C", value: "b2c" },
-                        { label: "Special", value: "special" },
-                      ]).map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </Select>
-                    <button
-                      type="button"
-                      onClick={() => setEditingType(false)}
-                      className="text-xs text-muted-foreground/60 hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <dd><StatusBadge status={c.customer_type} /></dd>
-                    <button
-                      type="button"
-                      onClick={startEditingType}
-                      className="text-muted-foreground/40 hover:text-primary transition-colors"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Payment Terms - inline editable */}
-              <div className="flex items-center justify-between">
-                <dt className="text-xs text-muted-foreground">Payment Terms</dt>
-                {editingTerms ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={termsValue}
-                      onChange={(e) => setTermsValue(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveTerms();
-                        if (e.key === "Escape") setEditingTerms(false);
-                      }}
-                      className={inputClass}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={saveTerms}
-                      disabled={savingTerms}
-                      className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                    >
-                      {savingTerms ? "..." : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingTerms(false)}
-                      className="text-xs text-muted-foreground/60 hover:text-foreground"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <dd className="font-medium">{c.payment_terms ?? "—"}</dd>
-                    <button
-                      type="button"
-                      onClick={startEditingTerms}
-                      className="text-muted-foreground/40 hover:text-primary transition-colors"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-            </dl>
-          </section>
-
           {/* Orders section */}
           <section className="rounded-lg border border-border bg-card px-5 py-4">
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-foreground/70 mb-3">
               Orders
             </h2>
             <div className="overflow-x-auto rounded-md border border-border">
-              <table className="w-full min-w-[600px] text-left text-sm">
+              <PaginatedTable className="border-0 rounded-none"><table className="w-full min-w-[600px] text-left text-sm">
                 <thead className="bg-muted text-muted-foreground">
                   <tr>
                     <th className="px-3 py-2 text-xs font-medium">SO #</th>
@@ -434,7 +258,7 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
                     <tr><td colSpan={5} className="px-3 py-5 text-center text-muted-foreground">No sales orders</td></tr>
                   )}
                 </tbody>
-              </table>
+              </table></PaginatedTable>
             </div>
           </section>
         </div>
@@ -442,33 +266,55 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
         {/* Sidebar */}
         <div className="flex flex-col gap-3">
           <SidebarCard title="Details">
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground">Type</dt>
-                <dd className="mt-0.5"><StatusBadge status={c.customer_type} /></dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Payment Terms</dt>
-                <dd className="mt-0.5 font-medium">{c.payment_terms ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Created</dt>
-                <dd className="mt-0.5 font-medium">{new Date(c.created_at).toLocaleDateString()}</dd>
-              </div>
-            </dl>
-          </SidebarCard>
-
-          <SidebarCard title="Contact">
-            <dl className="space-y-2 text-sm">
-              <div>
-                <dt className="text-xs text-muted-foreground">Email</dt>
-                <dd className="mt-0.5 font-medium">{contactEmail || c.email || "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs text-muted-foreground">Phone</dt>
-                <dd className="mt-0.5 font-medium">{contactPhone || "—"}</dd>
-              </div>
-            </dl>
+            {editingDetails ? (
+              <form onSubmit={saveDetails} className="space-y-3">
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Name
+                  <input required autoFocus value={detailsDraft.name} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, name: event.target.value }))} className={inputClass} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Account email
+                  <input type="email" value={detailsDraft.email} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, email: event.target.value }))} className={inputClass} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Handle
+                  <input value={detailsDraft.handle} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, handle: event.target.value }))} className={inputClass} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Customer type
+                  <Select value={detailsDraft.customerType} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, customerType: event.target.value }))} className={inputClass}>
+                    {(customerTypeOptions.length ? customerTypeOptions : [
+                      { label: "B2B", value: "b2b" }, { label: "B2C", value: "b2c" }, { label: "Special", value: "special" },
+                    ]).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </Select>
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Contact email
+                  <input type="email" value={detailsDraft.contactEmail} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, contactEmail: event.target.value }))} className={inputClass} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Contact phone
+                  <input value={detailsDraft.contactPhone} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, contactPhone: event.target.value }))} className={inputClass} />
+                </label>
+                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Payment terms
+                  <input value={detailsDraft.paymentTerms} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, paymentTerms: event.target.value }))} className={inputClass} />
+                </label>
+                <div className="flex items-center gap-2 pt-1">
+                  <button type="submit" disabled={savingDetails} className="rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60">{savingDetails ? "Saving…" : "Save details"}</button>
+                  <button type="button" onClick={() => setEditingDetails(false)} disabled={savingDetails} className="rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground">Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <>
+                <dl className="space-y-2.5 text-sm">
+                  <DetailRow label="Name" value={c.name} />
+                  <DetailRow label="Account email" value={c.email || "—"} />
+                  <DetailRow label="Handle" value={c.handle || "—"} />
+                  <div><dt className="text-xs text-muted-foreground">Customer type</dt><dd className="mt-0.5"><StatusBadge status={c.customer_type} /></dd></div>
+                  <DetailRow label="Contact email" value={contactEmail || "—"} />
+                  <DetailRow label="Contact phone" value={contactPhone || "—"} />
+                  <DetailRow label="Payment terms" value={c.payment_terms || "—"} />
+                  <DetailRow label="Created" value={new Date(c.created_at).toLocaleDateString()} />
+                </dl>
+                <button type="button" onClick={startEditingDetails} className="mt-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+                  <Pencil size={13} /> Edit details
+                </button>
+              </>
+            )}
           </SidebarCard>
 
           <SidebarCard title="Address">
@@ -543,6 +389,15 @@ export default function CustomerDetail({ customerId }: CustomerDetailProps) {
           </SidebarCard>
         </div>
       </div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 break-words font-medium">{value}</dd>
     </div>
   );
 }

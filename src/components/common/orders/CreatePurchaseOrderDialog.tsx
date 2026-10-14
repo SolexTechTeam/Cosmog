@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useMemo, type FormEvent } from "react";
+import { useMemo, useState } from "react";
+import { FileText } from "lucide-react";
 import { AetherClient } from "@/lib/aether-client";
 import { useApi, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
-import { CategoryComboBox } from "@/components/ui/category-combobox";
 import { Dialog } from "@/components/ui/dialog";
-import { Input, TextArea } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { OrderWizardProgress } from "./order-wizard/OrderWizardProgress";
 import CreateSaleOrderDialog from "./CreateSaleOrderDialog";
-import type { Product, PurchaseOrder, SaleOrder, Supplier } from "@/types";
-
-interface PurchaseLine {
-  product_id: string;
-  quantity_ordered: string;
-  unit_cost: string;
-}
+import {
+  ItemsAndLinksStep,
+  ReviewAndCostsStep,
+  SupplierOrderStep,
+  type PurchaseLine,
+} from "./purchase-order/PurchaseOrderWizardSteps";
+import { PurchaseOrderWizardFooter } from "./purchase-order/PurchaseOrderWizardFooter";
+import type { Product, SaleOrder, Supplier } from "@/types";
 
 interface CreatedPOInfo {
   id: string;
@@ -32,62 +32,81 @@ interface CreatePurchaseOrderDialogProps {
   lockFulfillmentType?: boolean;
 }
 
-const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
+const stepTitles = ["Supplier & order", "Sales orders & items", "Review & costs"];
 
-export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialItems, linkedSaleOrderId, initialFulfillmentType, lockFulfillmentType = false }: CreatePurchaseOrderDialogProps) {
+export default function CreatePurchaseOrderDialog({
+  onClose,
+  onCreated,
+  initialItems,
+  linkedSaleOrderId,
+  initialFulfillmentType,
+  lockFulfillmentType = false,
+}: CreatePurchaseOrderDialogProps) {
   const { data: fetchedSuppliers, refetch: refetchSuppliers } = useApi<Supplier[]>([...queryKeys.suppliers], () => AetherClient.getSuppliers());
   const { data: fetchedProducts, refetch: refetchProducts } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { data: fetchedSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { options: fulfillmentOptions } = useLookup("po_fulfillment_type");
-  const { data: fxData, error: fxError } = useApi<{ from: string; to: string; rate: number }>(
+  const { data: fxData } = useApi<{ from: string; to: string; rate: number }>(
     [...queryKeys.fxRate("SGD", "AUD")],
     () => AetherClient.getFxRate("SGD", "AUD"),
   );
-  const fxRate = fxData?.rate ?? null;
+
+  const [activeStep, setActiveStep] = useState(0);
   const [supplierId, setSupplierId] = useState("");
   const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);
   const [fulfillmentType, setFulfillmentType] = useState(initialFulfillmentType ?? "warehouse");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
+  const [shippingCost, setShippingCost] = useState("0");
+  const [taxAmount, setTaxAmount] = useState("0");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length ? initialItems : [{ product_id: "", quantity_ordered: "1", unit_cost: "" }]);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: "", email: "", phone: "", default_lead_days: "1" });
-  const [newProduct, setNewProduct] = useState({ name: "", category: "", sku: "" });
+  const [newProduct, setNewProduct] = useState({ name: "", category: "", sku: "", low_stock_threshold: "5" });
   const [creatingSupplier, setCreatingSupplier] = useState(false);
   const [creatingProduct, setCreatingProduct] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdOrder, setCreatedOrder] = useState<CreatedPOInfo | null>(null);
   const [showCreateSo, setShowCreateSo] = useState(false);
+  const [parentNotified, setParentNotified] = useState(false);
 
   const suppliers = fetchedSuppliers ?? [];
-  const products = fetchedProducts ?? [];
-  const existingCategories = useMemo(() => Array.from(new Set(products.map((p) => p.category))).sort(), [products]);
-  const saleOrders = (fetchedSaleOrders ?? []).filter((so) => (
-    (so.status === "open" || so.status === "shipped")
+  const products = useMemo(() => fetchedProducts ?? [], [fetchedProducts]);
+  const existingCategories = useMemo(() => Array.from(new Set(products.map((product) => product.category))).sort(), [products]);
+  const fxRate = fxData?.rate ?? null;
+  const saleOrders = useMemo(() => (fetchedSaleOrders ?? []).filter((saleOrder) => (
+    (saleOrder.status === "open" || saleOrder.status === "shipped")
     && (fulfillmentType === "direct_delivery"
-      ? so.fulfillment_type === "direct_to_customer"
-      : so.fulfillment_type !== "direct_to_customer")
-  ));
-  const [soSearch, setSoSearch] = useState("");
+      ? saleOrder.fulfillment_type === "direct_to_customer"
+      : saleOrder.fulfillment_type !== "direct_to_customer")
+  )), [fetchedSaleOrders, fulfillmentType]);
+  const totalPayableSgd = lines.reduce((sum, line) => sum + (Number(line.quantity_ordered) || 0) * (Number(line.unit_cost) || 0), 0)
+    + (Number(shippingCost) || 0)
+    + (Number(taxAmount) || 0);
 
   function updateLine(index: number, changes: Partial<PurchaseLine>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
   }
 
-
-
   async function addSupplier() {
     const leadDays = Number(newSupplier.default_lead_days);
     if (!newSupplier.name.trim() || !Number.isInteger(leadDays) || leadDays < 1) {
-      setError("New supplier name and a lead time of at least one day are required.");
+      setError("Enter a supplier name and a lead time of at least one day.");
       return;
     }
     try {
       setCreatingSupplier(true);
       setError(null);
-      const supplier = await AetherClient.createSupplier({ name: newSupplier.name.trim(), default_lead_days: leadDays, contact_info: { ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}), ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}) } });
+      const supplier = await AetherClient.createSupplier({
+        name: newSupplier.name.trim(),
+        default_lead_days: leadDays,
+        contact_info: {
+          ...(newSupplier.email.trim() ? { email: newSupplier.email.trim() } : {}),
+          ...(newSupplier.phone.trim() ? { phone: newSupplier.phone.trim() } : {}),
+        },
+      });
       setSupplierId(supplier.id);
       setNewSupplier({ name: "", email: "", phone: "", default_lead_days: "1" });
       setShowSupplierForm(false);
@@ -100,16 +119,22 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
   }
 
   async function addProduct() {
-    if (!newProduct.name.trim() || !newProduct.category.trim()) {
-      setError("New product name and category are required.");
+    const lowStockThreshold = Number(newProduct.low_stock_threshold);
+    if (!newProduct.name.trim() || !newProduct.category.trim() || !Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
+      setError("Enter a product name, category, and valid low stock threshold.");
       return;
     }
     try {
       setCreatingProduct(true);
       setError(null);
-      const product = await AetherClient.createProduct({ name: newProduct.name.trim(), category: newProduct.category.trim(), sku: newProduct.sku.trim() || undefined });
+      const product = await AetherClient.createProduct({
+        name: newProduct.name.trim(),
+        category: newProduct.category.trim(),
+        sku: newProduct.sku.trim() || undefined,
+        low_stock_threshold: lowStockThreshold,
+      });
       setLines((current) => current.map((line, index) => index === current.length - 1 && !line.product_id ? { ...line, product_id: product.id } : line));
-      setNewProduct({ name: "", category: "", sku: "" });
+      setNewProduct({ name: "", category: "", sku: "", low_stock_threshold: "5" });
       setShowProductForm(false);
       refetchProducts();
     } catch (caughtError) {
@@ -119,17 +144,82 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
     }
   }
 
-  async function createOrder(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const normalizedLines = lines.map((line) => ({ product_id: line.product_id, quantity_ordered: Number(line.quantity_ordered), unit_cost: Number(line.unit_cost) }));
-    if (!supplierId || !orderDate || normalizedLines.some((line) => !line.product_id || !Number.isInteger(line.quantity_ordered) || line.quantity_ordered < 1 || !Number.isFinite(line.unit_cost) || line.unit_cost < 0)) {
-      setError("Choose a supplier and complete every line item.");
+  function validateStep(step: number) {
+    if (step === 0 && (!supplierId || !orderDate)) return "Choose a supplier and order date to continue.";
+    if (step === 1) {
+      if (lines.length === 0) return "Add at least one item to the purchase order.";
+      if (lines.some((line) => (
+        !line.product_id
+        || !Number.isInteger(Number(line.quantity_ordered))
+        || Number(line.quantity_ordered) < 1
+        || !Number.isFinite(Number(line.unit_cost))
+        || Number(line.unit_cost) < 0
+        || line.unit_cost.trim() === ""
+      ))) return "Complete each item line or remove any empty rows.";
+    }
+    return null;
+  }
+
+  function continueToNextStep() {
+    const validationError = validateStep(activeStep);
+    if (validationError) {
+      setError(validationError);
       return;
     }
+    setError(null);
+    setActiveStep((step) => Math.min(step + 1, 2));
+  }
+
+  function goBack() {
+    setError(null);
+    setActiveStep((step) => Math.max(step - 1, 0));
+  }
+
+  function closeDialog() {
+    if (createdOrder && !parentNotified) onCreated();
+    onClose();
+  }
+
+  async function createOrder() {
+    if (activeStep < 2) {
+      continueToNextStep();
+      return;
+    }
+    if (createdOrder || saving) return;
+
+    const validationError = validateStep(0) ?? validateStep(1);
+    const freightCost = Number(shippingCost);
+    const tax = Number(taxAmount);
+    if (validationError || !Number.isFinite(freightCost) || freightCost < 0 || !Number.isFinite(tax) || tax < 0) {
+      setError(validationError ?? "Enter valid non-negative freight and tax amounts.");
+      return;
+    }
+
+    const normalizedLines = lines.map((line) => ({
+      product_id: line.product_id,
+      quantity_ordered: Number(line.quantity_ordered),
+      unit_cost: Number(line.unit_cost),
+    }));
+
     try {
       setSaving(true);
       setError(null);
-      const purchaseOrder = await AetherClient.createPurchaseOrder({ supplier_id: supplierId, fulfillment_type: fulfillmentType, order_date: orderDate, ...(notes.trim() ? { notes: notes.trim() } : {}), source_currency: "SGD", items: normalizedLines });
+      const purchaseOrder = await AetherClient.createPurchaseOrder({
+        supplier_id: supplierId,
+        fulfillment_type: fulfillmentType,
+        order_date: orderDate,
+        shipping_cost: freightCost,
+        tax_amount: tax,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+        source_currency: "SGD",
+        items: normalizedLines,
+      });
+
+      setCreatedOrder({
+        id: purchaseOrder.id,
+        number: purchaseOrder.po_number,
+        items: normalizedLines.map((line) => ({ product_id: line.product_id, quantity: line.quantity_ordered })),
+      });
       try {
         await Promise.all(linkedSaleOrderIds.map((saleOrderId) => (
           fulfillmentType === "direct_delivery"
@@ -137,16 +227,11 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
             : AetherClient.linkPurchaseOrder(saleOrderId, purchaseOrder.id)
         )));
       } catch (linkError) {
-        onCreated();
-        setError(`PO ${purchaseOrder.po_number} was created, but its Sales Order links could not be saved: ${linkError instanceof Error ? linkError.message : "Unknown error"}`);
+        setError(`PO ${purchaseOrder.po_number} was created, but one or more Sales Order links could not be saved. You can link them from the order details. ${linkError instanceof Error ? linkError.message : ""}`.trim());
         return;
       }
+      setParentNotified(true);
       onCreated();
-      setCreatedOrder({
-        id: purchaseOrder.id,
-        number: purchaseOrder.po_number,
-        items: normalizedLines.map((l) => ({ product_id: l.product_id, quantity: l.quantity_ordered })),
-      });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to create purchase order.");
     } finally {
@@ -157,125 +242,87 @@ export default function CreatePurchaseOrderDialog({ onClose, onCreated, initialI
   if (showCreateSo && createdOrder) {
     return (
       <CreateSaleOrderDialog
-        onClose={onClose}
+        onClose={closeDialog}
         onCreated={onCreated}
-        initialItems={createdOrder.items.map((i) => ({ product_id: i.product_id, quantity: String(i.quantity), unit_price: "" }))}
+        initialItems={createdOrder.items.map((item) => ({ product_id: item.product_id, quantity: String(item.quantity), unit_price: "" }))}
         linkedPurchaseOrderId={createdOrder.id}
       />
     );
   }
 
+  const supplierStepProps = {
+    data: {
+      supplierId, suppliers, fulfillmentType, orderDate, fulfillmentOptions, lockFulfillmentType,
+      showSupplierForm, newSupplier, creatingSupplier,
+    },
+    actions: {
+      setSupplierId, setFulfillmentType: (value: string) => { setFulfillmentType(value); setLinkedSaleOrderIds([]); },
+      setOrderDate, setShowSupplierForm, setNewSupplier, addSupplier,
+    },
+  };
+  const itemsStepProps = {
+    data: {
+      saleOrders, linkedSaleOrderIds, products, lines, newProduct, existingCategories,
+      showProductForm, creatingProduct, fxRate,
+    },
+    actions: {
+      setLinkedSaleOrderIds, setLines, updateLine, setNewProduct, setShowProductForm, addProduct,
+    },
+  };
+  const reviewStepProps = {
+    data: {
+      supplier: suppliers.find((supplier) => supplier.id === supplierId), fulfillmentType, orderDate,
+      linkedSaleOrders: saleOrders.filter((saleOrder) => linkedSaleOrderIds.includes(saleOrder.id)),
+      products, lines, shippingCost, taxAmount, notes, fxRate,
+    },
+    actions: { setShippingCost, setTaxAmount, setNotes },
+  };
+
   return (
-    <Dialog description="The PO number is assigned automatically; new orders start as drafts." loading={saving} onClose={onClose} title="New Purchase Order" width={960}>
-      <form onSubmit={createOrder}>
+    <Dialog
+      compact
+      description="The PO number is assigned automatically. New orders are saved as drafts."
+      loading={saving}
+      onClose={closeDialog}
+      title={<span className="inline-flex items-center gap-2.5"><span className="grid size-8 place-items-center rounded-md border border-primary/20 bg-primary/10"><FileText aria-hidden="true" className="size-4 text-primary" /></span><span>New Purchase Order</span></span>}
+      width={810}
+    >
+      <form className="w-full min-w-0 max-w-full overflow-x-clip px-1" style={{ zoom: 0.9, width: "100%" }} onSubmit={(event) => event.preventDefault()}>
+        <OrderWizardProgress activeStep={activeStep} titles={stepTitles} completed={Boolean(createdOrder && !error)} />
         {error && <p role="alert" className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium">Supplier<Select required value={supplierId} onChange={(event) => setSupplierId(event.target.value)} className={inputClass}><option value="">Select supplier</option>{suppliers.map((supplier) => <option key={supplier.id} value={supplier.id}>{supplier.name}</option>)}</Select></label>
-          <div className="flex items-end"><button type="button" onClick={() => setShowSupplierForm((value) => !value)} className="h-10 rounded-md border border-border px-3 text-sm font-medium hover:bg-muted">{showSupplierForm ? "Cancel new supplier" : "Add supplier"}</button></div>
-          {showSupplierForm && <div className="grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:col-span-2 sm:grid-cols-[1fr_1fr_1fr_6rem_auto]"><Input placeholder="Supplier name" value={newSupplier.name} onChange={(event) => setNewSupplier((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><Input type="email" placeholder="Email" value={newSupplier.email} onChange={(event) => setNewSupplier((current) => ({ ...current, email: event.target.value }))} className={inputClass} /><Input placeholder="Phone" value={newSupplier.phone} onChange={(event) => setNewSupplier((current) => ({ ...current, phone: event.target.value }))} className={inputClass} /><input type="number" min="1" step="1" placeholder="Lead days" value={newSupplier.default_lead_days} onChange={(event) => setNewSupplier((current) => ({ ...current, default_lead_days: event.target.value }))} className={inputClass} /><button type="button" onClick={addSupplier} disabled={creatingSupplier} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingSupplier ? "…" : "Add"}</button></div>}
-          <label className="grid gap-1 text-sm font-medium">Type<Select value={fulfillmentType} onChange={(event) => { setFulfillmentType(event.target.value); setLinkedSaleOrderIds([]); }} disabled={lockFulfillmentType} className={inputClass}>{(fulfillmentOptions.length ? fulfillmentOptions : [{ label: "Warehouse", value: "warehouse" }, { label: "Direct delivery", value: "direct_delivery" }]).map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}</Select></label>
-          <label className="grid gap-1 text-sm font-medium">Order date<input required type="date" value={orderDate} onChange={(event) => setOrderDate(event.target.value)} className={inputClass} /></label>
-          {lockFulfillmentType && <p className="text-xs text-muted-foreground sm:col-span-2">Direct-to-customer orders use direct delivery and never affect warehouse inventory.</p>}
-          <div className="flex items-end"><p className="text-xs text-muted-foreground">{fxRate ? `Costs are entered in SGD · 1 SGD = ${fxRate.toFixed(4)} AUD` : fxError ? "Costs are entered in SGD; the current rate is fetched when you save." : "Loading SGD→AUD rate…"}</p></div>
-          <fieldset className="grid gap-2 rounded-lg border border-border p-3 sm:col-span-2">
-            <legend className="px-1 text-sm font-medium">Link open sales orders</legend>
-            {linkedSaleOrderIds.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {linkedSaleOrderIds.map((id) => {
-                  const so = saleOrders.find((s) => s.id === id);
-                  return (
-                    <span key={id} className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                      {so?.so_number ?? id.slice(0, 8)}
-                      <button type="button" onClick={() => setLinkedSaleOrderIds((cur) => cur.filter((i) => i !== id))} className="ml-0.5 text-primary/60 hover:text-primary">x</button>
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-            <Input placeholder="Search sales orders..." value={soSearch} onChange={(e) => setSoSearch(e.target.value)} className={inputClass} />
-            {soSearch && (
-              <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-2">
-                {saleOrders
-                  .filter((so) => !linkedSaleOrderIds.includes(so.id) && (
-                    so.so_number.toLowerCase().includes(soSearch.toLowerCase()) ||
-                    (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase())
-                  ))
-                  .slice(0, 10)
-                  .map((so) => (
-                    <button key={so.id} type="button" onClick={() => {
-                      setLinkedSaleOrderIds((cur) => [...cur, so.id]);
-                      setSoSearch("");
-                      if (so.items?.length) {
-                        setLines((cur) => {
-                          let updated = [...cur];
-                          for (const soItem of so.items!) {
-                            const existing = updated.findIndex((l) => l.product_id === soItem.product_id);
-                            if (existing !== -1) {
-                              updated[existing] = { ...updated[existing], quantity_ordered: String(Number(updated[existing].quantity_ordered) + soItem.quantity) };
-                            } else {
-                              const blank = updated.findIndex((l) => !l.product_id);
-                              if (blank !== -1) {
-                                updated[blank] = { product_id: soItem.product_id, quantity_ordered: String(soItem.quantity), unit_cost: "" };
-                              } else {
-                                updated = [...updated, { product_id: soItem.product_id, quantity_ordered: String(soItem.quantity), unit_cost: "" }];
-                              }
-                            }
-                          }
-                          return updated;
-                        });
-                      }
-                    }} className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted">
-                      <span className="font-medium">{so.so_number}</span>
-                      <span className="text-muted-foreground">{so.customer?.name ?? "Unknown"} · {so.status}</span>
-                    </button>
-                  ))}
-                {saleOrders.filter((so) => !linkedSaleOrderIds.includes(so.id) && (so.so_number.toLowerCase().includes(soSearch.toLowerCase()) || (so.customer?.name ?? "").toLowerCase().includes(soSearch.toLowerCase()))).length === 0 && (
-                  <p className="px-2 py-1 text-xs text-muted-foreground">No matching sales orders</p>
-                )}
-              </div>
-            )}
-          </fieldset>
-        </div>
-        <div className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-semibold">Items</h3>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowProductForm((value) => !value)} className="text-sm font-medium text-primary hover:underline">Add product</button>
-              <button type="button" onClick={() => setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="text-sm font-medium text-primary hover:underline">Add line</button>
+
+        <section hidden={activeStep !== 0} aria-label="Supplier and order details" className="min-w-0">
+          <SupplierOrderStep {...supplierStepProps} />
+        </section>
+        <section hidden={activeStep !== 1} aria-label="Sales orders and items" className="min-w-0">
+          <ItemsAndLinksStep {...itemsStepProps} />
+        </section>
+        <section hidden={activeStep !== 2} aria-label="Review and costs" className="min-w-0">
+          <ReviewAndCostsStep {...reviewStepProps} />
+        </section>
+
+        {createdOrder && (
+          <div className="mt-5 rounded-lg border border-emerald-500/30 bg-emerald-50/50 p-4">
+            <p className="text-sm font-medium text-emerald-700">Purchase order {createdOrder.number} was created as a draft.</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setShowCreateSo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Sales Order</button>
+              <button type="button" onClick={closeDialog} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
             </div>
-          </div>
-          {showProductForm && <div className="mb-3 grid gap-3 rounded-lg border border-dashed border-primary/40 bg-muted/40 p-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><Input placeholder="Product name" value={newProduct.name} onChange={(event) => setNewProduct((current) => ({ ...current, name: event.target.value }))} className={inputClass} /><CategoryComboBox value={newProduct.category} onChange={(v) => setNewProduct((current) => ({ ...current, category: v }))} categories={existingCategories} className={inputClass} /><Input placeholder="SKU" value={newProduct.sku} onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))} className={inputClass} /><button type="button" onClick={addProduct} disabled={creatingProduct} className="rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60">{creatingProduct ? "…" : "Add"}</button></div>}
-          <div className="space-y-2">
-            {lines.map((line, index) => (
-              <div key={index} className="grid gap-2 sm:grid-cols-[1fr_7rem_8rem_6rem_auto]">
-                <Select value={line.product_id} onChange={(event) => updateLine(index, { product_id: event.target.value })} className={inputClass}>
-                  <option value="">Select product</option>
-                  {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
-                </Select>
-                <input type="number" min="1" step="1" value={line.quantity_ordered} onChange={(event) => updateLine(index, { quantity_ordered: event.target.value })} className={inputClass} placeholder="Qty" />
-                <input type="number" min="0" step="0.01" value={line.unit_cost} onChange={(event) => updateLine(index, { unit_cost: event.target.value })} className={inputClass} placeholder="Cost (SGD)" />
-                <span className="flex items-center text-xs text-muted-foreground">{fxRate && line.unit_cost ? `≈ $${(Number(line.unit_cost) * fxRate).toFixed(2)} AUD` : "—"}</span>
-                <button type="button" onClick={() => setLines((current) => current.length === 1 ? current : current.filter((_, lineIndex) => lineIndex !== index))} disabled={lines.length === 1} className="rounded-md px-2 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40">Remove</button>
-              </div>
-            ))}
-          </div>
-        </div>
-        <label className="mt-5 grid gap-1 text-sm font-medium">Notes<TextArea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} /></label>
-        {!createdOrder && (
-          <div className="mt-6 flex justify-end gap-2">
-            <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Close</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Creating…" : "Create Purchase Order"}</button>
           </div>
         )}
 
-        {createdOrder && (
-          <div className="mt-6 rounded-lg border border-emerald-500/30 bg-emerald-50/50 p-4">
-            <p className="text-sm font-medium text-emerald-700">Purchase order {createdOrder.number} created successfully.</p>
-            <div className="mt-3 flex gap-2">
-              <button type="button" onClick={() => setShowCreateSo(true)} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">Create linked Sales Order</button>
-              <button type="button" onClick={onClose} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-muted">Done</button>
-            </div>
-          </div>
+        {!createdOrder && (
+          <PurchaseOrderWizardFooter
+            activeStep={activeStep}
+            totalSteps={stepTitles.length}
+            saving={saving}
+          totalPayableSgd={totalPayableSgd}
+          fxRate={fxRate}
+          onBack={goBack}
+          onCancel={closeDialog}
+          onNext={continueToNextStep}
+          onSave={() => { void createOrder(); }}
+        />
         )}
       </form>
     </Dialog>

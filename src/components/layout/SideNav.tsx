@@ -183,7 +183,7 @@ export default function SideNav() {
           onClick={handleSignOut}
           title="Sign Out"
           aria-label="Sign Out"
-          className={`flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 transition-colors ${
+          className={`flex items-center gap-2 rounded-md px-1 py-1 text-xs text-sidebar-foreground hover:text-white hover:bg-sidebar-accent transition-colors ${
             collapsed ? "w-full justify-center" : ""
           }`}
         >

@@ -9,13 +9,13 @@ import { AetherClient } from "@/lib/aether-client";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
-import MetricCard from "@/components/common/MetricCard";
-import MetricCardRow from "@/components/common/MetricCardRow";
+import DirectoryPageHeader from "@/components/common/DirectoryPageHeader";
 import ErrorBlock from "@/components/ui/error-block";
 import { CategoryComboBox } from "@/components/ui/category-combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/toast";
+import { Archive, Boxes, CircleCheck, Tags } from "lucide-react";
 import type { Product } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -28,9 +28,9 @@ export default function ProductsTable() {
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [newProduct, setNewProduct] = useState({ name: "", category: "", sku: "", image_url: "" });
+  const [newProduct, setNewProduct] = useState({ name: "", category: "", sku: "", image_url: "", low_stock_threshold: "5" });
 
-  const products = data ?? [];
+  const products = useMemo(() => data ?? [], [data]);
   const activeCount = products.filter((p) => p.is_active).length;
   const inactiveCount = products.filter((p) => !p.is_active).length;
 
@@ -95,9 +95,14 @@ export default function ProductsTable() {
     event.preventDefault();
     const name = newProduct.name.trim();
     const category = newProduct.category.trim();
+    const lowStockThreshold = Number(newProduct.low_stock_threshold);
 
     if (!name || !category) {
       setAddError("Product name and category are required.");
+      return;
+    }
+    if (!Number.isInteger(lowStockThreshold) || lowStockThreshold < 0) {
+      setAddError("Low stock threshold must be a whole number of zero or more.");
       return;
     }
 
@@ -109,8 +114,9 @@ export default function ProductsTable() {
         category,
         sku: newProduct.sku.trim() || undefined,
         image_url: newProduct.image_url.trim() || undefined,
+        low_stock_threshold: lowStockThreshold,
       });
-      setNewProduct({ name: "", category: "", sku: "", image_url: "" });
+      setNewProduct({ name: "", category: "", sku: "", image_url: "", low_stock_threshold: "5" });
       setIsAdding(false);
       toast("Product created");
       refetch();
@@ -127,22 +133,24 @@ export default function ProductsTable() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div className="shrink-0">
-          <h1 className="text-3xl font-bold tracking-tight uppercase text-foreground">Products</h1>
-          <p className="mt-0.5 text-xs text-muted-foreground">Product catalog and SKU management</p>
-        </div>
-        <div className="min-w-0 flex-1 lg:max-w-3xl">
-          <MetricCardRow className="grid grid-cols-2 gap-2.5 md:grid-cols-4">
-            <MetricCard label="Total Products" loading={loading} value={products.length} />
-            <MetricCard label="Active" loading={loading} value={activeCount} accent="success" />
-            <MetricCard label="Inactive" loading={loading} value={inactiveCount} />
-            <MetricCard label="Categories" loading={loading} value={categories.length} />
-          </MetricCardRow>
-        </div>
-      </div>
+      <DirectoryPageHeader
+        title="Products"
+        description="Catalog records, stock thresholds, and active product lines."
+        loading={loading}
+        summary={[
+          { label: "Products", value: products.length, icon: <Boxes size={18} /> },
+          { label: "Active", value: activeCount, icon: <CircleCheck size={18} /> },
+          { label: "Inactive", value: inactiveCount, icon: <Archive size={18} /> },
+          { label: "Categories", value: categories.length, icon: <Tags size={18} /> },
+        ]}
+        actions={
+          <button type="button" onClick={() => { setAddError(null); setIsAdding(true); }} className="h-9 w-full rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 sm:w-auto">
+            Add product
+          </button>
+        }
+      />
 
-      <div className="flex flex-col gap-3">
+      <section aria-label="Product catalog" className="flex min-w-0 flex-col gap-2">
         <SearchFilterBar
           searchPlaceholder="Search products, SKU..."
           searchValue={search}
@@ -166,19 +174,12 @@ export default function ProductsTable() {
               onChange: setActiveFilter,
             },
           ]}
-          trailing={
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => { setAddError(null); setIsAdding(true); }}
-                className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90"
-              >
-                Add Product
-              </button>
-              <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
-            </div>
-          }
+          trailing={<ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />}
         />
+        <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
+          {loading ? "Loading product records…" : `Showing ${filtered.length} of ${products.length} products`}
+          {(search || categoryFilter || activeFilter) && !loading && <button type="button" onClick={() => { setSearch(""); setCategoryFilter(""); setActiveFilter(""); }} className="ml-2 font-medium text-primary hover:underline">Clear filters</button>}
+        </p>
         <DataGrid<Product>
           rows={filtered}
           columns={visibleColumns}
@@ -211,11 +212,11 @@ export default function ProductsTable() {
             },
           }}
         />
-      </div>
+      </section>
 
       {isAdding && (
         <Dialog loading={adding} onClose={() => setIsAdding(false)} title="Add Product" width={512}>
-          <form onSubmit={addProduct}>
+          <form className="px-1" onSubmit={addProduct}>
             <div className="space-y-4">
               <label className="block text-sm font-medium text-foreground">
                 Product Name
@@ -245,6 +246,19 @@ export default function ProductsTable() {
                   onChange={(event) => setNewProduct((current) => ({ ...current, sku: event.target.value }))}
                   className="mt-1 h-8 text-sm font-normal"
                 />
+              </label>
+              <label className="block text-sm font-medium text-foreground">
+                Low stock threshold
+                <Input
+                  required
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={newProduct.low_stock_threshold}
+                  onChange={(event) => setNewProduct((current) => ({ ...current, low_stock_threshold: event.target.value }))}
+                  className="mt-1 h-8 text-sm font-normal"
+                />
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">Stock at or below this quantity is flagged as low.</span>
               </label>
               <label className="block text-sm font-medium text-foreground">
                 Image URL
