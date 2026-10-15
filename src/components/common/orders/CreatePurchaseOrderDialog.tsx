@@ -32,7 +32,7 @@ interface CreatePurchaseOrderDialogProps {
   lockFulfillmentType?: boolean;
 }
 
-const stepTitles = ["Supplier & order", "Sales orders & items", "Review & costs"];
+const stepTitles = ["Supplier & order", "Sales orders & items", "Review"];
 
 export default function CreatePurchaseOrderDialog({
   onClose,
@@ -56,10 +56,10 @@ export default function CreatePurchaseOrderDialog({
   const [linkedSaleOrderIds, setLinkedSaleOrderIds] = useState<string[]>(linkedSaleOrderId ? [linkedSaleOrderId] : []);
   const [fulfillmentType, setFulfillmentType] = useState(initialFulfillmentType ?? "warehouse");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
-  const [shippingCost, setShippingCost] = useState("0");
-  const [taxAmount, setTaxAmount] = useState("0");
   const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length ? initialItems : [{ product_id: "", quantity_ordered: "1", unit_cost: "" }]);
+  const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length
+    ? initialItems.map((item) => ({ ...item, shipping_cost: "0", tax_amount: "0" }))
+    : [{ product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" }]);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: "", email: "", phone: "", default_lead_days: "1" });
@@ -82,9 +82,10 @@ export default function CreatePurchaseOrderDialog({
       ? saleOrder.fulfillment_type === "direct_to_customer"
       : saleOrder.fulfillment_type !== "direct_to_customer")
   )), [fetchedSaleOrders, fulfillmentType]);
-  const totalPayableSgd = lines.reduce((sum, line) => sum + (Number(line.quantity_ordered) || 0) * (Number(line.unit_cost) || 0), 0)
-    + (Number(shippingCost) || 0)
-    + (Number(taxAmount) || 0);
+  const totalPayableSgd = lines.reduce((sum, line) => sum
+    + (Number(line.quantity_ordered) || 0) * (Number(line.unit_cost) || 0)
+    + (Number(line.shipping_cost) || 0)
+    + (Number(line.tax_amount) || 0), 0);
 
   function updateLine(index: number, changes: Partial<PurchaseLine>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
@@ -155,6 +156,10 @@ export default function CreatePurchaseOrderDialog({
         || !Number.isFinite(Number(line.unit_cost))
         || Number(line.unit_cost) < 0
         || line.unit_cost.trim() === ""
+        || !Number.isFinite(Number(line.shipping_cost))
+        || Number(line.shipping_cost) < 0
+        || !Number.isFinite(Number(line.tax_amount))
+        || Number(line.tax_amount) < 0
       ))) return "Complete each item line or remove any empty rows.";
     }
     return null;
@@ -188,10 +193,8 @@ export default function CreatePurchaseOrderDialog({
     if (createdOrder || saving) return;
 
     const validationError = validateStep(0) ?? validateStep(1);
-    const freightCost = Number(shippingCost);
-    const tax = Number(taxAmount);
-    if (validationError || !Number.isFinite(freightCost) || freightCost < 0 || !Number.isFinite(tax) || tax < 0) {
-      setError(validationError ?? "Enter valid non-negative freight and tax amounts.");
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
@@ -199,6 +202,8 @@ export default function CreatePurchaseOrderDialog({
       product_id: line.product_id,
       quantity_ordered: Number(line.quantity_ordered),
       unit_cost: Number(line.unit_cost),
+      shipping_cost: Number(line.shipping_cost),
+      tax_amount: Number(line.tax_amount),
     }));
 
     try {
@@ -208,8 +213,6 @@ export default function CreatePurchaseOrderDialog({
         supplier_id: supplierId,
         fulfillment_type: fulfillmentType,
         order_date: orderDate,
-        shipping_cost: freightCost,
-        tax_amount: tax,
         ...(notes.trim() ? { notes: notes.trim() } : {}),
         source_currency: "SGD",
         items: normalizedLines,
@@ -273,9 +276,9 @@ export default function CreatePurchaseOrderDialog({
     data: {
       supplier: suppliers.find((supplier) => supplier.id === supplierId), fulfillmentType, orderDate,
       linkedSaleOrders: saleOrders.filter((saleOrder) => linkedSaleOrderIds.includes(saleOrder.id)),
-      products, lines, shippingCost, taxAmount, notes, fxRate,
+      products, lines, notes, fxRate,
     },
-    actions: { setShippingCost, setTaxAmount, setNotes },
+    actions: { setNotes },
   };
 
   return (
@@ -285,7 +288,7 @@ export default function CreatePurchaseOrderDialog({
       loading={saving}
       onClose={closeDialog}
       title={<span className="inline-flex items-center gap-2.5"><span className="grid size-8 place-items-center rounded-md border border-primary/20 bg-primary/10"><FileText aria-hidden="true" className="size-4 text-primary" /></span><span>New Purchase Order</span></span>}
-      width={810}
+      width={932}
     >
       <form className="w-full min-w-0 max-w-full overflow-x-clip px-1" style={{ zoom: 0.9, width: "100%" }} onSubmit={(event) => event.preventDefault()}>
         <OrderWizardProgress activeStep={activeStep} titles={stepTitles} completed={Boolean(createdOrder && !error)} />

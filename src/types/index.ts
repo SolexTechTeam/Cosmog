@@ -90,6 +90,8 @@ export interface PurchaseOrderItem {
   quantity_ordered: number;
   quantity_received: number;
   unit_cost: number;
+  shipping_cost?: number | null;
+  tax_amount?: number | null;
   source_currency?: string;
   source_unit_cost?: number;
   fx_rate?: number;

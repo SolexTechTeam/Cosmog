@@ -12,6 +12,8 @@ export interface PurchaseLine {
   product_id: string;
   quantity_ordered: string;
   unit_cost: string;
+  shipping_cost: string;
+  tax_amount: string;
 }
 
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring";
@@ -118,7 +120,7 @@ export function ItemsAndLinksStep({ data, actions }: { data: ItemsStepData; acti
 
   return (
     <section className="space-y-4 rounded-xl border border-[#f2e7eb] bg-[#fff9fa] p-4 sm:p-5" aria-label="Sales orders and purchase order items">
-      <StepHeading title="Connect demand and add products" description="Link relevant Sales Orders, then enter the quantities and supplier costs for this purchase." />
+      <StepHeading title="Connect demand and add products" description="Link relevant Sales Orders, then enter each product’s quantity and costs in SGD." />
       <section className="space-y-3 rounded-lg border border-border bg-white p-4" aria-labelledby="linked-orders-heading">
         <div>
           <h3 id="linked-orders-heading" className="text-sm font-semibold">Linked Sales Orders <span className="font-normal text-muted-foreground">(optional)</span></h3>
@@ -147,14 +149,14 @@ export function ItemsAndLinksStep({ data, actions }: { data: ItemsStepData; acti
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 id="po-items-heading" className="text-sm font-semibold">Purchase order items</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Add products, quantities, and supplier costs for this order.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Enter shipping and tax for each product so its landed cost is calculated separately.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => actions.setShowProductForm((current) => !current)} aria-expanded={data.showProductForm} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-medium text-foreground hover:bg-muted">
               <PackagePlus aria-hidden="true" className="size-4 text-primary" />
               {data.showProductForm ? "Close product form" : "Create product"}
             </button>
-            <button type="button" onClick={() => actions.setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "" }])} className="inline-flex min-h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-[#ea580c]">
+            <button type="button" onClick={() => actions.setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" }])} className="inline-flex min-h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-[#ea580c]">
               <Plus aria-hidden="true" className="size-4" />
               Add line item
             </button>
@@ -205,13 +207,18 @@ function PurchaseLineEditor({ index, line, products, fxRate, canRemove, onChange
   onRemove: () => void;
 }) {
   const selectedProduct = products.find((product) => product.id === line.product_id);
-  const total = Number(line.quantity_ordered) * Number(line.unit_cost);
+  const quantity = Number(line.quantity_ordered) || 1;
+  const unitCost = Number(line.unit_cost) || 0;
+  const shippingCost = Number(line.shipping_cost) || 0;
+  const taxAmount = Number(line.tax_amount) || 0;
+  const landedUnitCost = unitCost + (shippingCost + taxAmount) / quantity;
+  const landedTotal = quantity * unitCost + shippingCost + taxAmount;
   const productId = `po-line-${index + 1}-product`;
   const quantityId = `po-line-${index + 1}-quantity`;
   const costId = `po-line-${index + 1}-unit-cost`;
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_6rem_9rem_auto] sm:items-end">
+    <div className="grid gap-3 rounded-lg border border-border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_5rem_7rem_7rem_7rem_auto] sm:items-end">
       <Field label={`Product ${index + 1}`} htmlFor={productId}>
         <Select id={productId} searchable required value={line.product_id} onChange={(event) => onChange(index, { product_id: event.target.value })} className={inputClass}>
           <option value="">Select product</option>
@@ -227,11 +234,17 @@ function PurchaseLineEditor({ index, line, products, fxRate, canRemove, onChange
           <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-muted-foreground">SGD</span>
         </span>
       </Field>
+      <Field htmlFor={`po-line-${index + 1}-shipping`} label="Shipping (SGD)">
+        <Input id={`po-line-${index + 1}-shipping`} type="number" min="0" step="0.01" value={line.shipping_cost} onChange={(event) => onChange(index, { shipping_cost: event.target.value })} className={inputClass} placeholder="0.00" />
+      </Field>
+      <Field htmlFor={`po-line-${index + 1}-tax`} label="Tax (SGD)">
+        <Input id={`po-line-${index + 1}-tax`} type="number" min="0" step="0.01" value={line.tax_amount} onChange={(event) => onChange(index, { tax_amount: event.target.value })} className={inputClass} placeholder="0.00" />
+      </Field>
       <button type="button" onClick={onRemove} disabled={!canRemove} aria-label={`Remove item ${index + 1}`} className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 sm:mb-0.5">
         <Trash2 aria-hidden="true" className="size-4" />
         <span className="sm:sr-only">Remove</span>
       </button>
-      {selectedProduct && <p className="text-xs text-muted-foreground sm:col-span-4">Line total: SGD {Number.isFinite(total) ? total.toFixed(2) : "—"}{fxRate ? ` · Approx. AUD ${(total * fxRate).toFixed(2)}` : ""}</p>}
+      {selectedProduct && <p className="text-xs text-muted-foreground sm:col-span-6">Landed unit cost: SGD {landedUnitCost.toFixed(2)} (unit cost + shipping and tax ÷ quantity) · Line total: SGD {landedTotal.toFixed(2)}{fxRate ? ` · Approx. AUD ${(landedUnitCost * fxRate).toFixed(2)} per unit / ${(landedTotal * fxRate).toFixed(2)} total` : ""}</p>}
     </div>
   );
 }
@@ -243,49 +256,30 @@ interface ReviewStepData {
   linkedSaleOrders: SaleOrder[];
   products: Product[];
   lines: PurchaseLine[];
-  shippingCost: string;
-  taxAmount: string;
   notes: string;
   fxRate: number | null;
 }
 
 interface ReviewStepActions {
-  setShippingCost: (value: string) => void;
-  setTaxAmount: (value: string) => void;
   setNotes: (value: string) => void;
 }
 
 export function ReviewAndCostsStep({ data, actions }: { data: ReviewStepData; actions: ReviewStepActions }) {
   const itemsSgd = data.lines.reduce((sum, line) => sum + Number(line.quantity_ordered) * Number(line.unit_cost), 0);
-  const freightSgd = Number(data.shippingCost) || 0;
-  const taxSgd = Number(data.taxAmount) || 0;
+  const freightSgd = data.lines.reduce((sum, line) => sum + (Number(line.shipping_cost) || 0), 0);
+  const taxSgd = data.lines.reduce((sum, line) => sum + (Number(line.tax_amount) || 0), 0);
   const totalSgd = itemsSgd + freightSgd + taxSgd;
 
   return (
     <div>
       <section className="space-y-4 rounded-lg border border-[#dfe6ef] bg-[#f4f7fb] p-3 sm:p-4" aria-label="Purchase order review">
-        <StepHeading title="Review before creating" description="Check the order details and add any remaining costs or receiving notes." />
+        <StepHeading title="Review before creating" description="Check each product’s landed cost and add any receiving notes." />
         <div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
           <div className="space-y-4">
             <OrderOverview data={data} />
             <LineItemSummary data={data} />
           </div>
           <aside className="flex h-full flex-col gap-4">
-            <section className="rounded-lg border border-[#dfe6ef] bg-white p-3" aria-labelledby="po-costs-heading">
-              <div className="mb-3 flex items-center gap-2">
-                <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-                <h3 id="po-costs-heading" className="text-xs font-semibold uppercase tracking-wide">Shipping and tax</h3>
-                <span className="ml-auto text-xs text-muted-foreground">SGD</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <label htmlFor="po-shipping-cost" className="grid gap-1 text-xs font-medium">Freight cost
-                  <Input id="po-shipping-cost" type="number" min="0" step="0.01" value={data.shippingCost} onChange={(event) => actions.setShippingCost(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
-                </label>
-                <label htmlFor="po-tax-amount" className="grid gap-1 text-xs font-medium">Tax
-                  <Input id="po-tax-amount" type="number" min="0" step="0.01" value={data.taxAmount} onChange={(event) => actions.setTaxAmount(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
-                </label>
-              </div>
-            </section>
             <details className="group rounded-lg border border-[#dfe6ef] bg-white">
               <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                 <span className="flex items-center justify-between gap-3">Notes<ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" /></span>
@@ -330,20 +324,26 @@ function LineItemSummary({ data }: { data: ReviewStepData }) {
   return (
     <section className="overflow-hidden rounded-lg border border-[#dfe6ef] bg-white" aria-labelledby="po-review-items-heading">
       <h3 id="po-review-items-heading" className="flex items-center gap-2 border-b border-[#dfe6ef] bg-[#f5f8fc] px-4 py-3 text-xs font-semibold uppercase tracking-wide"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />Line items configured ({data.lines.length})</h3>
-      <div className="grid grid-cols-[minmax(0,1fr)_3rem_5rem_6rem] gap-2 border-b border-[#e7edf4] px-4 py-2 text-xs font-medium text-muted-foreground">
-        <span>Product item</span><span className="text-right">Qty</span><span className="text-right">Cost (SGD)</span><span className="text-right">Total (SGD)</span>
-      </div>
-      <div className="divide-y divide-[#e7edf4]">
-        {data.lines.map((line, index) => {
-          const product = data.products.find((item) => item.id === line.product_id);
-          const total = Number(line.quantity_ordered) * Number(line.unit_cost);
-          return <div key={`${line.product_id}-${index}`} className="grid grid-cols-[minmax(0,1fr)_3rem_5rem_6rem] items-center gap-2 px-4 py-3 text-sm">
-            <span className="min-w-0 truncate font-medium">{product?.name ?? "Unknown product"}</span>
-            <span className="text-right tabular-nums">{line.quantity_ordered}</span>
-            <span className="text-right tabular-nums">{Number(line.unit_cost).toFixed(2)}</span>
-            <span className="text-right font-semibold tabular-nums">{total.toFixed(2)}</span>
-          </div>;
-        })}
+      <div className="overflow-x-auto">
+      <div className="grid min-w-[700px] grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_5rem_6rem_6rem] gap-2 border-b border-[#e7edf4] px-4 py-2 text-xs font-medium text-muted-foreground">
+          <span>Product item</span><span className="text-right">Qty</span><span className="text-right">Unit (SGD)</span><span className="text-right">Ship</span><span className="text-right">Tax</span><span className="text-right">Landed/unit</span><span className="text-right">Total (SGD)</span>
+        </div>
+        <div className="min-w-[700px] divide-y divide-[#e7edf4]">
+          {data.lines.map((line, index) => {
+            const product = data.products.find((item) => item.id === line.product_id);
+            const total = Number(line.quantity_ordered) * Number(line.unit_cost);
+            const landedUnit = Number(line.unit_cost) + ((Number(line.shipping_cost) || 0) + (Number(line.tax_amount) || 0)) / Number(line.quantity_ordered);
+            return <div key={`${line.product_id}-${index}`} className="grid grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_5rem_6rem_6rem] items-center gap-2 px-4 py-3 text-sm">
+              <span className="min-w-0 truncate font-medium">{product?.name ?? "Unknown product"}</span>
+              <span className="text-right tabular-nums">{line.quantity_ordered}</span>
+              <span className="text-right tabular-nums">{Number(line.unit_cost).toFixed(2)}</span>
+              <span className="text-right tabular-nums">{(Number(line.shipping_cost) || 0).toFixed(2)}</span>
+              <span className="text-right tabular-nums">{(Number(line.tax_amount) || 0).toFixed(2)}</span>
+              <span className="text-right tabular-nums">{landedUnit.toFixed(2)}</span>
+              <span className="text-right font-semibold tabular-nums">{(total + (Number(line.shipping_cost) || 0) + (Number(line.tax_amount) || 0)).toFixed(2)}</span>
+            </div>;
+          })}
+        </div>
       </div>
     </section>
   );
