@@ -209,7 +209,7 @@ export class AetherClient {
   static createPurchaseOrder(data: {
     supplier_id: string;
     order_date: string;
-    items: { product_id: string; quantity_ordered: number; unit_cost: number }[];
+    items: { product_id: string; quantity_ordered: number; unit_cost: number; shipping_cost?: number; tax_amount?: number }[];
     fulfillment_type?: string;
     notes?: string;
     source_currency?: string;
@@ -228,6 +228,8 @@ export class AetherClient {
     product_id: string;
     quantity_ordered: number;
     unit_cost: number;
+    shipping_cost?: number;
+    tax_amount?: number;
   }): Promise<PurchaseOrderItem> {
     return request(`/api/purchase-orders/${poId}/items`, { method: "POST", body: JSON.stringify(data) });
   }

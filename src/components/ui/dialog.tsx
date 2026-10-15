@@ -14,7 +14,7 @@ interface DialogProps {
 }
 
 export function Dialog({ children, compact = false, description, loading = false, onClose, title, width = 768 }: DialogProps) {
-  const bodyHeight = compact ? "max-h-[calc(90dvh-180px)]" : "max-h-[calc(100dvh-200px)]";
+  const bodyHeight = compact ? "max-h-[calc(100dvh-180px)]" : "max-h-[calc(100dvh-200px)]";
 
   return (
     <Modal

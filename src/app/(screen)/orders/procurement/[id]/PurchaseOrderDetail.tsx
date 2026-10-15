@@ -44,7 +44,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const [editingDetails, setEditingDetails] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
   const [detailsDraft, setDetailsDraft] = useState({
-    fulfillmentType: "warehouse", expectedArrival: "", trackingReference: "", shippingCost: "0", taxAmount: "0", shippingDetails: "", notes: "",
+    fulfillmentType: "warehouse", expectedArrival: "", trackingReference: "", shippingDetails: "", notes: "",
   });
 
   function buildProductBudget(): Map<string, number> {
@@ -195,8 +195,6 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       fulfillmentType: purchaseOrder.fulfillment_type,
       expectedArrival: purchaseOrder.expected_arrival ?? "",
       trackingReference: purchaseOrder.tracking_reference ?? "",
-      shippingCost: String(purchaseOrder.shipping_cost ?? 0),
-      taxAmount: String(purchaseOrder.tax_amount ?? 0),
       shippingDetails: purchaseOrder.shipping_details ?? "",
       notes: purchaseOrder.notes ?? "",
     });
@@ -206,18 +204,12 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   async function saveDetails(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!purchaseOrder) return;
-    const shippingCost = Number(detailsDraft.shippingCost);
-    const taxAmount = Number(detailsDraft.taxAmount);
-    if (!Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(taxAmount) || taxAmount < 0) return;
-
     setSavingDetails(true);
     try {
       await AetherClient.updatePurchaseOrder(purchaseOrder.id, {
         fulfillment_type: detailsDraft.fulfillmentType,
         ...(detailsDraft.expectedArrival ? { expected_arrival: detailsDraft.expectedArrival } : {}),
         tracking_reference: detailsDraft.trackingReference.trim(),
-        shipping_cost: shippingCost,
-        tax_amount: taxAmount,
         shipping_details: detailsDraft.shippingDetails.trim(),
         notes: detailsDraft.notes.trim(),
       });
@@ -239,7 +231,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const items = purchaseOrder.items ?? [];
   const hasForeignSourceCost = items.some((item) => (item.source_currency ?? "AUD") !== "AUD");
   const totalCost = purchaseOrder.order_total;
-  const itemSubtotal = items.reduce((total, item) => total + item.quantity_ordered * (item.landed_unit_cost ?? item.unit_cost), 0);
+  const itemSubtotal = items.reduce((total, item) => total + item.quantity_ordered * item.unit_cost, 0);
+  const shippingTotal = items.reduce((total, item) => total + (item.shipping_cost ?? 0), purchaseOrder.shipping_cost ?? 0);
+  const taxTotal = items.reduce((total, item) => total + (item.tax_amount ?? 0), purchaseOrder.tax_amount ?? 0);
   const totalReceived = items.reduce((total, item) => total + item.quantity_received, 0);
   const totalOrdered = items.reduce((total, item) => total + item.quantity_ordered, 0);
 
@@ -331,14 +325,16 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
         {activeTab === "items" && (
           <section className="flex flex-col rounded-lg border border-border bg-card overflow-hidden min-h-[320px]">
             <div className="flex-1 overflow-x-auto">
-              <PaginatedTable className="border-0 rounded-none"><table className={`w-full ${hasForeignSourceCost ? "min-w-[680px]" : "min-w-[520px]"} text-left text-sm`}>
+              <PaginatedTable className="border-0 rounded-none"><table className={`w-full ${hasForeignSourceCost ? "min-w-[850px]" : "min-w-[690px]"} text-left text-sm`}>
                 <thead className="border-b border-border bg-muted text-xs text-muted-foreground">
                   <tr>
                     <th className="px-4 py-2 font-medium">Product</th>
                     <th className="px-4 py-2 text-right font-medium">Ordered</th>
                     <th className="px-4 py-2 text-right font-medium">Received</th>
                     {hasForeignSourceCost && <th className="px-4 py-2 text-right font-medium">Source Cost</th>}
-                    <th className="px-4 py-2 text-right font-medium">Unit Cost (AUD)</th>
+                    <th className="px-4 py-2 text-right font-medium">Landed Unit Cost (AUD)</th>
+                    <th className="px-4 py-2 text-right font-medium">Shipping (AUD)</th>
+                    <th className="px-4 py-2 text-right font-medium">Tax (AUD)</th>
                     <th className="px-4 py-2 text-right font-medium">Line Total</th>
                   </tr>
                 </thead>
@@ -356,18 +352,20 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                         {(item.source_currency ?? "AUD") !== "AUD" && item.fx_rate && <div className="text-xs text-muted-foreground">Rate {fixed(item.fx_rate, 6)}</div>}
                       </td>}
                       <td className="px-4 py-2.5 text-right tabular-nums">AUD ${fixed(item.landed_unit_cost ?? item.unit_cost)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">${fixed(item.shipping_cost)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums">${fixed(item.tax_amount)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-medium">${fixed(item.quantity_ordered * (item.landed_unit_cost ?? item.unit_cost))}</td>
                     </tr>
                   ))}
-                  {items.length === 0 && <tr><td colSpan={hasForeignSourceCost ? 6 : 5} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={hasForeignSourceCost ? 8 : 7} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
                 </tbody>
               </table></PaginatedTable>
             </div>
             <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Items subtotal</dt><dd className="tabular-nums font-medium">${fixed(itemSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">${fixed(purchaseOrder.tax_amount)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Freight</dt><dd className="tabular-nums">${fixed(purchaseOrder.shipping_cost)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">${fixed(taxTotal)}</dd></div>
+                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Freight</dt><dd className="tabular-nums">${fixed(shippingTotal)}</dd></div>
                 <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
                   <dd className="tabular-nums text-base font-bold text-primary">${fixed(totalCost)}</dd>
@@ -397,12 +395,6 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Tracking reference
                   <input value={detailsDraft.trackingReference} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, trackingReference: event.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal text-foreground outline-none focus:ring-1 focus:ring-ring" />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Freight cost
-                  <input type="number" min="0" step="0.01" value={detailsDraft.shippingCost} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, shippingCost: event.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal text-foreground outline-none focus:ring-1 focus:ring-ring" />
-                </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Tax
-                  <input type="number" min="0" step="0.01" value={detailsDraft.taxAmount} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, taxAmount: event.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal text-foreground outline-none focus:ring-1 focus:ring-ring" />
-                </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground sm:col-span-2">Shipping details
                   <textarea rows={3} value={detailsDraft.shippingDetails} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, shippingDetails: event.target.value }))} className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm font-normal text-foreground outline-none focus:ring-1 focus:ring-ring" />
                 </label>
@@ -425,8 +417,8 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               <div><p className="text-xs text-muted-foreground">Shipped Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.shipped_date || "—"}</p></div>
               <div><p className="text-xs text-muted-foreground">Received Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.received_date || "—"}</p></div>
               <div><p className="text-xs text-muted-foreground">Tracking Reference</p><p className="text-sm font-medium">{purchaseOrder.tracking_reference || "—"}</p></div>
-              <div><p className="text-xs text-muted-foreground">Freight Cost</p><p className="text-sm font-medium tabular-nums">{fmt(purchaseOrder.shipping_cost)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Tax</p><p className="text-sm font-medium tabular-nums">{fmt(purchaseOrder.tax_amount)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Freight Cost</p><p className="text-sm font-medium tabular-nums">{fmt(shippingTotal)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Tax</p><p className="text-sm font-medium tabular-nums">{fmt(taxTotal)}</p></div>
               <div><p className="text-xs text-muted-foreground">Total Cost</p><p className="text-sm font-bold tabular-nums text-primary">{fmt(totalCost)}</p></div>
               <div><p className="text-xs text-muted-foreground">Items Ordered</p><p className="text-sm font-medium tabular-nums">{totalOrdered}</p></div>
               <div><p className="text-xs text-muted-foreground">Items Received</p><p className="text-sm font-medium tabular-nums">{totalReceived} / {totalOrdered}</p></div>
