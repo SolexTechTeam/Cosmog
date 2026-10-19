@@ -5,18 +5,23 @@ import { useInfiniteQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { queryKeys } from "@/hooks/useApi";
+import { queryKeys, useApi } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { getLedgerReference } from "@/lib/ledger-reference";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
-import type { LedgerEntry } from "@/types";
+import type { LedgerEntry, Profile } from "@/types";
 import type { ColDef } from "ag-grid-community";
 import ManualAdjustmentDialog from "./ManualAdjustmentDialog";
 
 export default function HistoryTable() {
+  const { data: profile } = useApi<Profile>(
+    [...queryKeys.myProfile],
+    () => AetherClient.getMyProfile(),
+  );
+  const canAdjustInventory = profile?.role === "admin";
   const [pageSize, setPageSize] = useState(50);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [search, setSearch] = useState("");
@@ -161,6 +166,12 @@ export default function HistoryTable() {
     allColumns,
     new Set(["notes"])
   );
+  const roleFilteredColumns = canAdjustInventory
+    ? visibleColumns
+    : visibleColumns.filter((column) => column.field !== "performed_by_name");
+  const roleFilteredColumnKeys = canAdjustInventory
+    ? columnKeys
+    : columnKeys.filter((column) => column.key !== "performed_by_name");
 
   if (ledgerQuery.isError && rows.length === 0) {
     return <ErrorBlock message={`Failed to load ledger: ${ledgerQuery.error.message}`} onRetry={() => void ledgerQuery.refetch()} />;
@@ -197,18 +208,18 @@ export default function HistoryTable() {
             <select aria-label="Rows per page" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))} className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground">
               {[25, 50, 100].map((size) => <option key={size} value={size}>{size} per page</option>)}
             </select>
-            <button type="button" onClick={() => setShowAdjustment(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Adjustment</button>
-            <ColumnPicker columns={columnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
+            {canAdjustInventory && <button type="button" onClick={() => setShowAdjustment(true)} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground hover:opacity-90">Add Adjustment</button>}
+            <ColumnPicker columns={roleFilteredColumnKeys} hiddenColumns={hiddenCols} onToggle={toggle} />
           </div>
         }
       />
       <p id="ledger-date-range-help" className="-mt-3 text-xs text-muted-foreground">Dates must be today or earlier, and From must be on or before To.{dateRangeError ? ` ${dateRangeError}` : ""}</p>
-      <DataGrid<LedgerEntry> rows={rows} columns={visibleColumns} loading={ledgerQuery.isLoading} pageSize={pageSize} />
+      <DataGrid<LedgerEntry> rows={rows} columns={roleFilteredColumns} loading={ledgerQuery.isLoading} pageSize={pageSize} allowRowDetails={canAdjustInventory} />
       {ledgerQuery.isError && rows.length > 0 && <ErrorBlock message={`Failed to load older entries: ${ledgerQuery.error.message}`} onRetry={() => void ledgerQuery.fetchNextPage()} />}
       {ledgerQuery.hasNextPage ? (
         <button type="button" disabled={ledgerQuery.isFetchingNextPage} onClick={() => void ledgerQuery.fetchNextPage()} className="mx-auto rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60">{ledgerQuery.isFetchingNextPage ? "Loading…" : "Load more"}</button>
       ) : <p className="text-center text-xs text-muted-foreground">End of history · {rows.length} entries loaded</p>}
-      {showAdjustment && <ManualAdjustmentDialog onClose={() => setShowAdjustment(false)} />}
+      {canAdjustInventory && showAdjustment && <ManualAdjustmentDialog onClose={() => setShowAdjustment(false)} />}
     </div>
   );
 }

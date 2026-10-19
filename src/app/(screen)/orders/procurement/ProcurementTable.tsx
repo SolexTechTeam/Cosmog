@@ -33,7 +33,6 @@ interface ItemDraft {
   quantity_ordered: string;
   unit_cost: string;
   shipping_cost: string;
-  tax_amount: string;
 }
 
 const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
@@ -289,7 +288,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
                 <tr key={item.id}>
                   <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
                   <td className="px-3 py-1.5 text-right">{item.quantity_ordered}</td>
-                  <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * (item.landed_unit_cost ?? (item.unit_cost + ((item.shipping_cost ?? 0) + (item.tax_amount ?? 0)) / item.quantity_ordered))).toFixed(2)}</td>
+                  <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * (item.landed_unit_cost ?? (item.unit_cost + (item.shipping_cost ?? 0) / item.quantity_ordered))).toFixed(2)}</td>
                 </tr>
               ))}
               {(purchaseOrder.items ?? []).length === 0 && (
@@ -444,14 +443,13 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
       quantity_ordered: String(item.quantity_ordered),
       unit_cost: String(item.unit_cost),
       shipping_cost: item.shipping_cost == null ? "" : String(item.shipping_cost),
-      tax_amount: item.tax_amount == null ? "" : String(item.tax_amount),
     });
     setError(null);
   }
 
   function beginAdding() {
     setIsAdding(true);
-    setDraft({ product_id: products[0]?.id ?? "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" });
+    setDraft({ product_id: products[0]?.id ?? "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0" });
     setError(null);
   }
 
@@ -461,12 +459,10 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     const quantityOrdered = Number(draft.quantity_ordered);
     const unitCost = Number(draft.unit_cost);
     const shippingCost = Number(draft.shipping_cost);
-    const taxAmount = Number(draft.tax_amount);
     const hasShippingCost = draft.shipping_cost.trim() !== "";
-    const hasTaxAmount = draft.tax_amount.trim() !== "";
 
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || hasShippingCost !== hasTaxAmount || (hasShippingCost && (!Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(taxAmount) || taxAmount < 0))) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost, shipping, and tax amounts.");
+    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || (hasShippingCost && (!Number.isFinite(shippingCost) || shippingCost < 0))) {
+      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
       return;
     }
 
@@ -477,7 +473,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
         product_id: draft.product_id,
         quantity_ordered: quantityOrdered,
         unit_cost: unitCost,
-        ...(hasShippingCost ? { shipping_cost: shippingCost, tax_amount: taxAmount } : {}),
+        ...(hasShippingCost ? { shipping_cost: shippingCost } : {}),
       };
       const updatedItem = await AetherClient.updatePurchaseOrderItem(purchaseOrder.id, item.id, updates);
       setItems((current) => current.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
@@ -498,10 +494,9 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     const quantityOrdered = Number(draft.quantity_ordered);
     const unitCost = Number(draft.unit_cost);
     const shippingCost = Number(draft.shipping_cost);
-    const taxAmount = Number(draft.tax_amount);
 
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(taxAmount) || taxAmount < 0) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost, shipping, and tax amounts.");
+    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(shippingCost) || shippingCost < 0) {
+      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
       return;
     }
 
@@ -513,7 +508,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
         quantity_ordered: quantityOrdered,
         unit_cost: unitCost,
         shipping_cost: shippingCost,
-        tax_amount: taxAmount,
       });
       setItems((current) => [...current, newItem]);
       setIsAdding(false);
@@ -550,7 +544,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 text-right font-medium">Unit Cost (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Shipping (AUD)</th>
-              <th className="px-3 py-2 text-right font-medium">Tax (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Qty Ordered</th>
               <th className="px-3 py-2 text-right font-medium">Qty Received</th>
               {isDraft && <th className="px-3 py-2 text-right font-medium">Actions</th>}
@@ -594,9 +587,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
                   </td>
                   <td className="px-3 py-2 text-right text-foreground">
                     {isEditing ? <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring" placeholder="—" /> : item.shipping_cost == null ? "—" : `$${item.shipping_cost.toFixed(2)}`}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {isEditing ? <input type="number" min="0" step="0.01" value={draft.tax_amount} onChange={(event) => setDraft((current) => current ? { ...current, tax_amount: event.target.value } : current)} className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring" placeholder="—" /> : item.tax_amount == null ? "—" : `$${item.tax_amount.toFixed(2)}`}
                   </td>
                   <td className="px-3 py-2 text-right text-foreground">
                     {isEditing ? (
@@ -648,14 +638,14 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={isDraft ? 8 : 7} className="px-3 py-6 text-center text-muted-foreground">No items</td>
+                <td colSpan={isDraft ? 7 : 6} className="px-3 py-6 text-center text-muted-foreground">No items</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
       {isAdding && draft && (
-        <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_7rem_7rem_auto] sm:items-end">
+        <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_7rem_auto] sm:items-end">
           <label className="block text-sm font-medium text-foreground">
             Product
             <Select
@@ -694,10 +684,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
           <label className="block text-sm font-medium text-foreground">
             Shipping (AUD)
             <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
-          </label>
-          <label className="block text-sm font-medium text-foreground">
-            Tax (AUD)
-            <input type="number" min="0" step="0.01" value={draft.tax_amount} onChange={(event) => setDraft((current) => current ? { ...current, tax_amount: event.target.value } : current)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
           </label>
           <div className="flex gap-2">
             <button

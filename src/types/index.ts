@@ -73,7 +73,6 @@ export interface PurchaseOrder {
   tracking_reference?: string | null;
   shipping_details: string | null;
   shipping_cost: number;
-  tax_amount: number;
   notes: string | null;
   created_by: string | null;
   created_by_profile?: { id: string; name: string } | null;
@@ -91,7 +90,6 @@ export interface PurchaseOrderItem {
   quantity_received: number;
   unit_cost: number;
   shipping_cost?: number | null;
-  tax_amount?: number | null;
   source_currency?: string;
   source_unit_cost?: number;
   fx_rate?: number;
@@ -102,7 +100,6 @@ export interface PurchaseOrderItem {
 export interface PricingConfig {
   id: string;
   margin_multiplier: number;
-  gst_rate: number;
   updated_at: string;
   updated_by: string | null;
 }
@@ -122,7 +119,6 @@ export interface SaleOrder {
   delivered_date: string | null;
   shipping_details: string | null;
   shipping_cost: number;
-  tax_amount: number;
   amount_paid: number;
   tracking_reference: string | null;
   priority: "low" | "normal" | "high" | "urgent";

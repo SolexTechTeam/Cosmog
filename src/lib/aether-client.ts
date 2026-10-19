@@ -208,13 +208,12 @@ export class AetherClient {
   static createPurchaseOrder(data: {
     supplier_id: string;
     order_date: string;
-    items: { product_id: string; quantity_ordered: number; unit_cost: number; shipping_cost?: number; tax_amount?: number }[];
+    items: { product_id: string; quantity_ordered: number; unit_cost: number; shipping_cost?: number }[];
     fulfillment_type?: string;
     notes?: string;
     source_currency?: string;
     shipping_details?: string;
     shipping_cost?: number;
-    tax_amount?: number;
   }): Promise<PurchaseOrder> {
     return request("/api/purchase-orders", { method: "POST", body: JSON.stringify(data) });
   }
@@ -228,7 +227,6 @@ export class AetherClient {
     quantity_ordered: number;
     unit_cost: number;
     shipping_cost?: number;
-    tax_amount?: number;
   }): Promise<PurchaseOrderItem> {
     return request(`/api/purchase-orders/${poId}/items`, { method: "POST", body: JSON.stringify(data) });
   }
@@ -258,7 +256,6 @@ export class AetherClient {
     owner_id?: string;
     linked_po_ids?: string[];
     shipping_cost?: number;
-    tax_amount?: number;
     shipping_details?: string;
     payment_notes?: string;
     notes?: string;
@@ -467,7 +464,7 @@ export class AetherClient {
     return request("/api/pricing-config");
   }
 
-  static updatePricingConfig(data: { margin_multiplier?: number; gst_rate?: number }): Promise<PricingConfig> {
+  static updatePricingConfig(data: { margin_multiplier?: number }): Promise<PricingConfig> {
     return request("/api/pricing-config", { method: "PATCH", body: JSON.stringify(data) });
   }
 
