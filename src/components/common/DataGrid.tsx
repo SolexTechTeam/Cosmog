@@ -6,19 +6,20 @@ import Link from "next/link";
 import { AgGridReact } from "ag-grid-react";
 import { AllCommunityModule, ModuleRegistry, type ColDef } from "ag-grid-community";
 import { Select } from "@/components/ui/select";
+import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const PAGE_SIZE_OPTIONS = [25, 50];
 
-type EditableFieldType = "text" | "number" | "date" | "textarea" | "select" | "checkbox" | "json";
+type EditableFieldType = "text" | "number" | "date" | "textarea" | "select" | "status" | "checkbox" | "json";
 type DraftValue = string | boolean;
 
 interface EditableField<T extends object> {
   key: Extract<keyof T, string>;
   label: string;
   type?: EditableFieldType;
-  options?: { label: string; value: string }[];
+  options?: { label: string; value: string }[] | ((row: T) => { label: string; value: string }[]);
   emptyValue?: null;
 }
 
@@ -507,13 +508,23 @@ export default function DataGrid<T extends object>({
                                 onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
                                 className="mt-1 min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 font-normal outline-none focus:ring-2 focus:ring-ring"
                               />
+                            ) : type === "status" ? (
+                              <div className="mt-1">
+                                <OrderStatusWidget
+                                  status={String(value ?? "")}
+                                  options={(typeof field.options === "function" ? field.options(activeDetailsRow) : field.options) ?? []}
+                                  allowedTransitions={(typeof field.options === "function" ? field.options(activeDetailsRow) : field.options)?.map((option) => option.value) ?? []}
+                                  skipConfirm
+                                  onUpdate={async (nextStatus) => setDraft((current) => ({ ...current, [field.key]: nextStatus }))}
+                                />
+                              </div>
                             ) : type === "select" ? (
                               <Select
                                 value={String(value ?? "")}
                                 onChange={(event) => setDraft((current) => ({ ...current, [field.key]: event.target.value }))}
                                 className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring"
                               >
-                                {field.options?.map((option) => (
+                                {(typeof field.options === "function" ? field.options(activeDetailsRow) : field.options)?.map((option) => (
                                   <option key={option.value} value={option.value}>{option.label}</option>
                                 ))}
                               </Select>
