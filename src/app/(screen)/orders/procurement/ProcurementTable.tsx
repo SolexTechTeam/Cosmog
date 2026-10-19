@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
+import { canTransitionPurchaseOrder, getPurchaseOrderTransitions } from "@/lib/order-status";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -144,6 +145,10 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
   }
 
   async function handleStatusChange(status: string) {
+    if (!canTransitionPurchaseOrder(purchaseOrder.status, status)) {
+      setError(`Unsupported purchase-order transition: ${purchaseOrder.status} → ${status}`);
+      return;
+    }
     if (status === "cancelled") {
       setShowCancelConfirm(true);
       return;
@@ -245,11 +250,10 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
             <label className="grid gap-0.5 font-medium text-muted-foreground">
               Status
               <Select value={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
-                <option value="draft">Draft</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="in transit">In transit</option>
-                <option value="received">Received</option>
-                <option value="cancelled">Cancelled</option>
+                <option value={purchaseOrder.status}>{purchaseOrder.status}</option>
+                {getPurchaseOrderTransitions(purchaseOrder.status).map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
               </Select>
             </label>
             <label className="grid gap-0.5 font-medium text-muted-foreground">
@@ -846,18 +850,6 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         editConfig={{
           fields: [
             {
-              key: "status",
-              label: "Status",
-              type: "select",
-              options: [
-                { label: "Draft", value: "draft" },
-                { label: "Confirmed", value: "confirmed" },
-                { label: "In Transit", value: "in transit" },
-                { label: "Received", value: "received" },
-                { label: "Cancelled", value: "cancelled" },
-              ],
-            },
-            {
               key: "fulfillment_type",
               label: "Fulfillment",
               type: "select",
@@ -872,52 +864,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (purchaseOrder, changes) => {
-            const { status, ...headerChanges } = changes;
-            if (Object.keys(headerChanges).length) {
-              await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
-            }
-            if (status === "confirmed" && purchaseOrder.status === "draft") {
-              try {
-                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                toast(`PO confirmed — ${result.lots_created} lots created`);
-                const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
-                const edits = new Map<string, Map<string, number>>();
-                for (const order of previewResult.shortfall_orders) {
-                  const items = new Map<string, number>();
-                  for (const item of order.items) {
-                    items.set(item.sale_order_item_id, item.suggested_quantity);
-                  }
-                  edits.set(order.sale_order_id, items);
-                }
-                setParentAllocationEdits(edits);
-                setParentDialogData({ type: "po-allocate", data: previewResult });
-              } catch (e) {
-                toast(e instanceof Error ? e.message : "Failed to confirm PO", "error");
-              }
-              return;
-            } else if (status === "in transit") {
-              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              toast(`PO ${purchaseOrder.po_number} → in transit`);
-            } else if (status === "received") {
-              await AetherClient.receivePurchaseOrder(purchaseOrder.id);
-              const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
-              toast(`PO received — ${allocations.length} allocations found`);
-              await invalidatePurchaseOrderInventoryEffects(invalidate);
-              if (allocations.length) {
-                setParentDialogData({ type: "receive", allocations, purchaseOrderId: purchaseOrder.id });
-                return;
-              }
-            } else if (status === "cancelled") {
-              const confirmed = window.confirm("Cancel this purchase order? Any unreceived incoming quantity will be reversed and its active reservations released. Received inventory is preserved.");
-              if (!confirmed) return;
-              const result = await AetherClient.cancelPurchaseOrder(purchaseOrder.id);
-              await invalidatePurchaseOrderInventoryEffects(invalidate);
-              toast(result.already_cancelled ? `PO ${purchaseOrder.po_number} is already cancelled` : `PO ${purchaseOrder.po_number} cancelled; ${result.quantity_reversed} incoming units reversed`);
-              refetch();
-              return;
-            } else if (status !== undefined) {
-              throw new Error(`Unsupported purchase-order transition: ${purchaseOrder.status} → ${status}`);
-            }
+            await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes);
             invalidate([...queryKeys.saleOrders]);
             refetch();
           },

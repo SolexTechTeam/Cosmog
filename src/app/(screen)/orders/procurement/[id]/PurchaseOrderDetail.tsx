@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { Tabs } from "@/components/ui/tabs";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
+import { canTransitionPurchaseOrder, getPurchaseOrderTransitions } from "@/lib/order-status";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import PaginatedTable from "@/components/common/PaginatedTable";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
@@ -264,7 +265,8 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       statusWidget={
         <OrderStatusWidget
           status={purchaseOrder.status}
-          isComplete={purchaseOrder.status === "received" || purchaseOrder.status === "cancelled"}
+          allowedTransitions={getPurchaseOrderTransitions(purchaseOrder.status)}
+          isComplete={getPurchaseOrderTransitions(purchaseOrder.status).length === 0}
           transitionDescriptionOverrides={{ cancelled: "Reverses unreceived incoming inventory and releases its reservations" }}
           confirmConfigOverrides={{
             cancelled: {
@@ -281,6 +283,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           ]}
           onUpdate={async (status) => {
             const current = purchaseOrder.status;
+            if (!canTransitionPurchaseOrder(current, status)) {
+              throw new Error(`Unsupported purchase-order transition: ${current} → ${status}`);
+            }
 
             if (status === "confirmed" && current === "draft") {
               // draft → confirmed: create lots, then show allocation preview

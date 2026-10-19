@@ -6,6 +6,7 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import { canTransitionSaleOrder, getSaleOrderTransitions } from "@/lib/order-status";
 import { useToast } from "@/components/ui/toast";
 import { TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -174,13 +175,17 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
       statusWidget={
         <OrderStatusWidget
           status={saleOrder.status}
-          isComplete={saleOrder.status === "completed"}
+          allowedTransitions={getSaleOrderTransitions(saleOrder.status)}
+          isComplete={getSaleOrderTransitions(saleOrder.status).length === 0}
           options={[
             { label: "Open", value: "open" }, { label: "Shipped", value: "shipped" },
             { label: "Completed", value: "completed" }, { label: "Cancelled", value: "cancelled" },
             { label: "Returned", value: "returned" },
           ]}
           onUpdate={async (status) => {
+            if (!canTransitionSaleOrder(saleOrder.status, status)) {
+              throw new Error(`Unsupported sales-order transition: ${saleOrder.status} → ${status}`);
+            }
             if (status === "completed" && items.some((item) => !item.unit_price || item.unit_price <= 0))
               throw new Error("All items must have a sale price before completing.");
             if (status === "shipped") await AetherClient.fulfillSaleOrder(saleOrder.id);
