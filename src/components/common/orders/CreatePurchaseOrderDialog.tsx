@@ -58,8 +58,8 @@ export default function CreatePurchaseOrderDialog({
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<PurchaseLine[]>(initialItems?.length
-    ? initialItems.map((item) => ({ ...item, shipping_cost: "0", tax_amount: "0" }))
-    : [{ product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" }]);
+    ? initialItems.map((item) => ({ ...item, shipping_cost: "0" }))
+    : [{ product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0" }]);
   const [showSupplierForm, setShowSupplierForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [newSupplier, setNewSupplier] = useState({ name: "", email: "", phone: "", default_lead_days: "1" });
@@ -84,8 +84,7 @@ export default function CreatePurchaseOrderDialog({
   )), [fetchedSaleOrders, fulfillmentType]);
   const totalPayableSgd = lines.reduce((sum, line) => sum
     + (Number(line.quantity_ordered) || 0) * (Number(line.unit_cost) || 0)
-    + (Number(line.shipping_cost) || 0)
-    + (Number(line.tax_amount) || 0), 0);
+    + (Number(line.shipping_cost) || 0), 0);
 
   function updateLine(index: number, changes: Partial<PurchaseLine>) {
     setLines((current) => current.map((line, lineIndex) => lineIndex === index ? { ...line, ...changes } : line));
@@ -158,8 +157,6 @@ export default function CreatePurchaseOrderDialog({
         || line.unit_cost.trim() === ""
         || !Number.isFinite(Number(line.shipping_cost))
         || Number(line.shipping_cost) < 0
-        || !Number.isFinite(Number(line.tax_amount))
-        || Number(line.tax_amount) < 0
       ))) return "Complete each item line or remove any empty rows.";
     }
     return null;
@@ -203,7 +200,6 @@ export default function CreatePurchaseOrderDialog({
       quantity_ordered: Number(line.quantity_ordered),
       unit_cost: Number(line.unit_cost),
       shipping_cost: Number(line.shipping_cost),
-      tax_amount: Number(line.tax_amount),
     }));
 
     try {

@@ -13,7 +13,6 @@ export interface PurchaseLine {
   quantity_ordered: string;
   unit_cost: string;
   shipping_cost: string;
-  tax_amount: string;
 }
 
 const inputClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring";
@@ -149,14 +148,14 @@ export function ItemsAndLinksStep({ data, actions }: { data: ItemsStepData; acti
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 id="po-items-heading" className="text-sm font-semibold">Purchase order items</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Enter shipping and tax for each product so its landed cost is calculated separately.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Enter shipping for each product so its landed cost is calculated separately.</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => actions.setShowProductForm((current) => !current)} aria-expanded={data.showProductForm} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-white px-3 text-sm font-medium text-foreground hover:bg-muted">
               <PackagePlus aria-hidden="true" className="size-4 text-primary" />
               {data.showProductForm ? "Close product form" : "Create product"}
             </button>
-            <button type="button" onClick={() => actions.setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" }])} className="inline-flex min-h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-[#ea580c]">
+            <button type="button" onClick={() => actions.setLines((current) => [...current, { product_id: "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0" }])} className="inline-flex min-h-9 items-center gap-2 rounded-md bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-[#ea580c]">
               <Plus aria-hidden="true" className="size-4" />
               Add line item
             </button>
@@ -210,15 +209,14 @@ function PurchaseLineEditor({ index, line, products, fxRate, canRemove, onChange
   const quantity = Number(line.quantity_ordered) || 1;
   const unitCost = Number(line.unit_cost) || 0;
   const shippingCost = Number(line.shipping_cost) || 0;
-  const taxAmount = Number(line.tax_amount) || 0;
-  const landedUnitCost = unitCost + (shippingCost + taxAmount) / quantity;
-  const landedTotal = quantity * unitCost + shippingCost + taxAmount;
+  const landedUnitCost = unitCost + shippingCost / quantity;
+  const landedTotal = quantity * unitCost + shippingCost;
   const productId = `po-line-${index + 1}-product`;
   const quantityId = `po-line-${index + 1}-quantity`;
   const costId = `po-line-${index + 1}-unit-cost`;
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_5rem_7rem_7rem_7rem_auto] sm:items-end">
+    <div className="grid gap-3 rounded-lg border border-border bg-white p-3 sm:grid-cols-[minmax(0,1fr)_5rem_7rem_7rem_auto] sm:items-end">
       <Field label={`Product ${index + 1}`} htmlFor={productId}>
         <Select id={productId} searchable required value={line.product_id} onChange={(event) => onChange(index, { product_id: event.target.value })} className={inputClass}>
           <option value="">Select product</option>
@@ -237,14 +235,11 @@ function PurchaseLineEditor({ index, line, products, fxRate, canRemove, onChange
       <Field htmlFor={`po-line-${index + 1}-shipping`} label="Shipping (SGD)">
         <Input id={`po-line-${index + 1}-shipping`} type="number" min="0" step="0.01" value={line.shipping_cost} onChange={(event) => onChange(index, { shipping_cost: event.target.value })} className={inputClass} placeholder="0.00" />
       </Field>
-      <Field htmlFor={`po-line-${index + 1}-tax`} label="Tax (SGD)">
-        <Input id={`po-line-${index + 1}-tax`} type="number" min="0" step="0.01" value={line.tax_amount} onChange={(event) => onChange(index, { tax_amount: event.target.value })} className={inputClass} placeholder="0.00" />
-      </Field>
       <button type="button" onClick={onRemove} disabled={!canRemove} aria-label={`Remove item ${index + 1}`} className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md px-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 sm:mb-0.5">
         <Trash2 aria-hidden="true" className="size-4" />
         <span className="sm:sr-only">Remove</span>
       </button>
-      {selectedProduct && <p className="text-xs text-muted-foreground sm:col-span-6">Landed unit cost: SGD {landedUnitCost.toFixed(2)} (unit cost + shipping and tax ÷ quantity) · Line total: SGD {landedTotal.toFixed(2)}{fxRate ? ` · Approx. AUD ${(landedUnitCost * fxRate).toFixed(2)} per unit / ${(landedTotal * fxRate).toFixed(2)} total` : ""}</p>}
+      {selectedProduct && <p className="text-xs text-muted-foreground sm:col-span-5">Landed unit cost: SGD {landedUnitCost.toFixed(2)} (unit cost + shipping ÷ quantity) · Line total: SGD {landedTotal.toFixed(2)}{fxRate ? ` · Approx. AUD ${(landedUnitCost * fxRate).toFixed(2)} per unit / ${(landedTotal * fxRate).toFixed(2)} total` : ""}</p>}
     </div>
   );
 }
@@ -267,8 +262,7 @@ interface ReviewStepActions {
 export function ReviewAndCostsStep({ data, actions }: { data: ReviewStepData; actions: ReviewStepActions }) {
   const itemsSgd = data.lines.reduce((sum, line) => sum + Number(line.quantity_ordered) * Number(line.unit_cost), 0);
   const freightSgd = data.lines.reduce((sum, line) => sum + (Number(line.shipping_cost) || 0), 0);
-  const taxSgd = data.lines.reduce((sum, line) => sum + (Number(line.tax_amount) || 0), 0);
-  const totalSgd = itemsSgd + freightSgd + taxSgd;
+  const totalSgd = itemsSgd + freightSgd;
 
   return (
     <div>
@@ -289,7 +283,7 @@ export function ReviewAndCostsStep({ data, actions }: { data: ReviewStepData; ac
               </div>
             </details>
             <div className="mt-auto pt-1">
-              <CostSummary itemsSgd={itemsSgd} freightSgd={freightSgd} taxSgd={taxSgd} totalSgd={totalSgd} fxRate={data.fxRate} />
+              <CostSummary itemsSgd={itemsSgd} freightSgd={freightSgd} totalSgd={totalSgd} fxRate={data.fxRate} />
             </div>
           </aside>
         </div>
@@ -325,22 +319,21 @@ function LineItemSummary({ data }: { data: ReviewStepData }) {
     <section className="overflow-hidden rounded-lg border border-[#dfe6ef] bg-white" aria-labelledby="po-review-items-heading">
       <h3 id="po-review-items-heading" className="flex items-center gap-2 border-b border-[#dfe6ef] bg-[#f5f8fc] px-4 py-3 text-xs font-semibold uppercase tracking-wide"><span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />Line items configured ({data.lines.length})</h3>
       <div className="overflow-x-auto">
-      <div className="grid min-w-[700px] grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_5rem_6rem_6rem] gap-2 border-b border-[#e7edf4] px-4 py-2 text-xs font-medium text-muted-foreground">
-          <span>Product item</span><span className="text-right">Qty</span><span className="text-right">Unit (SGD)</span><span className="text-right">Ship</span><span className="text-right">Tax</span><span className="text-right">Landed/unit</span><span className="text-right">Total (SGD)</span>
+      <div className="grid min-w-[620px] grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_6rem_6rem] gap-2 border-b border-[#e7edf4] px-4 py-2 text-xs font-medium text-muted-foreground">
+          <span>Product item</span><span className="text-right">Qty</span><span className="text-right">Unit (SGD)</span><span className="text-right">Ship</span><span className="text-right">Landed/unit</span><span className="text-right">Total (SGD)</span>
         </div>
-        <div className="min-w-[700px] divide-y divide-[#e7edf4]">
+        <div className="min-w-[620px] divide-y divide-[#e7edf4]">
           {data.lines.map((line, index) => {
             const product = data.products.find((item) => item.id === line.product_id);
             const total = Number(line.quantity_ordered) * Number(line.unit_cost);
-            const landedUnit = Number(line.unit_cost) + ((Number(line.shipping_cost) || 0) + (Number(line.tax_amount) || 0)) / Number(line.quantity_ordered);
-            return <div key={`${line.product_id}-${index}`} className="grid grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_5rem_6rem_6rem] items-center gap-2 px-4 py-3 text-sm">
+            const landedUnit = Number(line.unit_cost) + (Number(line.shipping_cost) || 0) / Number(line.quantity_ordered);
+            return <div key={`${line.product_id}-${index}`} className="grid grid-cols-[minmax(0,1fr)_3rem_5rem_5rem_6rem_6rem] items-center gap-2 px-4 py-3 text-sm">
               <span className="min-w-0 truncate font-medium">{product?.name ?? "Unknown product"}</span>
               <span className="text-right tabular-nums">{line.quantity_ordered}</span>
               <span className="text-right tabular-nums">{Number(line.unit_cost).toFixed(2)}</span>
               <span className="text-right tabular-nums">{(Number(line.shipping_cost) || 0).toFixed(2)}</span>
-              <span className="text-right tabular-nums">{(Number(line.tax_amount) || 0).toFixed(2)}</span>
               <span className="text-right tabular-nums">{landedUnit.toFixed(2)}</span>
-              <span className="text-right font-semibold tabular-nums">{(total + (Number(line.shipping_cost) || 0) + (Number(line.tax_amount) || 0)).toFixed(2)}</span>
+              <span className="text-right font-semibold tabular-nums">{(total + (Number(line.shipping_cost) || 0)).toFixed(2)}</span>
             </div>;
           })}
         </div>
@@ -349,13 +342,12 @@ function LineItemSummary({ data }: { data: ReviewStepData }) {
   );
 }
 
-function CostSummary({ itemsSgd, freightSgd, taxSgd, totalSgd, fxRate }: { itemsSgd: number; freightSgd: number; taxSgd: number; totalSgd: number; fxRate: number | null }) {
+function CostSummary({ itemsSgd, freightSgd, totalSgd, fxRate }: { itemsSgd: number; freightSgd: number; totalSgd: number; fxRate: number | null }) {
   const currency = fxRate ? "AUD" : "SGD";
   const multiplier = fxRate ?? 1;
   const rows = [
     { label: "Items subtotal", value: itemsSgd },
     { label: "Freight", value: freightSgd },
-    { label: "Tax", value: taxSgd },
   ];
   return (
     <section className="overflow-hidden rounded-lg border border-[#dfe6ef] bg-white" aria-label="Purchase order cost summary">

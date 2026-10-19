@@ -47,6 +47,7 @@ interface DataGridProps<T extends object> {
   showDetailsMenu?: boolean;
   detailsPageHref?: (row: T) => string;
   expandOnRowDoubleClick?: boolean;
+  allowRowDetails?: boolean;
   expandedRowHeight?: number;
   editConfig?: RowEditConfig<T>;
   editLabel?: string;
@@ -177,6 +178,7 @@ export default function DataGrid<T extends object>({
   showDetailsMenu = false,
   detailsPageHref,
   expandOnRowDoubleClick = false,
+  allowRowDetails = true,
   expandedRowHeight = 720,
   editConfig,
   editLabel = "Edit",
@@ -355,7 +357,7 @@ export default function DataGrid<T extends object>({
           rowSelection="single"
           onRowClicked={onRowClick ? (e) => e.data && onRowClick(e.data) : undefined}
           onCellDoubleClicked={(e) => {
-            if (e.data && !isInlineDetailRow(e.data as T | InlineDetailRow<T>)) {
+            if (allowRowDetails && e.data && !isInlineDetailRow(e.data as T | InlineDetailRow<T>)) {
               handleRowDoubleClick(e.data);
             }
           }}

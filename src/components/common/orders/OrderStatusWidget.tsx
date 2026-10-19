@@ -20,6 +20,7 @@ export interface OrderStatusOption {
 interface OrderStatusWidgetProps {
   status: string;
   options: OrderStatusOption[];
+  allowedTransitions?: string[];
   onUpdate: (status: string) => Promise<void>;
   isComplete?: boolean;
   skipConfirm?: boolean;
@@ -69,6 +70,7 @@ const confirmConfig: Record<string, { title: string; description: string; confir
 export default function OrderStatusWidget({
   status,
   options,
+  allowedTransitions,
   onUpdate,
   isComplete = false,
   skipConfirm = false,
@@ -91,6 +93,10 @@ export default function OrderStatusWidget({
   }, [open]);
 
   async function executeTransition(nextStatus: string) {
+    if (allowedTransitions && !allowedTransitions.includes(nextStatus)) {
+      setError(`Cannot transition from ${status} to ${nextStatus}.`);
+      return;
+    }
     setUpdating(true);
     setError(null);
     try {
@@ -105,7 +111,7 @@ export default function OrderStatusWidget({
   }
 
   function handleSelect(nextStatus: string) {
-    if (nextStatus === status || isComplete) return;
+    if (nextStatus === status || isComplete || (allowedTransitions && !allowedTransitions.includes(nextStatus))) return;
     setOpen(false);
 
     if (!skipConfirm && nextStatus in confirmConfig) {
@@ -127,6 +133,8 @@ export default function OrderStatusWidget({
   }
 
   const currentLabel = options.find((o) => o.value === status)?.label ?? status;
+  const transitionOptions = allowedTransitions ? options.filter((o) => allowedTransitions.includes(o.value)) : options;
+  const hasTransitions = !allowedTransitions || transitionOptions.length > 0;
   const btnColors = statusColors[status] ?? "bg-gray-100 text-gray-700 border-gray-200";
   const dialogConfig = pendingStatus ? confirmConfigOverrides?.[pendingStatus] ?? confirmConfig[pendingStatus] : null;
 
@@ -134,17 +142,17 @@ export default function OrderStatusWidget({
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => !isComplete && !updating && setOpen(!open)}
-        disabled={isComplete || updating}
+        onClick={() => !isComplete && hasTransitions && !updating && setOpen(!open)}
+        disabled={isComplete || !hasTransitions || updating}
         className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-0.5 text-sm font-semibold capitalize shadow-sm transition-colors disabled:opacity-60 ${btnColors}`}
       >
         {currentLabel}
-        {!isComplete && <ChevronDown size={14} />}
+        {!isComplete && hasTransitions && <ChevronDown size={14} />}
       </button>
 
       {open && (
         <div className="absolute left-0 top-full z-50 mt-1 w-52 rounded-lg border border-border bg-card py-1 shadow-xl">
-          {options
+          {transitionOptions
             .filter((o) => o.value !== status)
             .map((option) => {
               const description = transitionDescriptionOverrides?.[option.value] ?? transitionDescriptions[option.value];

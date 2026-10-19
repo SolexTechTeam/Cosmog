@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/toast";
 import { Tabs } from "@/components/ui/tabs";
 import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
+import { canTransitionPurchaseOrder, getPurchaseOrderTransitions } from "@/lib/order-status";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import PaginatedTable from "@/components/common/PaginatedTable";
 import LinkedSaleOrdersEditor from "@/components/common/orders/LinkedSaleOrdersEditor";
@@ -233,7 +234,6 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const totalCost = purchaseOrder.order_total;
   const itemSubtotal = items.reduce((total, item) => total + item.quantity_ordered * item.unit_cost, 0);
   const shippingTotal = items.reduce((total, item) => total + (item.shipping_cost ?? 0), purchaseOrder.shipping_cost ?? 0);
-  const taxTotal = items.reduce((total, item) => total + (item.tax_amount ?? 0), purchaseOrder.tax_amount ?? 0);
   const totalReceived = items.reduce((total, item) => total + item.quantity_received, 0);
   const totalOrdered = items.reduce((total, item) => total + item.quantity_ordered, 0);
 
@@ -265,7 +265,8 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       statusWidget={
         <OrderStatusWidget
           status={purchaseOrder.status}
-          isComplete={purchaseOrder.status === "received" || purchaseOrder.status === "cancelled"}
+          allowedTransitions={getPurchaseOrderTransitions(purchaseOrder.status)}
+          isComplete={getPurchaseOrderTransitions(purchaseOrder.status).length === 0}
           transitionDescriptionOverrides={{ cancelled: "Reverses unreceived incoming inventory and releases its reservations" }}
           confirmConfigOverrides={{
             cancelled: {
@@ -282,6 +283,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           ]}
           onUpdate={async (status) => {
             const current = purchaseOrder.status;
+            if (!canTransitionPurchaseOrder(current, status)) {
+              throw new Error(`Unsupported purchase-order transition: ${current} → ${status}`);
+            }
 
             if (status === "confirmed" && current === "draft") {
               // draft → confirmed: create lots, then show allocation preview
@@ -334,7 +338,6 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                     {hasForeignSourceCost && <th className="px-4 py-2 text-right font-medium">Source Cost</th>}
                     <th className="px-4 py-2 text-right font-medium">Landed Unit Cost (AUD)</th>
                     <th className="px-4 py-2 text-right font-medium">Shipping (AUD)</th>
-                    <th className="px-4 py-2 text-right font-medium">Tax (AUD)</th>
                     <th className="px-4 py-2 text-right font-medium">Line Total</th>
                   </tr>
                 </thead>
@@ -353,18 +356,16 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
                       </td>}
                       <td className="px-4 py-2.5 text-right tabular-nums">AUD ${fixed(item.landed_unit_cost ?? item.unit_cost)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums">${fixed(item.shipping_cost)}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">${fixed(item.tax_amount)}</td>
                       <td className="px-4 py-2.5 text-right tabular-nums font-medium">${fixed(item.quantity_ordered * (item.landed_unit_cost ?? item.unit_cost))}</td>
                     </tr>
                   ))}
-                  {items.length === 0 && <tr><td colSpan={hasForeignSourceCost ? 8 : 7} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
+                  {items.length === 0 && <tr><td colSpan={hasForeignSourceCost ? 7 : 6} className="px-4 py-6 text-center text-muted-foreground/60">No items</td></tr>}
                 </tbody>
               </table></PaginatedTable>
             </div>
             <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Items subtotal</dt><dd className="tabular-nums font-medium">${fixed(itemSubtotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">${fixed(taxTotal)}</dd></div>
                 <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Freight</dt><dd className="tabular-nums">${fixed(shippingTotal)}</dd></div>
                 <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
@@ -418,7 +419,6 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
               <div><p className="text-xs text-muted-foreground">Received Date</p><p className="text-sm font-medium tabular-nums">{purchaseOrder.received_date || "—"}</p></div>
               <div><p className="text-xs text-muted-foreground">Tracking Reference</p><p className="text-sm font-medium">{purchaseOrder.tracking_reference || "—"}</p></div>
               <div><p className="text-xs text-muted-foreground">Freight Cost</p><p className="text-sm font-medium tabular-nums">{fmt(shippingTotal)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Tax</p><p className="text-sm font-medium tabular-nums">{fmt(taxTotal)}</p></div>
               <div><p className="text-xs text-muted-foreground">Total Cost</p><p className="text-sm font-bold tabular-nums text-primary">{fmt(totalCost)}</p></div>
               <div><p className="text-xs text-muted-foreground">Items Ordered</p><p className="text-sm font-medium tabular-nums">{totalOrdered}</p></div>
               <div><p className="text-xs text-muted-foreground">Items Received</p><p className="text-sm font-medium tabular-nums">{totalReceived} / {totalOrdered}</p></div>

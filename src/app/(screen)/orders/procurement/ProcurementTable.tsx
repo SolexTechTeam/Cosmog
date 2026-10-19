@@ -20,6 +20,7 @@ import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
+import { canTransitionPurchaseOrder, getPurchaseOrderTransitions } from "@/lib/order-status";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
@@ -33,7 +34,6 @@ interface ItemDraft {
   quantity_ordered: string;
   unit_cost: string;
   shipping_cost: string;
-  tax_amount: string;
 }
 
 const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
@@ -145,6 +145,10 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
   }
 
   async function handleStatusChange(status: string) {
+    if (!canTransitionPurchaseOrder(purchaseOrder.status, status)) {
+      setError(`Unsupported purchase-order transition: ${purchaseOrder.status} → ${status}`);
+      return;
+    }
     if (status === "cancelled") {
       setShowCancelConfirm(true);
       return;
@@ -246,11 +250,10 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
             <label className="grid gap-0.5 font-medium text-muted-foreground">
               Status
               <Select value={purchaseOrder.status} onChange={(e) => handleStatusChange(e.target.value)} disabled={saving || isDone} className={poSelectClass}>
-                <option value="draft">Draft</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="in transit">In transit</option>
-                <option value="received">Received</option>
-                <option value="cancelled">Cancelled</option>
+                <option value={purchaseOrder.status}>{purchaseOrder.status}</option>
+                {getPurchaseOrderTransitions(purchaseOrder.status).map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
               </Select>
             </label>
             <label className="grid gap-0.5 font-medium text-muted-foreground">
@@ -289,7 +292,7 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
                 <tr key={item.id}>
                   <td className="px-3 py-1.5">{item.product?.name ?? "—"}</td>
                   <td className="px-3 py-1.5 text-right">{item.quantity_ordered}</td>
-                  <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * (item.landed_unit_cost ?? (item.unit_cost + ((item.shipping_cost ?? 0) + (item.tax_amount ?? 0)) / item.quantity_ordered))).toFixed(2)}</td>
+                  <td className="px-3 py-1.5 text-right">${(item.quantity_ordered * (item.landed_unit_cost ?? (item.unit_cost + (item.shipping_cost ?? 0) / item.quantity_ordered))).toFixed(2)}</td>
                 </tr>
               ))}
               {(purchaseOrder.items ?? []).length === 0 && (
@@ -444,14 +447,13 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
       quantity_ordered: String(item.quantity_ordered),
       unit_cost: String(item.unit_cost),
       shipping_cost: item.shipping_cost == null ? "" : String(item.shipping_cost),
-      tax_amount: item.tax_amount == null ? "" : String(item.tax_amount),
     });
     setError(null);
   }
 
   function beginAdding() {
     setIsAdding(true);
-    setDraft({ product_id: products[0]?.id ?? "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0", tax_amount: "0" });
+    setDraft({ product_id: products[0]?.id ?? "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0" });
     setError(null);
   }
 
@@ -461,12 +463,10 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     const quantityOrdered = Number(draft.quantity_ordered);
     const unitCost = Number(draft.unit_cost);
     const shippingCost = Number(draft.shipping_cost);
-    const taxAmount = Number(draft.tax_amount);
     const hasShippingCost = draft.shipping_cost.trim() !== "";
-    const hasTaxAmount = draft.tax_amount.trim() !== "";
 
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || hasShippingCost !== hasTaxAmount || (hasShippingCost && (!Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(taxAmount) || taxAmount < 0))) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost, shipping, and tax amounts.");
+    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || (hasShippingCost && (!Number.isFinite(shippingCost) || shippingCost < 0))) {
+      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
       return;
     }
 
@@ -477,7 +477,7 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
         product_id: draft.product_id,
         quantity_ordered: quantityOrdered,
         unit_cost: unitCost,
-        ...(hasShippingCost ? { shipping_cost: shippingCost, tax_amount: taxAmount } : {}),
+        ...(hasShippingCost ? { shipping_cost: shippingCost } : {}),
       };
       const updatedItem = await AetherClient.updatePurchaseOrderItem(purchaseOrder.id, item.id, updates);
       setItems((current) => current.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
@@ -498,10 +498,9 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     const quantityOrdered = Number(draft.quantity_ordered);
     const unitCost = Number(draft.unit_cost);
     const shippingCost = Number(draft.shipping_cost);
-    const taxAmount = Number(draft.tax_amount);
 
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(shippingCost) || shippingCost < 0 || !Number.isFinite(taxAmount) || taxAmount < 0) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost, shipping, and tax amounts.");
+    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(shippingCost) || shippingCost < 0) {
+      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
       return;
     }
 
@@ -513,7 +512,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
         quantity_ordered: quantityOrdered,
         unit_cost: unitCost,
         shipping_cost: shippingCost,
-        tax_amount: taxAmount,
       });
       setItems((current) => [...current, newItem]);
       setIsAdding(false);
@@ -550,7 +548,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 text-right font-medium">Unit Cost (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Shipping (AUD)</th>
-              <th className="px-3 py-2 text-right font-medium">Tax (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Qty Ordered</th>
               <th className="px-3 py-2 text-right font-medium">Qty Received</th>
               {isDraft && <th className="px-3 py-2 text-right font-medium">Actions</th>}
@@ -594,9 +591,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
                   </td>
                   <td className="px-3 py-2 text-right text-foreground">
                     {isEditing ? <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring" placeholder="—" /> : item.shipping_cost == null ? "—" : `$${item.shipping_cost.toFixed(2)}`}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {isEditing ? <input type="number" min="0" step="0.01" value={draft.tax_amount} onChange={(event) => setDraft((current) => current ? { ...current, tax_amount: event.target.value } : current)} className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring" placeholder="—" /> : item.tax_amount == null ? "—" : `$${item.tax_amount.toFixed(2)}`}
                   </td>
                   <td className="px-3 py-2 text-right text-foreground">
                     {isEditing ? (
@@ -648,14 +642,14 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
             })}
             {items.length === 0 && (
               <tr>
-                <td colSpan={isDraft ? 8 : 7} className="px-3 py-6 text-center text-muted-foreground">No items</td>
+                <td colSpan={isDraft ? 7 : 6} className="px-3 py-6 text-center text-muted-foreground">No items</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
       {isAdding && draft && (
-        <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_7rem_7rem_auto] sm:items-end">
+        <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_7rem_auto] sm:items-end">
           <label className="block text-sm font-medium text-foreground">
             Product
             <Select
@@ -694,10 +688,6 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
           <label className="block text-sm font-medium text-foreground">
             Shipping (AUD)
             <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
-          </label>
-          <label className="block text-sm font-medium text-foreground">
-            Tax (AUD)
-            <input type="number" min="0" step="0.01" value={draft.tax_amount} onChange={(event) => setDraft((current) => current ? { ...current, tax_amount: event.target.value } : current)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
           </label>
           <div className="flex gap-2">
             <button
@@ -860,18 +850,6 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         editConfig={{
           fields: [
             {
-              key: "status",
-              label: "Status",
-              type: "select",
-              options: [
-                { label: "Draft", value: "draft" },
-                { label: "Confirmed", value: "confirmed" },
-                { label: "In Transit", value: "in transit" },
-                { label: "Received", value: "received" },
-                { label: "Cancelled", value: "cancelled" },
-              ],
-            },
-            {
               key: "fulfillment_type",
               label: "Fulfillment",
               type: "select",
@@ -886,52 +864,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (purchaseOrder, changes) => {
-            const { status, ...headerChanges } = changes;
-            if (Object.keys(headerChanges).length) {
-              await AetherClient.updatePurchaseOrder(purchaseOrder.id, headerChanges);
-            }
-            if (status === "confirmed" && purchaseOrder.status === "draft") {
-              try {
-                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-                toast(`PO confirmed — ${result.lots_created} lots created`);
-                const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
-                const edits = new Map<string, Map<string, number>>();
-                for (const order of previewResult.shortfall_orders) {
-                  const items = new Map<string, number>();
-                  for (const item of order.items) {
-                    items.set(item.sale_order_item_id, item.suggested_quantity);
-                  }
-                  edits.set(order.sale_order_id, items);
-                }
-                setParentAllocationEdits(edits);
-                setParentDialogData({ type: "po-allocate", data: previewResult });
-              } catch (e) {
-                toast(e instanceof Error ? e.message : "Failed to confirm PO", "error");
-              }
-              return;
-            } else if (status === "in transit") {
-              await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-              toast(`PO ${purchaseOrder.po_number} → in transit`);
-            } else if (status === "received") {
-              await AetherClient.receivePurchaseOrder(purchaseOrder.id);
-              const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
-              toast(`PO received — ${allocations.length} allocations found`);
-              await invalidatePurchaseOrderInventoryEffects(invalidate);
-              if (allocations.length) {
-                setParentDialogData({ type: "receive", allocations, purchaseOrderId: purchaseOrder.id });
-                return;
-              }
-            } else if (status === "cancelled") {
-              const confirmed = window.confirm("Cancel this purchase order? Any unreceived incoming quantity will be reversed and its active reservations released. Received inventory is preserved.");
-              if (!confirmed) return;
-              const result = await AetherClient.cancelPurchaseOrder(purchaseOrder.id);
-              await invalidatePurchaseOrderInventoryEffects(invalidate);
-              toast(result.already_cancelled ? `PO ${purchaseOrder.po_number} is already cancelled` : `PO ${purchaseOrder.po_number} cancelled; ${result.quantity_reversed} incoming units reversed`);
-              refetch();
-              return;
-            } else if (status !== undefined) {
-              throw new Error(`Unsupported purchase-order transition: ${purchaseOrder.status} → ${status}`);
-            }
+            await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes);
             invalidate([...queryKeys.saleOrders]);
             refetch();
           },

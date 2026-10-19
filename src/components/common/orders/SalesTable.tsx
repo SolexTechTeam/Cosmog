@@ -223,18 +223,6 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
         editConfig={{
           fields: [
             {
-              key: "status",
-              label: "Status",
-              type: "select",
-              options: [
-                { label: "Open", value: "open" },
-                { label: "Shipped", value: "shipped" },
-                { label: "Completed", value: "completed" },
-                { label: "Cancelled", value: "cancelled" },
-                { label: "Returned", value: "returned" },
-              ],
-            },
-            {
               key: "payment_status",
               label: "Payment Status",
               type: "select",
@@ -292,29 +280,7 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (saleOrder, changes) => {
-            const { status, ...otherChanges } = changes;
-
-            if (status === "completed") {
-              const missingPrice = (saleOrder.items ?? []).some((item) => !item.unit_price || item.unit_price <= 0);
-              if (missingPrice) {
-                throw new Error("All items must have a sale price before completing this order.");
-              }
-            }
-
-            if (Object.keys(otherChanges).length > 0) {
-              await AetherClient.updateSaleOrder(saleOrder.id, otherChanges);
-            }
-
-            if (status === "shipped") {
-              await AetherClient.fulfillSaleOrder(saleOrder.id);
-            } else if (status === "cancelled") {
-              await AetherClient.releaseSaleOrder(saleOrder.id);
-            } else if (status === "returned") {
-              await AetherClient.returnSaleOrder(saleOrder.id);
-            } else if (status !== undefined) {
-              await AetherClient.updateSaleOrder(saleOrder.id, { status });
-            }
-
+            await AetherClient.updateSaleOrder(saleOrder.id, changes);
             refetch();
           },
         }}

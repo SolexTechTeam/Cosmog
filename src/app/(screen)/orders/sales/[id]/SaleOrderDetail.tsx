@@ -6,6 +6,7 @@ import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { useLookup } from "@/hooks/useLookup";
 import { AetherClient } from "@/lib/aether-client";
 import { allocationLabel, isActiveSaleOrderStatus } from "@/lib/utils";
+import { canTransitionSaleOrder, getSaleOrderTransitions } from "@/lib/order-status";
 import { useToast } from "@/components/ui/toast";
 import { TextArea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -15,7 +16,6 @@ import OrderDetailLayout from "@/components/common/orders/OrderDetailLayout";
 import OrderStatusWidget from "@/components/common/orders/OrderStatusWidget";
 import SidebarCard from "@/components/common/orders/SidebarCard";
 import PaginatedTable from "@/components/common/PaginatedTable";
-import ShippingDetailsEditor from "@/components/common/orders/ShippingDetailsEditor";
 import CreatePurchaseOrderDialog from "@/components/common/orders/CreatePurchaseOrderDialog";
 import AllocationTab from "./AllocationTab";
 import MarginTab from "./MarginTab";
@@ -73,7 +73,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
   function startEditing() {
     setEditValues({
       priority: so.priority, owner_id: so.owner_id ?? "", fulfillment_type: so.fulfillment_type,
-      shipping_cost: String(so.shipping_cost), tax_amount: String(so.tax_amount),
+      shipping_cost: String(so.shipping_cost),
       shipped_date: so.shipped_date ?? "", delivered_date: so.delivered_date ?? "",
       tracking_reference: so.tracking_reference ?? "", shipping_details: so.shipping_details ?? "", notes: so.notes ?? "",
     });
@@ -87,7 +87,7 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
     try {
       const payload: Record<string, unknown> = {
         priority: editValues.priority, fulfillment_type: editValues.fulfillment_type,
-        shipping_cost: Number(editValues.shipping_cost) || 0, tax_amount: Number(editValues.tax_amount) || 0,
+        shipping_cost: Number(editValues.shipping_cost) || 0,
       };
       if (editValues.owner_id) payload.owner_id = editValues.owner_id;
       if (editValues.shipped_date) payload.shipped_date = editValues.shipped_date;
@@ -175,13 +175,17 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
       statusWidget={
         <OrderStatusWidget
           status={saleOrder.status}
-          isComplete={saleOrder.status === "completed"}
+          allowedTransitions={getSaleOrderTransitions(saleOrder.status)}
+          isComplete={getSaleOrderTransitions(saleOrder.status).length === 0}
           options={[
             { label: "Open", value: "open" }, { label: "Shipped", value: "shipped" },
             { label: "Completed", value: "completed" }, { label: "Cancelled", value: "cancelled" },
             { label: "Returned", value: "returned" },
           ]}
           onUpdate={async (status) => {
+            if (!canTransitionSaleOrder(saleOrder.status, status)) {
+              throw new Error(`Unsupported sales-order transition: ${saleOrder.status} → ${status}`);
+            }
             if (status === "completed" && items.some((item) => !item.unit_price || item.unit_price <= 0))
               throw new Error("All items must have a sale price before completing.");
             if (status === "shipped") await AetherClient.fulfillSaleOrder(saleOrder.id);
@@ -246,7 +250,6 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
             <div className="mt-auto border-t border-border bg-muted/30 px-4 py-2">
               <dl className="ml-auto w-56 space-y-1 text-sm">
                 <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Subtotal</dt><dd className="tabular-nums font-medium">${fixed(itemTotal)}</dd></div>
-                <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Tax</dt><dd className="tabular-nums">${fixed(saleOrder.tax_amount)}</dd></div>
                 <div className="flex justify-between"><dt className="text-xs text-muted-foreground">Shipping</dt><dd className="tabular-nums">${fixed(saleOrder.shipping_cost)}</dd></div>
                 <div className="flex justify-between border-t border-border pt-1.5 mt-1.5">
                   <dt className="text-xs font-bold text-foreground">Total</dt>
@@ -288,9 +291,6 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipping cost (AUD)
                   <input type="number" min="0" step="0.01" value={editValues.shipping_cost} onChange={(e) => setEditValues((v) => ({ ...v, shipping_cost: e.target.value }))} className={inputClass} />
                 </label>
-                <label className="grid gap-1 text-xs font-medium text-muted-foreground">Tax (AUD)
-                  <input type="number" min="0" step="0.01" value={editValues.tax_amount} onChange={(e) => setEditValues((v) => ({ ...v, tax_amount: e.target.value }))} className={inputClass} />
-                </label>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Shipped
                   <input type="date" value={editValues.shipped_date} onChange={(e) => setEditValues((v) => ({ ...v, shipped_date: e.target.value }))} className={inputClass} />
                 </label>
@@ -326,7 +326,6 @@ export default function SaleOrderDetail({ saleOrderId }: SaleOrderDetailProps) {
                 <div><p className="text-xs text-muted-foreground">Delivered Date</p><p className="text-sm font-medium tabular-nums">{saleOrder.delivered_date || "—"}</p></div>
                 <div><p className="text-xs text-muted-foreground">Tracking Reference</p><p className="text-sm font-medium font-mono">{saleOrder.tracking_reference || "—"}</p></div>
               <div><p className="text-xs text-muted-foreground">Shipping Cost</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.shipping_cost)}</p></div>
-              <div><p className="text-xs text-muted-foreground">Tax</p><p className="text-sm font-medium tabular-nums">{fmt(saleOrder.tax_amount)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Created</p><p className="text-sm font-medium tabular-nums">{saleOrder.created_at?.slice(0, 10)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Updated</p><p className="text-sm font-medium tabular-nums">{saleOrder.updated_at?.slice(0, 10)}</p></div>
               </div>

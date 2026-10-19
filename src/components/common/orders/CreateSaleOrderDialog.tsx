@@ -64,10 +64,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const [source, setSource] = useState("");
   const [priority, setPriority] = useState("normal");
   const [orderDate, setOrderDate] = useState(new Date().toISOString().slice(0, 10));
-  const [gstRateOverride, setGstRate] = useState<string | null>(null);
-  const gstRate = gstRateOverride ?? (pricingConfig?.gst_rate ?? 0.10).toString();
   const [shippingCost, setShippingCost] = useState("0");
-  const [taxAmount, setTaxAmount] = useState("0");
   const [shippingDetails, setShippingDetails] = useState("");
   const [shippingDetailsPreFilled, setShippingDetailsPreFilled] = useState(false);
   const [paymentNotes, setPaymentNotes] = useState("");
@@ -109,9 +106,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         const stock = stockByProductId.get(changes.product_id);
         if (stock && stock.avg_cost > 0) {
           const margin = pricingConfig?.margin_multiplier ?? 1.25;
-          const parsedGstRate = Number(gstRate);
-          const gst = Number.isFinite(parsedGstRate) ? parsedGstRate : 0;
-          updated.unit_price = (stock.avg_cost * margin * (1 + gst)).toFixed(2);
+          updated.unit_price = (stock.avg_cost * margin).toFixed(2);
         }
       }
       return updated;
@@ -186,8 +181,6 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
       return "Choose a customer and complete the required order details.";
     }
     if (step === 1) {
-      const rate = Number(gstRate);
-      if (!Number.isFinite(rate) || rate < 0 || rate > 1) return "Enter a GST rate between 0% and 100%.";
       if (lines.length === 0) return "Add at least one product to the sales order.";
       if (lines.some((line) => (
         !line.product_id
@@ -200,10 +193,7 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
     }
     if (step === 2) {
       const cost = Number(shippingCost);
-      const tax = Number(taxAmount);
-      if (!Number.isFinite(cost) || cost < 0 || !Number.isFinite(tax) || tax < 0) {
-        return "Enter valid non-negative shipping and tax amounts.";
-      }
+      if (!Number.isFinite(cost) || cost < 0) return "Enter a valid non-negative shipping amount.";
     }
     return null;
   }
@@ -225,11 +215,10 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
   const itemsStepProps = {
     data: {
       fulfillmentType, purchaseOrders, linkedPoIds, products, lines, stockByProductId,
-      pricingConfig, gstRate, newProduct, existingCategories, showProductForm, creatingProduct,
+      pricingConfig, newProduct, existingCategories, showProductForm, creatingProduct,
     },
     actions: {
       setLinkedPoIds, setLines, updateLine, setNewProduct, setShowProductForm,
-      setGstRate: (value: string | null) => setGstRate(value === null ? null : (Number(value) / 100).toString()),
       addProduct: () => { void addProduct(); },
     },
   };
@@ -240,13 +229,13 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
       fulfillmentType, orderDate, businessChannel, source, priority,
       ownerName: profiles.find((profile) => profile.id === ownerId)?.name ?? "Current user",
       linkedPurchaseOrders: purchaseOrders.filter((order) => linkedPoIds.includes(order.id)),
-      products, lines, shippingCost, taxAmount, shippingDetails, shippingDetailsPreFilled, paymentNotes, notes,
+      products, lines, shippingCost, shippingDetails, shippingDetailsPreFilled, paymentNotes, notes,
     },
-    actions: { setShippingCost, setTaxAmount, setShippingDetails, setPaymentNotes, setNotes },
+    actions: { setShippingCost, setShippingDetails, setPaymentNotes, setNotes },
   };
 
   const itemsTotal = lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
-  const totalPayable = itemsTotal + (Number(shippingCost) || 0) + (Number(taxAmount) || 0);
+  const totalPayable = itemsTotal + (Number(shippingCost) || 0);
 
   function continueToNextStep() {
     const validationError = validateStep(activeStep);
@@ -273,7 +262,6 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
 
     const normalizedLines = lines.map((line) => ({ product_id: line.product_id, quantity: Number(line.quantity), unit_price: Number(line.unit_price) }));
     const cost = Number(shippingCost);
-    const tax = Number(taxAmount);
     try {
       setSaving(true);
       setError(null);
@@ -287,7 +275,6 @@ export default function CreateSaleOrderDialog({ onClose, onCreated, initialItems
         ...(source ? { source } : {}),
         ...(linkedPoIds.length ? { linked_po_ids: linkedPoIds } : {}),
         shipping_cost: cost,
-        tax_amount: tax,
         ...(shippingDetails.trim() ? { shipping_details: shippingDetails.trim() } : {}),
         ...(paymentNotes.trim() ? { payment_notes: paymentNotes.trim() } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),

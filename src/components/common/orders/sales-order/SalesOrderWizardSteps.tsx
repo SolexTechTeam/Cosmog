@@ -169,7 +169,6 @@ interface ItemsStepData {
   lines: SaleLine[];
   stockByProductId: Map<string, StockStatus>;
   pricingConfig?: PricingConfig | null;
-  gstRate: string;
   newProduct: NewProduct;
   existingCategories: string[];
   showProductForm: boolean;
@@ -182,7 +181,6 @@ interface ItemsStepActions {
   updateLine: (index: number, changes: Partial<SaleLine>) => void;
   setNewProduct: Dispatch<SetStateAction<NewProduct>>;
   setShowProductForm: Dispatch<SetStateAction<boolean>>;
-  setGstRate: (value: string | null) => void;
   addProduct: () => void;
 }
 
@@ -193,7 +191,6 @@ export function SalesOrderItemsStep({ data, actions }: { data: ItemsStepData; ac
     !data.linkedPoIds.includes(order.id)
     && (order.po_number.toLowerCase().includes(poSearch.toLowerCase()) || (order.supplier?.name ?? "").toLowerCase().includes(poSearch.toLowerCase()))
   )).slice(0, 8);
-  const gstRate = Number(data.gstRate);
 
   function toggleLinkedPo(id: string) {
     actions.setLinkedPoIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -233,7 +230,7 @@ export function SalesOrderItemsStep({ data, actions }: { data: ItemsStepData; ac
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0 flex-1">
             <h3 id="so-items-heading" className="text-sm font-semibold">Sales order items</h3>
-            <p className="mt-1 text-xs text-muted-foreground">Sale prices are entered in AUD. Selecting a product suggests a price using cost, margin, and GST.</p>
+            <p className="mt-1 text-xs text-muted-foreground">Sale prices are entered in AUD. Selecting a product suggests a price using cost and margin.</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 sm:flex-nowrap">
             <button type="button" onClick={() => actions.setShowProductForm((current) => !current)} aria-expanded={data.showProductForm} className="inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-md border border-border bg-white px-3 text-sm font-medium text-foreground hover:bg-muted">
@@ -248,7 +245,7 @@ export function SalesOrderItemsStep({ data, actions }: { data: ItemsStepData; ac
         </div>
         {data.showProductForm && <NewProductForm data={data} actions={actions} />}
         <div className="space-y-2">
-          {data.lines.map((line, index) => <SaleLineEditor key={index} index={index} line={line} products={data.products} stock={data.stockByProductId.get(line.product_id)} pricingConfig={data.pricingConfig} gstRate={Number.isFinite(gstRate) ? gstRate : 0} showStock={data.fulfillmentType !== "direct_to_customer"} onChange={actions.updateLine} onRemove={() => actions.setLines((current) => current.length > 1 ? current.filter((_, lineIndex) => lineIndex !== index) : current)} canRemove={data.lines.length > 1} />)}
+          {data.lines.map((line, index) => <SaleLineEditor key={index} index={index} line={line} products={data.products} stock={data.stockByProductId.get(line.product_id)} pricingConfig={data.pricingConfig} showStock={data.fulfillmentType !== "direct_to_customer"} onChange={actions.updateLine} onRemove={() => actions.setLines((current) => current.length > 1 ? current.filter((_, lineIndex) => lineIndex !== index) : current)} canRemove={data.lines.length > 1} />)}
         </div>
       </section>
     </section>
@@ -281,13 +278,12 @@ function NewProductForm({ data, actions }: { data: ItemsStepData; actions: Items
   );
 }
 
-function SaleLineEditor({ index, line, products, stock, pricingConfig, gstRate, showStock, onChange, onRemove, canRemove }: {
+function SaleLineEditor({ index, line, products, stock, pricingConfig, showStock, onChange, onRemove, canRemove }: {
   index: number;
   line: SaleLine;
   products: Product[];
   stock?: StockStatus;
   pricingConfig?: PricingConfig | null;
-  gstRate: number;
   showStock: boolean;
   onChange: (index: number, changes: Partial<SaleLine>) => void;
   onRemove: () => void;
@@ -299,7 +295,7 @@ function SaleLineEditor({ index, line, products, stock, pricingConfig, gstRate, 
   const quantityId = `so-line-${index + 1}-quantity`;
   const priceId = `so-line-${index + 1}-price`;
   const suggestedPrice = stock?.avg_cost
-    ? stock.avg_cost * (pricingConfig?.margin_multiplier ?? 1.25) * (1 + gstRate)
+    ? stock.avg_cost * (pricingConfig?.margin_multiplier ?? 1.25)
     : null;
 
   return (
@@ -343,7 +339,6 @@ interface ReviewStepData {
   products: Product[];
   lines: SaleLine[];
   shippingCost: string;
-  taxAmount: string;
   shippingDetails: string;
   shippingDetailsPreFilled: boolean;
   paymentNotes: string;
@@ -352,7 +347,6 @@ interface ReviewStepData {
 
 interface ReviewStepActions {
   setShippingCost: (value: string) => void;
-  setTaxAmount: (value: string) => void;
   setShippingDetails: (value: string) => void;
   setPaymentNotes: (value: string) => void;
   setNotes: (value: string) => void;
@@ -361,8 +355,7 @@ interface ReviewStepActions {
 export function SalesOrderReviewStep({ data, actions }: { data: ReviewStepData; actions: ReviewStepActions }) {
   const itemsTotal = data.lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
   const shippingTotal = Number(data.shippingCost) || 0;
-  const taxTotal = Number(data.taxAmount) || 0;
-  const orderTotal = itemsTotal + shippingTotal + taxTotal;
+  const orderTotal = itemsTotal + shippingTotal;
 
   return (
     <section className="space-y-4 rounded-xl border border-[#dfe6ef] bg-[#f4f7fb] p-3 sm:p-4" aria-label="Review sales order">
@@ -376,15 +369,12 @@ export function SalesOrderReviewStep({ data, actions }: { data: ReviewStepData; 
           <section className="rounded-lg border border-[#dfe6ef] bg-white p-3" aria-labelledby="so-cost-heading">
             <div className="mb-3 flex items-center gap-2">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-              <h3 id="so-cost-heading" className="text-xs font-semibold uppercase tracking-wide">Shipping and tax</h3>
+              <h3 id="so-cost-heading" className="text-xs font-semibold uppercase tracking-wide">Shipping</h3>
               <span className="ml-auto text-xs text-muted-foreground">AUD</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Shipping cost" htmlFor="so-shipping-cost">
                 <Input id="so-shipping-cost" type="number" min="0" step="0.01" value={data.shippingCost} onChange={(event) => actions.setShippingCost(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
-              </Field>
-              <Field label="Tax" htmlFor="so-tax-amount">
-                <Input id="so-tax-amount" type="number" min="0" step="0.01" value={data.taxAmount} onChange={(event) => actions.setTaxAmount(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
               </Field>
             </div>
           </section>
@@ -412,7 +402,6 @@ export function SalesOrderReviewStep({ data, actions }: { data: ReviewStepData; 
             <dl className="space-y-2 px-4 py-4 text-sm">
               <CostRow label="Items" amount={itemsTotal} />
               <CostRow label="Shipping" amount={shippingTotal} />
-              <CostRow label="Tax" amount={taxTotal} />
               <div className="-mx-4 mt-3 border-t border-[#eee4da] bg-[#fff8f1] px-4 py-4">
                 <div className="flex items-baseline justify-between gap-3 font-semibold"><dt className="text-xs uppercase tracking-wide text-[#7c4a27]">Total payable (AUD)</dt><dd className="text-lg tabular-nums text-primary">AUD {orderTotal.toFixed(2)}</dd></div>
               </div>
