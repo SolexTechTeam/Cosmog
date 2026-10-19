@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import DataGrid from "@/components/common/DataGrid";
@@ -18,6 +18,7 @@ import SalesOverviewCards from "./SalesOverviewCards";
 import SaleOrderExpandedDetails from "./SaleOrderExpandedDetails";
 import { useToast } from "@/components/ui/toast";
 import { allocationLabel } from "@/lib/utils";
+import { canTransitionSaleOrder, getSaleOrderTransitions } from "@/lib/order-status";
 import type { Profile, SaleOrder } from "@/types";
 import type { ColDef } from "ag-grid-community";
 
@@ -33,6 +34,7 @@ interface SalesTableProps {
 
 export default function SalesTable({ orders: externalOrders, loading: externalLoading, error: externalError, activeOnly, hiddenColumns, pageSize = 25, compact }: SalesTableProps = {}) {
   const { toast } = useToast();
+  const invalidate = useInvalidate();
   const hasExternal = externalOrders !== undefined;
   const own = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders(), { enabled: !hasExternal });
   const data = hasExternal ? externalOrders : own.data;
@@ -223,6 +225,15 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
         editConfig={{
           fields: [
             {
+              key: "status",
+              label: "Status",
+              type: "status",
+              options: (order) => [order.status, ...getSaleOrderTransitions(order.status)].map((status) => ({
+                label: status.charAt(0).toUpperCase() + status.slice(1),
+                value: status,
+              })),
+            },
+            {
               key: "payment_status",
               label: "Payment Status",
               type: "select",
@@ -280,7 +291,44 @@ export default function SalesTable({ orders: externalOrders, loading: externalLo
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (saleOrder, changes) => {
-            await AetherClient.updateSaleOrder(saleOrder.id, changes);
+            const { status, ...otherChanges } = changes;
+            if (typeof status === "string") {
+              if (!canTransitionSaleOrder(saleOrder.status, status)) {
+                throw new Error(`Unsupported sales-order transition: ${saleOrder.status} → ${status}`);
+              }
+              if (status === "completed" && (saleOrder.items ?? []).some((item) => !item.unit_price || item.unit_price <= 0)) {
+                throw new Error("All items must have a sale price before completing.");
+              }
+              const confirmation = status === "shipped"
+                ? `Mark SO ${saleOrder.so_number} as shipped? This will allocate and fulfill inventory.`
+                : status === "cancelled"
+                  ? `Cancel SO ${saleOrder.so_number}? This will release its inventory reservations.`
+                  : status === "returned"
+                    ? `Return SO ${saleOrder.so_number}? This will reverse fulfillment and return inventory to stock.`
+                    : null;
+              if (confirmation && !window.confirm(confirmation)) throw new Error("Status change cancelled.");
+            }
+            if (Object.keys(otherChanges).length) await AetherClient.updateSaleOrder(saleOrder.id, otherChanges);
+            if (typeof status === "string") {
+              if (status === "shipped") await AetherClient.fulfillSaleOrder(saleOrder.id);
+              else if (status === "cancelled") await AetherClient.releaseSaleOrder(saleOrder.id);
+              else if (status === "returned") await AetherClient.returnSaleOrder(saleOrder.id);
+              else await AetherClient.updateSaleOrder(saleOrder.id, { status });
+              if (["shipped", "cancelled", "returned"].includes(status)) {
+                await Promise.all([
+                  invalidate([...queryKeys.saleOrders], "all"),
+                  invalidate([...queryKeys.stockStatus], "all"),
+                  invalidate([...queryKeys.inventorySummary], "all"),
+                  invalidate([...queryKeys.inventoryLots], "all"),
+                  invalidate([...queryKeys.ledger], "all"),
+                  invalidate([...queryKeys.demandPriority], "all"),
+                  invalidate([...queryKeys.allocationRoot], "all"),
+                  invalidate([...queryKeys.inventoryAllocationsRoot], "all"),
+                ]);
+              } else {
+                await invalidate([...queryKeys.saleOrders]);
+              }
+            }
             refetch();
           },
         }}

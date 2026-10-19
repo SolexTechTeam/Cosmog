@@ -850,6 +850,15 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         editConfig={{
           fields: [
             {
+              key: "status",
+              label: "Status",
+              type: "status",
+              options: (order) => [order.status, ...getPurchaseOrderTransitions(order.status)].map((status) => ({
+                label: status === "in transit" ? "In Transit" : status.charAt(0).toUpperCase() + status.slice(1),
+                value: status,
+              })),
+            },
+            {
               key: "fulfillment_type",
               label: "Fulfillment",
               type: "select",
@@ -864,8 +873,52 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             { key: "notes", label: "Notes", type: "textarea" },
           ],
           onSave: async (purchaseOrder, changes) => {
-            await AetherClient.updatePurchaseOrder(purchaseOrder.id, changes);
-            invalidate([...queryKeys.saleOrders]);
+            const { status, ...otherChanges } = changes;
+            if (typeof status === "string") {
+              if (!canTransitionPurchaseOrder(purchaseOrder.status, status)) {
+                throw new Error(`Unsupported purchase-order transition: ${purchaseOrder.status} → ${status}`);
+              }
+              if (status === "cancelled") {
+                if (!window.confirm(`Cancel PO ${purchaseOrder.po_number}? This will reverse incoming quantities.`)) {
+                  throw new Error("Status change cancelled.");
+                }
+              }
+            }
+            if (Object.keys(otherChanges).length) await AetherClient.updatePurchaseOrder(purchaseOrder.id, otherChanges);
+            if (typeof status === "string") {
+              if (status === "cancelled") {
+                const result = await AetherClient.cancelPurchaseOrder(purchaseOrder.id);
+                await invalidatePurchaseOrderInventoryEffects(invalidate);
+                toast(result.already_cancelled ? `PO ${purchaseOrder.po_number} is already cancelled` : `PO ${purchaseOrder.po_number} cancelled; ${result.quantity_reversed} incoming units reversed`);
+              } else if (status === "confirmed") {
+                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                await invalidate([...queryKeys.purchaseOrders]);
+                refetch();
+                toast(`PO confirmed — ${result.lots_created} lots created`);
+                try {
+                  const preview = await AetherClient.previewPoAllocation(purchaseOrder.id);
+                  const edits = new Map<string, Map<string, number>>();
+                  for (const order of preview.shortfall_orders) {
+                    edits.set(order.sale_order_id, new Map(order.items.map((item) => [item.sale_order_item_id, item.suggested_quantity])));
+                  }
+                  setParentAllocationEdits(edits);
+                  setParentDialogData({ type: "po-allocate", data: preview });
+                } catch (error) {
+                  toast(error instanceof Error ? `PO confirmed; allocation preview failed: ${error.message}` : "PO confirmed; allocation preview failed");
+                }
+              } else if (status === "in transit") {
+                await AetherClient.shipPurchaseOrder(purchaseOrder.id);
+                await invalidate([...queryKeys.purchaseOrders]);
+                toast(`PO ${purchaseOrder.po_number} → in transit`);
+              } else if (status === "received") {
+                await AetherClient.receivePurchaseOrder(purchaseOrder.id);
+                const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
+                await invalidatePurchaseOrderInventoryEffects(invalidate);
+                toast(`PO ${purchaseOrder.po_number} received — ${allocations.length} allocations found`);
+                if (allocations.length) setParentDialogData({ type: "receive", allocations, purchaseOrderId: purchaseOrder.id });
+              }
+            }
+            await invalidate([...queryKeys.saleOrders]);
             refetch();
           },
         }}
