@@ -1,100 +1,20 @@
 "use client";
 
-import { useState, useMemo, useEffect, type FormEvent } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useColumnVisibility } from "@/hooks/useColumnVisibility";
 import ColumnPicker from "@/components/common/ColumnPicker";
-import { useApi, queryKeys } from "@/hooks/useApi";
+import { queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
 import { getLedgerReference } from "@/lib/ledger-reference";
 import DataGrid from "@/components/common/DataGrid";
 import SearchFilterBar from "@/components/common/SearchFilterBar";
 import StatusBadge from "@/components/common/StatusBadge";
 import ErrorBlock from "@/components/ui/error-block";
-import { Dialog } from "@/components/ui/dialog";
-import { TextArea } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import type { Product, LedgerEntry } from "@/types";
+import type { LedgerEntry } from "@/types";
 import type { ColDef } from "ag-grid-community";
-
-const inputClass = "h-10 w-full rounded-md border border-input bg-background px-3 font-normal outline-none focus:ring-2 focus:ring-ring";
-
-function AdjustmentDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { data: products } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
-  const [productId, setProductId] = useState("");
-  const [quantityChange, setQuantityChange] = useState("");
-  const [unitCost, setUnitCost] = useState("");
-  const [unitPrice, setUnitPrice] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    const qty = Number(quantityChange);
-    if (!productId || !Number.isFinite(qty) || qty === 0) {
-      setError("Select a product and enter a non-zero quantity.");
-      return;
-    }
-    try {
-      setSaving(true);
-      setError(null);
-      await AetherClient.createLedgerAdjustment({
-        product_id: productId,
-        quantity_change: qty,
-        ...(unitCost ? { unit_cost: Number(unitCost) } : {}),
-        ...(unitPrice ? { unit_price: Number(unitPrice) } : {}),
-        ...(notes.trim() ? { notes: notes.trim() } : {}),
-      });
-      onCreated();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create adjustment.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog loading={saving} onClose={onClose} title="Manual Adjustment" width={512}>
-      <form onSubmit={submit}>
-        {error && <p className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-        <div className="grid gap-3">
-          <label className="grid gap-1 text-sm font-medium">
-            Product
-            <Select searchable required value={productId} onChange={(e) => setProductId(e.target.value)} className={inputClass}>
-              <option value="">Select product</option>
-              {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} ({p.category})</option>)}
-            </Select>
-          </label>
-          <label className="grid gap-1 text-sm font-medium">
-            Quantity Change
-            <input required type="number" step="1" value={quantityChange} onChange={(e) => setQuantityChange(e.target.value)} placeholder="e.g. 5 or -3" className={inputClass} />
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-sm font-medium">
-              Unit Cost
-              <input type="number" min="0" step="0.01" value={unitCost} onChange={(e) => setUnitCost(e.target.value)} placeholder="Optional" className={inputClass} />
-            </label>
-            <label className="grid gap-1 text-sm font-medium">
-              Unit Price
-              <input type="number" min="0" step="0.01" value={unitPrice} onChange={(e) => setUnitPrice(e.target.value)} placeholder="Optional" className={inputClass} />
-            </label>
-          </div>
-          <label className="grid gap-1 text-sm font-medium">
-            Notes
-            <TextArea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="Reason for adjustment" />
-          </label>
-        </div>
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-3 py-2 text-sm hover:bg-muted">Cancel</button>
-          <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Add Adjustment"}</button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
+import ManualAdjustmentDialog from "./ManualAdjustmentDialog";
 
 export default function HistoryTable() {
   const [pageSize, setPageSize] = useState(50);
@@ -288,7 +208,7 @@ export default function HistoryTable() {
       {ledgerQuery.hasNextPage ? (
         <button type="button" disabled={ledgerQuery.isFetchingNextPage} onClick={() => void ledgerQuery.fetchNextPage()} className="mx-auto rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-60">{ledgerQuery.isFetchingNextPage ? "Loading…" : "Load more"}</button>
       ) : <p className="text-center text-xs text-muted-foreground">End of history · {rows.length} entries loaded</p>}
-      {showAdjustment && <AdjustmentDialog onClose={() => setShowAdjustment(false)} onCreated={() => void ledgerQuery.refetch()} />}
+      {showAdjustment && <ManualAdjustmentDialog onClose={() => setShowAdjustment(false)} />}
     </div>
   );
 }

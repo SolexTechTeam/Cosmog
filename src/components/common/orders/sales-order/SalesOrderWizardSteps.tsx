@@ -361,8 +361,7 @@ interface ReviewStepActions {
 export function SalesOrderReviewStep({ data, actions }: { data: ReviewStepData; actions: ReviewStepActions }) {
   const itemsTotal = data.lines.reduce((sum, line) => sum + (Number(line.quantity) || 0) * (Number(line.unit_price) || 0), 0);
   const shippingTotal = Number(data.shippingCost) || 0;
-  const taxTotal = Number(data.taxAmount) || 0;
-  const orderTotal = itemsTotal + shippingTotal + taxTotal;
+  const orderTotal = itemsTotal + shippingTotal;
 
   return (
     <section className="space-y-4 rounded-xl border border-[#dfe6ef] bg-[#f4f7fb] p-3 sm:p-4" aria-label="Review sales order">
@@ -376,15 +375,12 @@ export function SalesOrderReviewStep({ data, actions }: { data: ReviewStepData; 
           <section className="rounded-lg border border-[#dfe6ef] bg-white p-3" aria-labelledby="so-cost-heading">
             <div className="mb-3 flex items-center gap-2">
               <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-              <h3 id="so-cost-heading" className="text-xs font-semibold uppercase tracking-wide">Shipping and tax</h3>
+              <h3 id="so-cost-heading" className="text-xs font-semibold uppercase tracking-wide">Shipping</h3>
               <span className="ml-auto text-xs text-muted-foreground">AUD</span>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <Field label="Shipping cost" htmlFor="so-shipping-cost">
                 <Input id="so-shipping-cost" type="number" min="0" step="0.01" value={data.shippingCost} onChange={(event) => actions.setShippingCost(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
-              </Field>
-              <Field label="Tax" htmlFor="so-tax-amount">
-                <Input id="so-tax-amount" type="number" min="0" step="0.01" value={data.taxAmount} onChange={(event) => actions.setTaxAmount(event.target.value)} className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring" />
               </Field>
             </div>
           </section>

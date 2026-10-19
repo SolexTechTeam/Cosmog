@@ -14,7 +14,6 @@ import type {
   DemandPriority,
   InventoryLot,
   InventoryAllocationRecord,
-  LedgerEntry,
   LedgerPage,
   LookupValue,
   AllocationResponse,
@@ -320,10 +319,11 @@ export class AetherClient {
   static createLedgerAdjustment(data: {
     product_id: string;
     quantity_change: number;
-    unit_cost?: number;
+    unit_cost_aud?: number;
+    lot_decrements?: Array<{ inventory_lot_id: string; quantity: number }>;
     unit_price?: number;
     notes?: string;
-  }): Promise<LedgerEntry> {
+  }): Promise<{ ok: boolean; lots: Array<{ inventory_lot_id: string; quantity_change: number }>; ledger_entries: Array<{ id: number; inventory_lot_id: string }> }> {
     return request("/api/inventory/ledger/adjustment", { method: "POST", body: JSON.stringify(data) });
   }
 
