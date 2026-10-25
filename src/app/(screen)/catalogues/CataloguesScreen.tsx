@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { Check, Eye, FileDown, FileJson, FileText, LoaderCircle, Save, Trash2, Upload, X } from "lucide-react";
 import { useApi, useInvalidate, queryKeys } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
-import type { CatalogueConfigRecord, CatalogueCurrentSource, CatalogueExtraction, Profile } from "@/types";
+import type { CatalogueConfigRecord, CatalogueCurrentSource, CatalogueExtraction } from "@/types";
 import CatalogueProductsEditor from "./CatalogueProductsEditor";
 import SavedConfigsSection from "./SavedConfigsSection";
 import type { CatalogueDraft } from "./types";
@@ -22,7 +22,6 @@ function defaultName(filename: string): string {
 }
 
 export default function CataloguesScreen() {
-  const { data: profile, loading: profileLoading } = useApi<Profile>([...queryKeys.myProfile], () => AetherClient.getMyProfile());
   const { data: configsResponse, loading, error, refetch } = useApi<{ configs: CatalogueConfigRecord[] }>(
     [...queryKeys.catalogueConfigs],
     () => AetherClient.getCatalogueConfigs(),
@@ -30,6 +29,11 @@ export default function CataloguesScreen() {
   const { data: sourceResponse, loading: sourceLoading, refetch: refetchSource } = useApi<{ source: CatalogueCurrentSource | null }>(
     [...queryKeys.catalogueConfigs, "current-source"],
     () => AetherClient.getCurrentCatalogueSource(),
+  );
+  const { data: templateResponse, loading: templateLoading, error: templateError } = useApi<{ config: Record<string, unknown> }>(
+    [...queryKeys.catalogueTemplate],
+    () => AetherClient.getCurrentCatalogueConfig(),
+    { enabled: !!sourceResponse?.source, staleTime: Infinity },
   );
   const invalidate = useInvalidate();
   const [file, setFile] = useState<File | null>(null);
@@ -73,7 +77,8 @@ export default function CataloguesScreen() {
     if (dirty && !window.confirm("Discard your unsaved changes and start a new client config?")) return;
     setErrorMessage("");
     try {
-      const { config } = await AetherClient.getCurrentCatalogueConfig();
+      const config = templateResponse?.config;
+      if (!config) throw new Error(templateError ?? "The current catalogue template is still loading. Try again shortly.");
       setSelected(null);
       discardStagedExtraction();
       setName("");
@@ -271,9 +276,6 @@ export default function CataloguesScreen() {
     }
   }
 
-  if (profileLoading) return <main className="max-w-6xl animate-pulse"><div className="h-8 w-56 rounded bg-muted" /><div className="mt-6 h-40 rounded bg-muted" /></main>;
-  if (profile?.role !== "admin") return <main className="max-w-4xl"><h1 className="text-3xl font-bold tracking-tight">Catalogue configs</h1><p className="mt-4 text-sm text-muted-foreground">Administrator access is required to upload or edit catalogue configs.</p></main>;
-
   const configs = configsResponse?.configs ?? [];
   const currentSource = sourceResponse?.source ?? null;
   const editable = !!selected || newConfigFromTemplate;
@@ -359,6 +361,7 @@ export default function CataloguesScreen() {
           configs={configs}
           selectedConfigId={selected?.id ?? null}
           hasTemplate={!!currentSource}
+          templateLoading={sourceLoading || (!!currentSource && templateLoading)}
           loading={loading}
           error={error}
           collapsed={configSectionCollapsed}

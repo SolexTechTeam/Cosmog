@@ -128,7 +128,7 @@ export default function SideNav() {
               )}
               {collapsed && <div className="mx-auto mb-1 h-px w-6 bg-sidebar-border" />}
               <div className="flex flex-col gap-0.5">
-              {item.children.filter((child) => child.href !== "/catalogues" || profile?.role === "admin").map((child) => (
+              {item.children.map((child) => (
                   <Link
                     key={child.href}
                     href={child.href}
