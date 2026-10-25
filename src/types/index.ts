@@ -104,6 +104,24 @@ export interface PricingConfig {
   updated_by: string | null;
 }
 
+export interface CatalogueConfigRecord {
+  id: string;
+  name: string;
+  json: Record<string, unknown>;
+}
+
+export interface CatalogueCurrentSource {
+  filename: string;
+  sizeBytes: number;
+}
+
+export interface CatalogueExtraction {
+  uploadId: string;
+  filename: string;
+  sizeBytes: number;
+  config: Record<string, unknown>;
+}
+
 export interface SaleOrder {
   id: string;
   so_number: string;

@@ -31,7 +31,7 @@ function getBreadcrumb(pathname: string): Breadcrumb {
   if (pathname.startsWith("/profile")) return { section: "Account", sectionHref: "/profile", current: "Profile" };
   if (pathname.startsWith("/help")) return { section: "Support", sectionHref: "/help", current: "Help & FAQ" };
 
-  return { section: "Overview", sectionHref: "/home", current: "Workspace" };
+  return { section: "Data", sectionHref: "/home", current: "Catalogue Settings" };
 }
 
 export default function PageBreadcrumb() {
