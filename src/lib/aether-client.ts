@@ -35,6 +35,9 @@ import type {
   MarginResponse,
   PricingConfig,
   DashboardNote,
+  CatalogueConfigRecord,
+  CatalogueCurrentSource,
+  CatalogueExtraction,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://aether-jbtk.onrender.com";
@@ -77,6 +80,69 @@ function buildQuery(params: Record<string, string | number | boolean | undefined
 }
 
 export class AetherClient {
+  static getCatalogueConfigs(): Promise<{ configs: CatalogueConfigRecord[] }> {
+    return request("/api/catalogue-configs");
+  }
+
+  static getCurrentCatalogueSource(): Promise<{ source: CatalogueCurrentSource | null }> {
+    return request("/api/catalogue-configs/current-source");
+  }
+
+  static getCurrentCatalogueSourceUrl(): Promise<{ url: string; expiresIn: number }> {
+    return request("/api/catalogue-configs/current-source/source-url");
+  }
+
+  static getCurrentCatalogueConfig(): Promise<{ config: Record<string, unknown> }> {
+    return request("/api/catalogue-configs/current-source/config");
+  }
+
+  static saveCurrentCatalogueTemplate(uploadId: string, config: Record<string, unknown>): Promise<{ source: CatalogueCurrentSource }> {
+    return request("/api/catalogue-configs/current-source", { method: "POST", body: JSON.stringify({ uploadId, config }) });
+  }
+
+  static discardCatalogueUpload(uploadId: string): Promise<void> {
+    return request(`/api/catalogue-configs/current-source/upload/${uploadId}`, { method: "DELETE" });
+  }
+
+  static createCatalogueConfigFromTemplate(data: { name: string; config: Record<string, unknown> }): Promise<{ config: CatalogueConfigRecord }> {
+    return request("/api/catalogue-configs/from-template", { method: "POST", body: JSON.stringify(data) });
+  }
+
+  static async downloadEditedCataloguePdf(configId: string): Promise<{ blob: Blob; filename: string }> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/api/catalogue-configs/${configId}/edited-pdf`, { headers });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `API error: ${response.status}`);
+    }
+    const disposition = response.headers.get("Content-Disposition") ?? "";
+    const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || "catalogue-priced.pdf";
+    return { blob: await response.blob(), filename };
+  }
+
+  static async uploadCataloguePdf(file: File, signal: AbortSignal): Promise<CatalogueExtraction> {
+    const headers = await getAuthHeaders();
+    const response = await fetch(`${API_URL}/api/catalogue-configs/current-source/upload`, {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/pdf", "X-Catalogue-Filename": encodeURIComponent(file.name) },
+      body: file,
+      signal,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `Aether upload failed (${response.status}).`);
+    }
+    return response.json();
+  }
+
+  static updateCatalogueConfig(id: string, data: { name?: string; config?: Record<string, unknown> }): Promise<{ config: CatalogueConfigRecord }> {
+    return request(`/api/catalogue-configs/${id}`, { method: "PATCH", body: JSON.stringify(data) });
+  }
+
+  static deleteCatalogueConfig(id: string): Promise<void> {
+    return request(`/api/catalogue-configs/${id}`, { method: "DELETE" });
+  }
+
   // ── Lookups ───────────────────────────────────────────────────────
 
   static getLookups(category: string, activeOnly = true): Promise<LookupValue[]> {

@@ -160,3 +160,19 @@
     justify-content: center;
   }
 }
+
+@keyframes catalogue-upload-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+
+.catalogue-upload-progress {
+  animation: catalogue-upload-sweep 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .catalogue-upload-progress {
+    width: 100%;
+    animation: none;
+  }
+}
