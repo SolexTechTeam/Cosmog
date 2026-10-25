@@ -5,6 +5,7 @@ type SavedConfigsSectionProps = {
   configs: CatalogueConfigRecord[];
   selectedConfigId: string | null;
   hasTemplate: boolean;
+  templateLoading: boolean;
   loading: boolean;
   error: string | null;
   collapsed: boolean;
@@ -17,6 +18,7 @@ export default function SavedConfigsSection({
   configs,
   selectedConfigId,
   hasTemplate,
+  templateLoading,
   loading,
   error,
   collapsed,
@@ -53,7 +55,7 @@ export default function SavedConfigsSection({
               </button>
               <span className="truncate text-sm font-semibold">Saved configs <span className="ml-1 font-normal tabular-nums text-foreground/70">{configs.length}</span></span>
             </div>
-            {hasTemplate && <button type="button" onClick={onNewConfig} className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium hover:bg-muted"><Plus size={13} /> New</button>}
+            {hasTemplate && <button type="button" onClick={onNewConfig} disabled={templateLoading} className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs font-medium hover:bg-muted disabled:cursor-wait disabled:opacity-60"><Plus size={13} /> {templateLoading ? "Loading…" : "New"}</button>}
           </div>
           <div id="saved-configs-table" className="max-h-[68vh] overflow-y-auto xl:min-h-0 xl:max-h-none xl:flex-1">
           {loading ? <p className="px-3 py-5 text-sm text-muted-foreground">Loading saved configs…</p> : error ? <p role="alert" className="px-3 py-4 text-sm text-destructive">{error}</p> : configs.length === 0 ? <p className="px-3 py-5 text-sm text-muted-foreground">No configs saved yet.</p> : (

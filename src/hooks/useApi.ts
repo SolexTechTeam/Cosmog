@@ -36,6 +36,7 @@ export const queryKeys = {
   suppliers: ["suppliers"] as const,
   products: ["products"] as const,
   catalogueConfigs: ["catalogue-configs"] as const,
+  catalogueTemplate: ["catalogue-configs", "current-source", "config"] as const,
   profiles: ["profiles"] as const,
   myProfile: ["my-profile"] as const,
   stockStatus: ["stock-status"] as const,
