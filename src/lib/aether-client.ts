@@ -18,6 +18,7 @@ import type {
   LookupValue,
   AllocationResponse,
   ConfirmPoResponse,
+  ShipPoResponse,
   ReceivePoResponse,
   AllocationPreviewResponse,
   AllocateResponse,
@@ -297,6 +298,19 @@ export class AetherClient {
     return request(`/api/purchase-orders/${poId}/items`, { method: "POST", body: JSON.stringify(data) });
   }
 
+  static replacePurchaseOrderItems(poId: string, items: {
+    id?: string;
+    product_id: string;
+    quantity_ordered: number;
+    unit_cost: number;
+    shipping_cost: number;
+    source_currency: string;
+    source_unit_cost: number;
+    fx_rate: number;
+  }[]): Promise<PurchaseOrder> {
+    return request(`/api/purchase-orders/${poId}/items`, { method: "PUT", body: JSON.stringify({ items }) });
+  }
+
   static updatePurchaseOrderItem(poId: string, itemId: string, data: Record<string, unknown>): Promise<PurchaseOrderItem> {
     return request(`/api/purchase-orders/${poId}/items/${itemId}`, { method: "PATCH", body: JSON.stringify(data) });
   }
@@ -405,7 +419,7 @@ export class AetherClient {
     return request("/api/inventory/confirm-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 
-  static shipPurchaseOrder(purchaseOrderId: string): Promise<{ message: string }> {
+  static shipPurchaseOrder(purchaseOrderId: string): Promise<ShipPoResponse> {
     return request("/api/inventory/ship-po", { method: "POST", body: JSON.stringify({ purchase_order_id: purchaseOrderId }) });
   }
 

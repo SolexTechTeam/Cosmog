@@ -331,6 +331,10 @@ export interface SuggestedAllocationItem {
 
 export interface ConfirmPoResponse {
   message: string;
+}
+
+export interface ShipPoResponse {
+  message: string;
   lots_created: number;
   suggested_allocations: {
     sale_order_id: string;

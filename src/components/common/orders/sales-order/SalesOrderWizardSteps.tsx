@@ -88,7 +88,7 @@ export function SalesOrderCustomerStep({ data, actions }: { data: CustomerStepDa
           </button>
         </div>
         <Field label="Select customer" htmlFor="so-customer">
-          <Select id="so-customer" required value={data.customerId} onChange={(event) => actions.selectCustomer(event.target.value)} className={inputClass}>
+          <Select id="so-customer" searchable required value={data.customerId} onChange={(event) => actions.selectCustomer(event.target.value)} className={inputClass}>
             <option value="">Choose a customer</option>
             {data.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}{customer.handle ? ` (${customer.handle})` : ""}</option>)}
           </Select>

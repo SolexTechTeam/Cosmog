@@ -102,7 +102,7 @@ export default function HomeScreen() {
           <ClipboardList aria-hidden="true" className="size-4 text-primary" />
           Active Sale Orders
         </h2>
-        <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact hiddenColumns={new Set(["Customer", "handle", "source", "fulfillment_type"])} />
+        <SalesTable orders={saleOrders} loading={loading} error={error} activeOnly compact hiddenColumns={new Set(["Handle", "source", "fulfillment_type"])} />
       </section>
     </>
   );

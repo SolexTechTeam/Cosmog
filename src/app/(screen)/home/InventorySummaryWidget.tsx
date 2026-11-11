@@ -76,8 +76,8 @@ export default function InventorySummaryWidget({
         </Select>
       </div>
       <div className={inventoryMetricRowClass}>
-        <Card className={onHandMetricClass} bodyClassName="grid min-w-0 grid-cols-[minmax(0,0.44fr)_minmax(0,0.56fr)] !p-0">
-          <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="On-Hand" labelClassName="!text-[12px]" loading={loading} value={onHand.toLocaleString()} />
+        <Card className={onHandMetricClass} bodyClassName="grid min-w-0 grid-cols-[minmax(0,0.38fr)_minmax(0,0.56fr)] !p-0">
+          <MetricCard density="dashboard" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="On-Hand" labelClassName="!whitespace-nowrap !text-[12px]" loading={loading} value={onHand.toLocaleString()} />
           <MetricCard density="OH value" autoSizeValue className="min-w-0 !border-none !bg-transparent" label="OH Value" labelClassName="!text-[12px]" loading={loading} value={fmt(value)} />
         </Card>
         <MetricCard density="dashboard" className={incomingMetricClass} icon={<Truck size={18} />} iconClassName="text-primary" label="Incoming" value="">

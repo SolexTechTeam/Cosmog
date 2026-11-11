@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useApi, useInvalidate, queryKeys, invalidatePurchaseOrderInventoryEffects } from "@/hooks/useApi";
 import { AetherClient } from "@/lib/aether-client";
@@ -19,21 +20,14 @@ import ErrorBlock from "@/components/ui/error-block";
 import { useToast } from "@/components/ui/toast";
 import { Select } from "@/components/ui/select";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
-import type { Product, PurchaseOrder, PurchaseOrderItem, SaleOrder, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
+import PurchaseOrderQuantityFields, { itemDraftsFromOrder, purchaseItemsChanged, savePurchaseOrderItems, type PurchaseItemDraft } from "@/components/common/orders/PurchaseOrderQuantityFields";
+import type { PurchaseOrder, SaleOrder, PoAllocationRecord, PoAllocationPreviewResponse } from "@/types";
 import { canTransitionPurchaseOrder, getPurchaseOrderTransitions } from "@/lib/order-status";
 import type { ColDef } from "ag-grid-community";
 
 interface PurchaseOrderItemsProps {
   purchaseOrder: PurchaseOrder;
-  products: Product[];
   onUpdated: () => void;
-}
-
-interface ItemDraft {
-  product_id: string;
-  quantity_ordered: string;
-  unit_cost: string;
-  shipping_cost: string;
 }
 
 const poSelectClass = "h-8 rounded-md border border-input bg-background px-2 text-xs font-normal outline-none focus:ring-1 focus:ring-ring";
@@ -43,7 +37,11 @@ type DialogData =
   | { type: "po-allocate"; data: PoAllocationPreviewResponse }
   | { type: "receive"; allocations: PoAllocationRecord[]; purchaseOrderId: string };
 
-function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: PurchaseOrder; onSaved: () => void }) {
+function InlinePurchaseOrderEditor({ purchaseOrder, onSaved, onShippedPreview }: {
+  purchaseOrder: PurchaseOrder;
+  onSaved: () => void;
+  onShippedPreview: (preview: PoAllocationPreviewResponse) => void;
+}) {
   const { toast } = useToast();
   const invalidate = useInvalidate();
   const [saving, setSaving] = useState(false);
@@ -51,6 +49,25 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
   const [dialogData, setDialogData] = useState<DialogData | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [allocationEdits, setAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
+  const [editingQuantities, setEditingQuantities] = useState(false);
+  const [quantityDrafts, setQuantityDrafts] = useState<PurchaseItemDraft[]>([]);
+
+  async function saveQuantities(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError(null);
+    try {
+      await savePurchaseOrderItems(purchaseOrder, quantityDrafts);
+      await invalidate([...queryKeys.purchaseOrders]);
+      setEditingQuantities(false);
+      onSaved();
+      toast("PO products updated");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to update products.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function patch(changes: Record<string, unknown>) {
     setSaving(true);
@@ -159,21 +176,24 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
       const current = purchaseOrder.status;
 
       if (status === "confirmed" && current === "draft") {
-        // draft → confirmed: create lots, show allocation preview
-        const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-        // The PO is already confirmed even if the follow-up preview request fails
-        // or the user leaves the allocation dialog open. Refresh the row now.
+        // draft → confirmed: status only
+        await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+        // Refresh the row after the status change.
         await invalidate([...queryKeys.purchaseOrders]);
         onSaved();
-        toast(`PO confirmed — ${result.lots_created} lots created`);
-        const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
-        setAllocationEdits(initEditsFromSuggestions(previewResult));
-        setDialogData({ type: "po-allocate", data: previewResult });
+        toast("PO confirmed");
       } else if (status === "in transit") {
-        // confirmed → in transit is a status-only Aether action
+        // confirmed → in transit: create lots, post incoming ledger, preview allocation
         await AetherClient.shipPurchaseOrder(purchaseOrder.id);
         toast(`PO ${purchaseOrder.po_number} → in transit`);
-        invalidate([...queryKeys.purchaseOrders]);
+        if (purchaseOrder.fulfillment_type === "warehouse") {
+          try {
+            onShippedPreview(await AetherClient.previewPoAllocation(purchaseOrder.id));
+          } catch (previewError) {
+            setError(previewError instanceof Error ? `PO shipped; allocation preview failed: ${previewError.message}` : "PO shipped; allocation preview failed");
+          }
+        }
+        await invalidatePurchaseOrderInventoryEffects(invalidate);
         onSaved();
       } else if (status === "received") {
         // in transit → received
@@ -279,6 +299,11 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
         </div>
 
         <div className="overflow-x-auto rounded-md border border-border bg-card">
+          {(purchaseOrder.status === "draft" || purchaseOrder.status === "confirmed") && (
+            <div className="flex justify-end border-b border-border px-3 py-2">
+              <button type="button" onClick={() => { setQuantityDrafts(itemDraftsFromOrder(purchaseOrder)); setError(null); setEditingQuantities(true); }} className="text-xs font-medium text-primary hover:underline">Edit products</button>
+            </div>
+          )}
           <table className="w-full min-w-[420px] text-left text-xs">
             <thead className="bg-muted text-muted-foreground">
               <tr>
@@ -302,6 +327,19 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
           </table>
         </div>
       </div>
+
+      {editingQuantities && createPortal(
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4" role="presentation">
+          <form onSubmit={saveQuantities} className="max-h-[75vh] w-full max-w-[36.8rem] overflow-y-auto rounded-lg border border-border bg-card p-5 shadow-xl" role="dialog" aria-modal="true" aria-label="Edit PO products">
+            <PurchaseOrderQuantityFields order={purchaseOrder} drafts={quantityDrafts} onChange={setQuantityDrafts} disabled={saving} />
+            {error && <p className="mt-3 text-sm text-destructive">{error}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button type="button" onClick={() => { setEditingQuantities(false); setError(null); }} disabled={saving} className="rounded-md px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted">Cancel</button>
+              <button type="submit" disabled={saving} className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save changes"}</button>
+            </div>
+          </form>
+        </div>, document.body
+      )}
 
       {dialogData?.type === "po-allocate" && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-16">
@@ -430,96 +468,27 @@ function InlinePurchaseOrderEditor({ purchaseOrder, onSaved }: { purchaseOrder: 
   );
 }
 
-function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrderItemsProps) {
+function PurchaseOrderItems({ purchaseOrder, onUpdated }: PurchaseOrderItemsProps) {
   const { toast } = useToast();
-  const [items, setItems] = useState<PurchaseOrderItem[]>(purchaseOrder.items ?? []);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
-  const [draft, setDraft] = useState<ItemDraft | null>(null);
+  const [order, setOrder] = useState(purchaseOrder);
+  const [drafts, setDrafts] = useState<PurchaseItemDraft[]>(() => itemDraftsFromOrder(purchaseOrder));
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const isDraft = purchaseOrder.status === "draft";
+  const canEdit = order.status === "draft" || order.status === "confirmed";
 
-  function beginEditing(item: PurchaseOrderItem) {
-    setEditingItemId(item.id);
-    setDraft({
-      product_id: item.product_id,
-      quantity_ordered: String(item.quantity_ordered),
-      unit_cost: String(item.unit_cost),
-      shipping_cost: item.shipping_cost == null ? "" : String(item.shipping_cost),
-    });
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
     setError(null);
-  }
-
-  function beginAdding() {
-    setIsAdding(true);
-    setDraft({ product_id: products[0]?.id ?? "", quantity_ordered: "1", unit_cost: "", shipping_cost: "0" });
-    setError(null);
-  }
-
-  async function saveItem(item: PurchaseOrderItem) {
-    if (!draft) return;
-
-    const quantityOrdered = Number(draft.quantity_ordered);
-    const unitCost = Number(draft.unit_cost);
-    const shippingCost = Number(draft.shipping_cost);
-    const hasShippingCost = draft.shipping_cost.trim() !== "";
-
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || (hasShippingCost && (!Number.isFinite(shippingCost) || shippingCost < 0))) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
-      return;
-    }
-
     try {
-      setSaving(true);
-      setError(null);
-      const updates = {
-        product_id: draft.product_id,
-        quantity_ordered: quantityOrdered,
-        unit_cost: unitCost,
-        ...(hasShippingCost ? { shipping_cost: shippingCost } : {}),
-      };
-      const updatedItem = await AetherClient.updatePurchaseOrderItem(purchaseOrder.id, item.id, updates);
-      setItems((current) => current.map((currentItem) => currentItem.id === item.id ? updatedItem : currentItem));
-      setEditingItemId(null);
-      setDraft(null);
-      toast("PO item updated");
+      const updated = await savePurchaseOrderItems(order, drafts);
+      if (updated) setOrder(updated);
+      setEditing(false);
       onUpdated();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to save the item.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function addItem() {
-    if (!draft) return;
-
-    const quantityOrdered = Number(draft.quantity_ordered);
-    const unitCost = Number(draft.unit_cost);
-    const shippingCost = Number(draft.shipping_cost);
-
-    if (!draft.product_id || !Number.isInteger(quantityOrdered) || quantityOrdered < 1 || !Number.isFinite(unitCost) || unitCost < 0 || !Number.isFinite(shippingCost) || shippingCost < 0) {
-      setError("Choose a product, enter a whole quantity of at least 1, and enter non-negative unit cost and shipping.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError(null);
-      const newItem = await AetherClient.addPurchaseOrderItem(purchaseOrder.id, {
-        product_id: draft.product_id,
-        quantity_ordered: quantityOrdered,
-        unit_cost: unitCost,
-        shipping_cost: shippingCost,
-      });
-      setItems((current) => [...current, newItem]);
-      setIsAdding(false);
-      setDraft(null);
-      toast("PO item added");
-      onUpdated();
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Unable to add the item.");
+      toast("PO products updated");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Failed to update products.");
     } finally {
       setSaving(false);
     }
@@ -529,186 +498,41 @@ function PurchaseOrderItems({ purchaseOrder, products, onUpdated }: PurchaseOrde
     <div>
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-foreground">Items</h3>
-        {isDraft ? (
-          <button
-            type="button"
-            onClick={beginAdding}
-            disabled={editingItemId !== null || isAdding}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
-          >
-            Add Item
-          </button>
-        ) : <p className="text-xs text-muted-foreground">Items are locked after a PO leaves draft.</p>}
+        {canEdit && !editing && <button type="button" onClick={() => { setDrafts(itemDraftsFromOrder(order)); setError(null); setEditing(true); }} className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Edit products</button>}
       </div>
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full min-w-[800px] text-left text-sm">
-          <thead className="bg-muted text-muted-foreground">
-            <tr>
+      {editing ? (
+        <form onSubmit={save} className="space-y-3">
+          <PurchaseOrderQuantityFields order={order} drafts={drafts} onChange={setDrafts} disabled={saving} />
+          {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving} className="rounded-md border border-border px-3 py-2 text-xs">Cancel</button>
+            <button type="submit" disabled={saving || !purchaseItemsChanged(order, drafts)} className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-50">{saving ? "Saving…" : "Save products"}</button>
+          </div>
+        </form>
+      ) : (
+        <div className="overflow-x-auto rounded-md border border-border">
+          <table className="w-full min-w-[700px] text-left text-sm">
+            <thead className="bg-muted text-muted-foreground"><tr>
               <th className="px-3 py-2 font-medium">Name</th>
               <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 text-right font-medium">Unit Cost (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Shipping (AUD)</th>
               <th className="px-3 py-2 text-right font-medium">Qty Ordered</th>
               <th className="px-3 py-2 text-right font-medium">Qty Received</th>
-              {isDraft && <th className="px-3 py-2 text-right font-medium">Actions</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {items.map((item) => {
-              const isEditing = editingItemId === item.id && draft;
-              const selectedProduct = products.find((product) => product.id === draft?.product_id);
-
-              return (
-                <tr key={item.id}>
-                  <td className="px-3 py-2 text-foreground">
-                    {isEditing ? (
-                      <Select
-                        searchable
-                        value={draft.product_id}
-                        onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
-                        className="h-9 min-w-44 rounded-md border border-input bg-background px-2 outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>{product.name} ({product.category})</option>
-                        ))}
-                      </Select>
-                    ) : item.product?.name ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-foreground">
-                    {isEditing ? selectedProduct?.category ?? "—" : item.product?.category ?? "—"}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={draft.unit_cost}
-                        onChange={(event) => setDraft((current) => current ? { ...current, unit_cost: event.target.value } : current)}
-                        className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    ) : `$${item.unit_cost.toFixed(2)}`}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {isEditing ? <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="h-9 w-24 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring" placeholder="—" /> : item.shipping_cost == null ? "—" : `$${item.shipping_cost.toFixed(2)}`}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">
-                    {isEditing ? (
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        value={draft.quantity_ordered}
-                        onChange={(event) => setDraft((current) => current ? { ...current, quantity_ordered: event.target.value } : current)}
-                        className="h-9 w-20 rounded-md border border-input bg-background px-2 text-right outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    ) : item.quantity_ordered}
-                  </td>
-                  <td className="px-3 py-2 text-right text-foreground">{item.quantity_received}</td>
-                  {isDraft && (
-                    <td className="px-3 py-2 text-right">
-                      {isEditing ? (
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => saveItem(item)}
-                            disabled={saving}
-                            className="rounded-md bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-60"
-                          >
-                            {saving ? "Saving…" : "Save"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => { setEditingItemId(null); setDraft(null); setError(null); }}
-                            className="rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => beginEditing(item)}
-                          disabled={editingItemId !== null || isAdding}
-                          className="rounded-md px-2 py-1 text-xs text-primary hover:bg-accent disabled:opacity-60"
-                        >
-                          Edit
-                        </button>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={isDraft ? 7 : 6} className="px-3 py-6 text-center text-muted-foreground">No items</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-      {isAdding && draft && (
-        <div className="mt-3 grid gap-3 rounded-md border border-border bg-muted p-3 sm:grid-cols-[minmax(0,1fr)_7rem_6rem_7rem_auto] sm:items-end">
-          <label className="block text-sm font-medium text-foreground">
-            Product
-            <Select
-              searchable
-              value={draft.product_id}
-              onChange={(event) => setDraft((current) => current ? { ...current, product_id: event.target.value } : current)}
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring"
-            >
-              {products.map((product) => (
-                <option key={product.id} value={product.id}>{product.name} ({product.category})</option>
-              ))}
-            </Select>
-          </label>
-          <label className="block text-sm font-medium text-foreground">
-            Unit Cost (AUD)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={draft.unit_cost}
-              onChange={(event) => setDraft((current) => current ? { ...current, unit_cost: event.target.value } : current)}
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block text-sm font-medium text-foreground">
-            Quantity
-            <input
-              type="number"
-              min="1"
-              step="1"
-              value={draft.quantity_ordered}
-              onChange={(event) => setDraft((current) => current ? { ...current, quantity_ordered: event.target.value } : current)}
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring"
-            />
-          </label>
-          <label className="block text-sm font-medium text-foreground">
-            Shipping (AUD)
-            <input type="number" min="0" step="0.01" value={draft.shipping_cost} onChange={(event) => setDraft((current) => current ? { ...current, shipping_cost: event.target.value } : current)} className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-normal outline-none focus:ring-2 focus:ring-ring" />
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={addItem}
-              disabled={saving}
-              className="rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground disabled:opacity-60"
-            >
-              {saving ? "Adding…" : "Add"}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setIsAdding(false); setDraft(null); setError(null); }}
-              className="rounded-md px-3 py-2 text-xs text-muted-foreground hover:bg-background"
-            >
-              Cancel
-            </button>
-          </div>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {(order.items ?? []).map((item) => <tr key={item.id}>
+                <td className="px-3 py-2">{item.product?.name ?? "—"}</td>
+                <td className="px-3 py-2">{item.product?.category ?? "—"}</td>
+                <td className="px-3 py-2 text-right">${item.unit_cost.toFixed(2)}</td>
+                <td className="px-3 py-2 text-right">${Number(item.shipping_cost ?? 0).toFixed(2)}</td>
+                <td className="px-3 py-2 text-right">{item.quantity_ordered}</td>
+                <td className="px-3 py-2 text-right">{item.quantity_received}</td>
+              </tr>)}
+            </tbody>
+          </table>
         </div>
       )}
-      {error && <p className="mt-2 text-sm text-destructive">{error}</p>}
     </div>
   );
 }
@@ -719,7 +543,6 @@ interface ProcurementTableProps {
 
 export default function ProcurementTable({ detailsRowId }: ProcurementTableProps) {
   const { data, loading, error, refetch } = useApi<PurchaseOrder[]>([...queryKeys.purchaseOrders], () => AetherClient.getPurchaseOrders());
-  const { data: products } = useApi<Product[]>([...queryKeys.products], () => AetherClient.getProducts());
   const { data: saleOrders, refetch: refetchSaleOrders } = useApi<SaleOrder[]>([...queryKeys.saleOrders], () => AetherClient.getSaleOrders());
   const { toast } = useToast();
   const invalidate = useInvalidate();
@@ -729,6 +552,16 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
   const [isCreating, setIsCreating] = useState(false);
   const [parentDialogData, setParentDialogData] = useState<DialogData | null>(null);
   const [parentAllocationEdits, setParentAllocationEdits] = useState<Map<string, Map<string, number>>>(new Map());
+  const [quantityDrafts, setQuantityDrafts] = useState<PurchaseItemDraft[]>([]);
+
+  function openShippedPreview(preview: PoAllocationPreviewResponse) {
+    const edits = new Map<string, Map<string, number>>();
+    for (const order of preview.shortfall_orders) {
+      edits.set(order.sale_order_id, new Map(order.items.map((item) => [item.sale_order_item_id, item.suggested_quantity])));
+    }
+    setParentAllocationEdits(edits);
+    setParentDialogData({ type: "po-allocate", data: preview });
+  }
 
   const filtered = useMemo(() => {
     let rows = data ?? [];
@@ -846,8 +679,14 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
         expandOnRowDoubleClick
         expandedRowHeight={260}
         getExpandedDetailsTitle={(purchaseOrder) => `${purchaseOrder.po_number} Details`}
-        renderExpandedRowDetails={(purchaseOrder) => <InlinePurchaseOrderEditor purchaseOrder={purchaseOrder} onSaved={refetch} />}
+        renderExpandedRowDetails={(purchaseOrder) => <InlinePurchaseOrderEditor purchaseOrder={purchaseOrder} onSaved={refetch} onShippedPreview={openShippedPreview} />}
         editConfig={{
+          onOpen: (purchaseOrder) => setQuantityDrafts(itemDraftsFromOrder(purchaseOrder)),
+          renderExtraFields: (purchaseOrder) => (
+            <PurchaseOrderQuantityFields order={purchaseOrder} drafts={quantityDrafts} onChange={setQuantityDrafts} />
+          ),
+          hasExtraChanges: (purchaseOrder) => (purchaseOrder.status === "draft" || purchaseOrder.status === "confirmed") &&
+            purchaseItemsChanged(purchaseOrder, quantityDrafts),
           fields: [
             {
               key: "status",
@@ -882,6 +721,7 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
                 throw new Error("Status change cancelled.");
               }
             }
+            await savePurchaseOrderItems(purchaseOrder, quantityDrafts);
             if (Object.keys(otherChanges).length) await AetherClient.updatePurchaseOrder(purchaseOrder.id, otherChanges);
             if (typeof status === "string") {
               if (status === "cancelled") {
@@ -889,25 +729,21 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
                 await invalidatePurchaseOrderInventoryEffects(invalidate);
                 toast(result.already_cancelled ? `PO ${purchaseOrder.po_number} is already cancelled` : `PO ${purchaseOrder.po_number} cancelled; ${result.quantity_reversed} incoming units reversed`);
               } else if (status === "confirmed") {
-                const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+                await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
                 await invalidate([...queryKeys.purchaseOrders]);
                 refetch();
-                toast(`PO confirmed — ${result.lots_created} lots created`);
-                try {
-                  const preview = await AetherClient.previewPoAllocation(purchaseOrder.id);
-                  const edits = new Map<string, Map<string, number>>();
-                  for (const order of preview.shortfall_orders) {
-                    edits.set(order.sale_order_id, new Map(order.items.map((item) => [item.sale_order_item_id, item.suggested_quantity])));
-                  }
-                  setParentAllocationEdits(edits);
-                  setParentDialogData({ type: "po-allocate", data: preview });
-                } catch (error) {
-                  toast(error instanceof Error ? `PO confirmed; allocation preview failed: ${error.message}` : "PO confirmed; allocation preview failed");
-                }
+                toast("PO confirmed");
               } else if (status === "in transit") {
                 await AetherClient.shipPurchaseOrder(purchaseOrder.id);
-                await invalidate([...queryKeys.purchaseOrders]);
+                await invalidatePurchaseOrderInventoryEffects(invalidate);
                 toast(`PO ${purchaseOrder.po_number} → in transit`);
+                if (purchaseOrder.fulfillment_type === "warehouse") {
+                  try {
+                    openShippedPreview(await AetherClient.previewPoAllocation(purchaseOrder.id));
+                  } catch (error) {
+                    toast(error instanceof Error ? `PO shipped; allocation preview failed: ${error.message}` : "PO shipped; allocation preview failed");
+                  }
+                }
               } else if (status === "received") {
                 await AetherClient.receivePurchaseOrder(purchaseOrder.id);
                 const allocations = await AetherClient.getCurrentPoAllocation(purchaseOrder.id);
@@ -966,7 +802,6 @@ export default function ProcurementTable({ detailsRowId }: ProcurementTableProps
             <PurchaseOrderItems
               key={purchaseOrder.id}
               purchaseOrder={purchaseOrder}
-              products={products ?? []}
               onUpdated={refetch}
             />
 
