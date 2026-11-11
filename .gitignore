@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# plans
+/advisor-plans
+
 # next.js
 /.next/
 /out/
