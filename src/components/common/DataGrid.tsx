@@ -26,6 +26,9 @@ interface EditableField<T extends object> {
 interface RowEditConfig<T extends object> {
   fields: EditableField<T>[];
   onSave: (row: T, changes: Record<string, unknown>) => Promise<void>;
+  onOpen?: (row: T) => void;
+  renderExtraFields?: (row: T) => ReactNode;
+  hasExtraChanges?: (row: T) => boolean;
 }
 
 interface RowArchiveAction<T extends object> {
@@ -244,6 +247,7 @@ export default function DataGrid<T extends object>({
   function openEdit(row: T) {
     if (!editConfig) return;
 
+    editConfig.onOpen?.(row);
     setDismissedDetailsRowId(null);
     setSelectedRow(row);
     setDraft(
@@ -327,7 +331,7 @@ export default function DataGrid<T extends object>({
         return result;
       }, {});
 
-      if (Object.keys(changes).length === 0) {
+      if (Object.keys(changes).length === 0 && !editConfig.hasExtraChanges?.(activeDetailsRow)) {
         closeDetails();
         return;
       }
@@ -541,6 +545,7 @@ export default function DataGrid<T extends object>({
                       </label>
                     );
                   })}
+                  {editConfig.renderExtraFields?.(activeDetailsRow)}
                   {saveError && <p className="text-sm text-destructive">{saveError}</p>}
                 </div>
               ) : renderRowDetails ? (

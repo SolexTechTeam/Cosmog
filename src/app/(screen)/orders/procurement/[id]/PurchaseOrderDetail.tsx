@@ -17,6 +17,7 @@ import ReceiveResultsDialog from "./ReceiveResultsDialog";
 import StatusBadge from "@/components/common/StatusBadge";
 import PoAllocationTab from "./PoAllocationTab";
 import SoAllocationCard from "./SoAllocationCard";
+import PurchaseOrderQuantityFields, { itemDraftsFromOrder, savePurchaseOrderItems, type PurchaseItemDraft } from "@/components/common/orders/PurchaseOrderQuantityFields";
 import type { PurchaseOrder, SaleOrder, ReceivePoResponse, PoAllocationPreviewResponse } from "@/types";
 
 interface PurchaseOrderDetailProps {
@@ -44,6 +45,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
   const [allocating, setAllocating] = useState(false);
   const [editingDetails, setEditingDetails] = useState(false);
   const [savingDetails, setSavingDetails] = useState(false);
+  const [quantityDrafts, setQuantityDrafts] = useState<PurchaseItemDraft[]>([]);
   const [detailsDraft, setDetailsDraft] = useState({
     fulfillmentType: "warehouse", expectedArrival: "", trackingReference: "", shippingDetails: "", notes: "",
   });
@@ -192,6 +194,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
 
   function startEditingDetails() {
     if (!purchaseOrder) return;
+    setQuantityDrafts(itemDraftsFromOrder(purchaseOrder));
     setDetailsDraft({
       fulfillmentType: purchaseOrder.fulfillment_type,
       expectedArrival: purchaseOrder.expected_arrival ?? "",
@@ -207,6 +210,7 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
     if (!purchaseOrder) return;
     setSavingDetails(true);
     try {
+      await savePurchaseOrderItems(purchaseOrder, quantityDrafts);
       await AetherClient.updatePurchaseOrder(purchaseOrder.id, {
         fulfillment_type: detailsDraft.fulfillmentType,
         ...(detailsDraft.expectedArrival ? { expected_arrival: detailsDraft.expectedArrival } : {}),
@@ -288,18 +292,26 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
             }
 
             if (status === "confirmed" && current === "draft") {
-              // draft → confirmed: create lots, then show allocation preview
-              const result = await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
-              toast(`PO confirmed — ${result.lots_created} lots created`);
-              const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
-              setAllocationError(null);
-              setAllocationEdits(initEditsFromSuggestions(previewResult));
-              setDialogData({ type: "po-allocate", data: previewResult });
+              // draft → confirmed: status only
+              await AetherClient.confirmPurchaseOrder(purchaseOrder.id);
+              toast("PO confirmed");
+              invalidate([...queryKeys.purchaseOrders]);
+              refetch();
             } else if (status === "in transit") {
-              // confirmed → in transit: status-only Aether action
+              // confirmed → in transit: create lots, post ledger, preview allocation
               await AetherClient.shipPurchaseOrder(purchaseOrder.id);
               toast(`${purchaseOrder.po_number} → in transit`);
-              invalidate([...queryKeys.purchaseOrders]);
+              if (purchaseOrder.fulfillment_type === "warehouse") {
+                try {
+                  const previewResult = await AetherClient.previewPoAllocation(purchaseOrder.id);
+                  setAllocationError(null);
+                  setAllocationEdits(initEditsFromSuggestions(previewResult));
+                  setDialogData({ type: "po-allocate", data: previewResult });
+                } catch (previewError) {
+                  toast(previewError instanceof Error ? `PO shipped; allocation preview failed: ${previewError.message}` : "PO shipped; allocation preview failed", "error");
+                }
+              }
+              await invalidatePurchaseOrderInventoryEffects(invalidate);
               refetch();
             } else if (status === "received") {
               // in transit → received: receive PO, show results
@@ -319,7 +331,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
       mainContent={<>
         <Tabs
           activeKey={activeTab}
-          extra={activeTab === "details" && !editingDetails ? (
+          extra={activeTab === "items" && (purchaseOrder.status === "draft" || purchaseOrder.status === "confirmed") ? (
+            <button type="button" onClick={() => { startEditingDetails(); setActiveTab("details"); }} className="text-xs font-medium text-primary hover:underline">Edit products</button>
+          ) : activeTab === "details" && !editingDetails ? (
             <button type="button" onClick={startEditingDetails} className="text-xs font-medium text-primary hover:underline">Edit details</button>
           ) : undefined}
           items={tabs}
@@ -384,6 +398,9 @@ export default function PurchaseOrderDetail({ purchaseOrderId }: PurchaseOrderDe
           editingDetails ? (
             <form onSubmit={saveDetails} className="rounded-lg border border-border bg-card p-4">
               <div className="grid gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <PurchaseOrderQuantityFields order={purchaseOrder} drafts={quantityDrafts} onChange={setQuantityDrafts} disabled={savingDetails} />
+                </div>
                 <label className="grid gap-1 text-xs font-medium text-muted-foreground">Fulfillment
                   <select value={detailsDraft.fulfillmentType} onChange={(event) => setDetailsDraft((draft) => ({ ...draft, fulfillmentType: event.target.value }))} className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal text-foreground outline-none focus:ring-1 focus:ring-ring">
                     <option value="warehouse">Warehouse</option>
